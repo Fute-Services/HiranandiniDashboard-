@@ -1,0 +1,320 @@
+/*
+ * Login screen. Colours are the design's exact hex values rather than the
+ * site's oklch tokens: the design leans warmer (paper #f4f1ea, sage accents)
+ * than the showcase page, so matching it pixel-for-pixel means hardcoding.
+ */
+.page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  background-color: #f4f1ea;
+  background-image: radial-gradient(#d9d4c6 1px, transparent 1px);
+  background-size: 22px 22px;
+  display: flex;
+  flex-direction: column;
+  color: #1a1a17;
+  font-family: var(--font-grotesk), system-ui, sans-serif;
+}
+
+.mono {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+/* ---------- header ---------- */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 40px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.diamond {
+  color: #4b63d6;
+  font-size: 13px;
+}
+
+.brandName {
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  color: #5c5850;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.metaCorp {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: #4a8f5f;
+}
+
+.metaAccess {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: #9c988c;
+}
+
+/* ---------- card ---------- */
+
+.main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 40px 28px;
+}
+
+.card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  max-width: 980px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 30px 70px -30px rgba(60, 55, 40, 0.28),
+    0 2px 8px rgba(60, 55, 40, 0.06);
+  overflow: hidden;
+}
+
+/* ---------- left panel ---------- */
+
+.aside {
+  position: relative;
+  padding: 44px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #ece8dd;
+  background-image: radial-gradient(#d4cfbf 1px, transparent 1px);
+  background-size: 20px 20px;
+  min-height: 440px;
+}
+
+.asideTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: #7d7a70;
+}
+
+.welcome {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: #4b63d6;
+  margin-bottom: 18px;
+}
+
+.title {
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  margin-bottom: 20px;
+}
+
+.lede {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #6b675d;
+  max-width: 300px;
+}
+
+.asideFoot {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rule {
+  height: 1px;
+  background: #d4cfbf;
+}
+
+.stats {
+  display: flex;
+  gap: 28px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: #9c988c;
+}
+
+/* ---------- form panel ---------- */
+
+.form {
+  padding: 44px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 440px;
+}
+
+.formEyebrow {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: #9c988c;
+  margin-bottom: 8px;
+}
+
+.formTitle {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 36px;
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.label {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: #7d7a70;
+}
+
+.input {
+  font-family: var(--font-grotesk), system-ui, sans-serif;
+  font-size: 15px;
+  color: #1a1a17;
+  padding: 14px 16px;
+  background: #f4f1ea;
+  border: 1px solid #e2ddd0;
+  border-radius: 12px;
+}
+
+.input::placeholder {
+  color: #b8b4a8;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #4b63d6;
+}
+
+.inputWrap {
+  position: relative;
+  display: flex;
+}
+
+/* Leave room so typed text never slides under the eye button. */
+.inputPassword {
+  flex: 1;
+  padding-right: 48px;
+}
+
+.eye {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: #9c988c;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.eye:hover {
+  color: #4b63d6;
+}
+
+.eye:focus-visible {
+  outline: 2px solid #4b63d6;
+  outline-offset: 1px;
+}
+
+.error {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #c0453b;
+  margin-top: -6px;
+}
+
+.submit {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: #ffffff;
+  background: #4b63d6;
+  border: none;
+  padding: 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.submit:hover {
+  background: #3a4fb8;
+}
+
+.arrow {
+  font-size: 14px;
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 760px) {
+  .card {
+    grid-template-columns: 1fr;
+    max-width: 460px;
+  }
+
+  .aside {
+    min-height: 0;
+    padding: 40px 36px;
+    gap: 28px;
+  }
+
+  .title {
+    font-size: 48px;
+  }
+
+  .form {
+    min-height: 0;
+    padding: 40px 36px;
+  }
+}
+
+@media (max-width: 520px) {
+  .header {
+    padding: 24px 24px;
+  }
+
+  .main {
+    padding: 12px 20px 40px;
+  }
+}

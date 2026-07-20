@@ -1,0 +1,72 @@
+.slot {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      120% 80% at 50% 0%,
+      oklch(0.98 0.004 95) 0%,
+      var(--slot-bg) 60%
+    );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Slow diagonal sheen so empty slots feel alive rather than dead white boxes.
+   Only shows while there's no image (the <img> sits above and covers it). */
+.slot::after {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background: linear-gradient(
+    115deg,
+    transparent 40%,
+    oklch(1 0 0 / 0.55) 50%,
+    transparent 60%
+  );
+  transform: translateX(-30%);
+  animation: sheen 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Once a real image is set, kill the sheen — it only belongs on empty slots. */
+.slot:has(.image)::after {
+  display: none;
+}
+
+@keyframes sheen {
+  0%,
+  100% {
+    transform: translateX(-60%);
+    opacity: 0;
+  }
+  50% {
+    transform: translateX(60%);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.placeholder {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  text-align: center;
+  padding: 0 16px;
+}
