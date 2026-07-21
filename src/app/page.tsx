@@ -1,6 +1,5 @@
-import { PropertyCarousel } from "@/components/PropertyCarousel";
-import { properties } from "@/data/properties";
+import { IntroSplash } from "@/components/IntroSplash";
 
 export default function Home() {
-  return <PropertyCarousel properties={properties} />;
+  return <IntroSplash />;
 }

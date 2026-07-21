@@ -1,0 +1,405 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  background: #000;
+  color: var(--ink);
+  font-family: var(--font-grotesk), system-ui, sans-serif;
+}
+
+/* The 360° VR tour plays behind everything, fully sharp, no blur — the
+   panorama is the visual lead. `fixed` + vw/vh ties sizing directly to the
+   real viewport instead of depending on .page's own computed box height. */
+.vrBackdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  z-index: 0;
+  overflow: hidden;
+  /* Interactive, not just a backdrop — lets touch/drag rotate the panorama
+     and hit its own hotspots. The header and shelf sit above it at a higher
+     z-index, so they still catch their own clicks/taps first. */
+  touch-action: none;
+}
+
+.vrFrame {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  border: none;
+}
+
+/* A soft gradient at the very top only — just enough for the header text to
+   sit on, without a full-screen tint hiding the rest of the scene. */
+.topFade {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 16vh;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(6, 7, 14, 0.35) 0%, rgba(6, 7, 14, 0) 100%);
+}
+
+/* ---------- header ---------- */
+
+.header {
+  /* Explicit stacking context so it always paints above the fixed VR iframe
+     regardless of DOM order (non-positioned elements paint below any
+     positioned one, fixed VR iframe included, otherwise). */
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 32px 0;
+  opacity: 0;
+  transform: translateY(-8px);
+  animation: content-in 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) 1s forwards;
+}
+
+.leftGroup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.diamond {
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  transform: rotate(45deg);
+}
+
+.brandName {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.customer {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 14px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.endSession {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(75, 99, 214, 0.3);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(125, 148, 240, 0.5);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 8px 20px -10px rgba(75, 99, 214, 0.6);
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
+}
+
+.endSession:hover {
+  background: rgba(75, 99, 214, 0.48);
+  border-color: rgba(150, 168, 245, 0.75);
+}
+
+.signout {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ffe4e1;
+  background: rgba(209, 59, 50, 0.22);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 120, 110, 0.4);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 8px 20px -10px rgba(209, 59, 50, 0.6);
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
+}
+
+.signout:hover {
+  background: rgba(220, 60, 50, 0.38);
+  border-color: rgba(255, 150, 140, 0.65);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 10px 26px -10px rgba(209, 59, 50, 0.75);
+}
+
+/* ---------- bottom glass shelf ---------- */
+
+/* The dock centres the whole group — nav button, glass shelf, nav button —
+   as one unit at the bottom of the screen, so the buttons sit just outside
+   the shelf's edges rather than inside it. */
+.dock {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+  opacity: 0;
+  transform: translate(-50%, 24px);
+  animation: dock-in 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) 6.5s forwards;
+}
+
+@keyframes dock-in {
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes content-in {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .dock {
+    animation: none;
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* This is where the real frosted-glass treatment lives — a strong blur +
+   dark translucent panel, sized to its content rather than a full-width bar
+   (a full-width bar leaves big empty glass panels on either side of a
+   6-card row on any screen wider than ~900px). */
+.shelf {
+  min-width: 0;
+  padding: 14px 22px 16px;
+  background: rgba(10, 11, 18, 0.42);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 22px;
+  box-shadow: 0 20px 50px -18px rgba(0, 0, 0, 0.55);
+}
+
+.shelfLabel {
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 8px;
+}
+
+/* Round glass buttons flanking the shelf — same frosted language as it and
+   the log-out button, just neutral-tinted instead of red. Scroll the cards
+   track by a fixed step rather than a full page-width jump. */
+.navButton {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  background: rgba(10, 11, 18, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 10px 22px -8px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.navButton:hover {
+  background: rgba(125, 148, 240, 0.28);
+  border-color: rgba(125, 148, 240, 0.6);
+}
+
+.navButton:active {
+  transform: scale(0.9);
+}
+
+/* Centred and evenly spaced when everything fits (the common case — six
+   cards on a normal-width screen); once the row genuinely can't fit, it
+   scrolls horizontally with snap points instead of wrapping to a second row,
+   which would double the shelf's height and eat into the scene above it. */
+.cards {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  max-width: 1180px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding: 2px 2px 4px;
+}
+
+.card {
+  position: relative;
+  flex: none;
+  scroll-snap-align: start;
+  width: 128px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 30px -16px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transform: translateY(18px) scale(0.94);
+  animation: card-in 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.card:nth-child(1) { animation-delay: 6.7s; }
+.card:nth-child(2) { animation-delay: 6.78s; }
+.card:nth-child(3) { animation-delay: 6.86s; }
+.card:nth-child(4) { animation-delay: 6.94s; }
+.card:nth-child(5) { animation-delay: 7.02s; }
+.card:nth-child(6) { animation-delay: 7.1s; }
+
+@keyframes card-in {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(125, 148, 240, 0.6);
+  box-shadow: 0 22px 42px -16px rgba(0, 0, 0, 0.65), 0 0 22px -4px rgba(125, 148, 240, 0.4);
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.16) 50%, transparent 70%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+.card:hover::after {
+  animation: card-sheen 0.9s ease;
+}
+
+@keyframes card-sheen {
+  to {
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .card:hover::after {
+    animation: none;
+  }
+}
+
+.cardMedia {
+  position: relative;
+  height: 66px;
+  flex: none;
+}
+
+.cardBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 9px 10px 10px;
+}
+
+.cardIndex {
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.cardName {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.25;
+  min-height: 30px;
+}
+
+.cardLink {
+  font-family: var(--font-mono), monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7d94f0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+  padding-top: 6px;
+  transition: gap 0.2s ease;
+}
+
+.card:hover .cardLink {
+  gap: 9px;
+}
+
+@media (max-width: 560px) {
+  .header {
+    padding: 24px 20px 0;
+  }
+
+  .shelf {
+    padding: 18px 20px 22px;
+  }
+
+  .cards {
+    justify-content: flex-start;
+  }
+
+  .customer {
+    display: none;
+  }
+}

@@ -1,0 +1,183 @@
+.page {
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
+  background: #000;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.canvasHost {
+  position: absolute;
+  inset: 0;
+}
+
+.canvasHost canvas {
+  display: block;
+}
+
+/* Brand block on the left third of the screen — the globe rests offset to
+   the right (see globe.position.x in EarthPortal.tsx) so this never
+   overlaps it. Mirrors the eyebrow/heading/rule/caption rhythm already
+   established on the login card's left panel, rather than inventing a new
+   pattern for a single screen. */
+.welcome {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: min(50%, 520px);
+  display: flex;
+  align-items: center;
+  padding: 0 6% 0 8%;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 0.4s ease;
+}
+
+/* Each line reveals in turn (staggered animation-delay) rather than the
+   whole block fading in at once — same reveal language as the intro splash's
+   logo/button, applied here as a sequence instead of two steps. */
+.eyebrow,
+.welcomeLabel,
+.welcomeText,
+.welcomeRule,
+.welcomeCaption {
+  opacity: 0;
+  transform: translateY(14px);
+  animation: reveal 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.eyebrow {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 16px;
+  animation-delay: 0.15s;
+}
+
+.welcomeLabel {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #7d94f0;
+  margin-bottom: 20px;
+  animation-delay: 0.32s;
+}
+
+.welcomeText {
+  font-family: var(--font-grotesk), system-ui, sans-serif;
+  font-size: clamp(38px, 5.4vw, 68px);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: #f4f2ec;
+  text-shadow: 0 0 60px rgba(75, 140, 214, 0.3);
+  margin: 0 0 22px;
+  animation-delay: 0.48s;
+}
+
+.welcomeText em {
+  font-style: normal;
+  color: #7d94f0;
+}
+
+.welcomeRule {
+  width: 64px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.18);
+  margin-bottom: 16px;
+  animation-delay: 0.85s;
+}
+
+.welcomeCaption {
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: rgba(230, 228, 238, 0.65);
+  max-width: 30ch;
+  animation-delay: 0.98s;
+}
+
+@keyframes reveal {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.status {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12%;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.prompt {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  animation: pulse 2.4s ease-in-out infinite;
+  transition: opacity 0.3s ease;
+}
+
+.loading {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.hidden {
+  opacity: 0;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Full-screen wash that brightens as the camera dives toward the surface,
+   masking the moment the scene hands off to the dashboard route. */
+.flash {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: radial-gradient(circle at 50% 50%, #eaf3ff 0%, #9fc4ff 45%, #1c3a73 100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.3s ease-in;
+}
+
+.flashOn {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prompt,
+  .eyebrow,
+  .welcomeLabel,
+  .welcomeText,
+  .welcomeRule,
+  .welcomeCaption {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}

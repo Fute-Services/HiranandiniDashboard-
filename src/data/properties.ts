@@ -14,15 +14,51 @@ export type Property = {
 };
 
 /**
- * Blank slots for the new project — six cubes so the carousel rotates as a ring.
- * The carousel derives its geometry from this list's length, so adding or
- * removing entries is safe. Fill in name / location / href / image per slot.
+ * The 6 top-level destinations on hiranandanifortunecity.com's own VR-tour
+ * menu (The Arena, Elena, Ebony, Golden Willows, Club House, Quality) — name,
+ * link and image pulled from that site's (and its two linked microsites',
+ * Elena/Ebony) own bundled data/assets. The carousel derives its geometry
+ * from this list's length, so adding or removing entries is safe.
  */
 export const properties: Property[] = [
-  { slug: "slot-1", name: "", location: "", href: "#" },
-  { slug: "slot-2", name: "", location: "", href: "#" },
-  { slug: "slot-3", name: "", location: "", href: "#" },
-  { slug: "slot-4", name: "", location: "", href: "#" },
-  { slug: "slot-5", name: "", location: "", href: "#" },
-  { slug: "slot-6", name: "", location: "", href: "#" },
+  {
+    slug: "the-arena",
+    name: "The Arena",
+    location: "Hiranandani Fortune City",
+    href: "https://hiranandanifortunecity.com/arena",
+    image: "https://hiranandanifortunecity.com/assets/arena_masterplan4-DGJk5HNY.png",
+  },
+  {
+    slug: "elena",
+    name: "Elena",
+    location: "Hiranandani Fortune City",
+    href: "https://elena.futeservices.in",
+    image: "https://elena.futeservices.in/assets/ph_building-DAq7keFj.webp",
+  },
+  {
+    slug: "ebony",
+    name: "Ebony",
+    location: "Hiranandani Fortune City",
+    href: "https://ebony.futeservices.in",
+    image: "https://ebony.futeservices.in/assets/towerImage-pzeoWkNL.jpg",
+  },
+  {
+    slug: "golden-willows",
+    name: "Golden Willows",
+    location: "Hiranandani Fortune City",
+    href: "https://hiranandanigoldenwillows.com",
+  },
+  {
+    slug: "club-house",
+    name: "Club House",
+    location: "Hiranandani Fortune City",
+    href: "https://hiranandanifortunecity.com/club-house",
+    image: "https://hiranandanifortunecity.com/assets/club1-CKwV8fQl.webp",
+  },
+  {
+    slug: "quality",
+    name: "Quality",
+    location: "Hiranandani Fortune City",
+    href: "https://hiranandanifortunecity.com/quality",
+  },
 ];

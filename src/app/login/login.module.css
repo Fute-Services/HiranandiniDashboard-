@@ -2,18 +2,148 @@
  * Login screen. Colours are the design's exact hex values rather than the
  * site's oklch tokens: the design leans warmer (paper #f4f1ea, sage accents)
  * than the showcase page, so matching it pixel-for-pixel means hardcoding.
+ * The page behind the card is a dark starfield; the card itself is a dark
+ * glass panel (blurred, translucent) so it reads as part of the same scene
+ * rather than a bright paper card dropped on top of it. The blue accent
+ * (#4b63d6) is kept as-is throughout — it already matches the nebula glow.
  */
 .page {
+  position: relative;
   min-height: 100vh;
   min-height: 100dvh;
   width: 100%;
-  background-color: #f4f1ea;
-  background-image: radial-gradient(#d9d4c6 1px, transparent 1px);
-  background-size: 22px 22px;
+  overflow: hidden;
+  background-color: #05060e;
+  /* Just the nebula glows + base gradient here; the stars themselves live on
+     the ::before/::after layers below so they can drift and twinkle
+     independently without disturbing this static backdrop. All three layers
+     are sized to the full page (100% 100%) rather than a fixed px box — a
+     fixed size only covers part of a wide viewport and the glow's edge shows
+     up as a hard seam, like two panels stitched together. */
+  background-image:
+    radial-gradient(650px circle at 12% 15%, rgba(99, 82, 217, 0.28), transparent 60%),
+    radial-gradient(550px circle at 88% 82%, rgba(56, 130, 199, 0.22), transparent 60%),
+    linear-gradient(160deg, #05060e 0%, #0a0a1e 45%, #11102a 100%);
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-size: 100% 100%, 100% 100%, 100% 100%;
+  animation: twinkle 6s ease-in-out infinite;
   display: flex;
   flex-direction: column;
   color: #1a1a17;
   font-family: var(--font-grotesk), system-ui, sans-serif;
+}
+
+/*
+ * Two independent star layers instead of one: different sizes, drift speeds,
+ * directions and twinkle timings so they never fall into visual sync — a
+ * single layer pulsing together reads as a blinking screen, not a sky.
+ * Shared positioning/stacking lives here; each pseudo-element's own stars,
+ * tile size and animation are set below.
+ */
+.page::before,
+.page::after {
+  content: "";
+  position: absolute;
+  /* Oversized by 10% on every side so the drift animation's translate never
+     exposes a bare edge while the layer is mid-pan. */
+  inset: -10% -10%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Dim, distant star layer: small dots, slow 130s drift down-left, slow
+   4.5s flicker. */
+.page::before {
+  background-image:
+    radial-gradient(1.2px 1.2px at 20% 30%, rgba(255, 255, 255, 0.7), transparent 60%),
+    radial-gradient(1px 1px at 65% 15%, rgba(255, 255, 255, 0.55), transparent 60%),
+    radial-gradient(1.2px 1.2px at 40% 70%, rgba(255, 255, 255, 0.65), transparent 60%),
+    radial-gradient(1px 1px at 85% 55%, rgba(255, 255, 255, 0.5), transparent 60%);
+  background-repeat: repeat;
+  background-size: 260px 260px;
+  animation: drift-back 130s linear infinite, twinkle-back 4.5s ease-in-out infinite;
+}
+
+/* Brighter, closer star layer: bigger dots, faster 80s drift up-right (the
+   opposite direction from ::before, for a parallax cross-current rather than
+   both layers sliding the same way), quicker 3.2s flicker. */
+.page::after {
+  background-image:
+    radial-gradient(1.8px 1.8px at 15% 25%, rgba(255, 255, 255, 0.95), transparent 60%),
+    radial-gradient(1.4px 1.4px at 55% 60%, rgba(255, 255, 255, 0.85), transparent 60%),
+    radial-gradient(1.8px 1.8px at 80% 20%, rgba(255, 255, 255, 0.9), transparent 60%),
+    radial-gradient(1.4px 1.4px at 30% 85%, rgba(255, 255, 255, 0.75), transparent 60%),
+    radial-gradient(1.6px 1.6px at 92% 75%, rgba(255, 255, 255, 0.8), transparent 60%);
+  background-repeat: repeat;
+  background-size: 340px 340px;
+  animation: drift-front 80s linear infinite, twinkle-front 3.2s ease-in-out infinite;
+}
+
+/* Both pseudo-elements sit at z-index: 0 and, in source order, land after
+   these two — without lifting the real content to z-index: 1, the ::after
+   star layer would paint on top of the card and header. */
+.header,
+.main {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    background-color: #05060e;
+  }
+  50% {
+    background-color: #07081a;
+  }
+}
+
+@keyframes twinkle-back {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes twinkle-front {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes drift-back {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    /* Exactly one tile's width/height, so the repeating pattern loops with
+       no visible seam. */
+    transform: translate(-260px, -260px);
+  }
+}
+
+@keyframes drift-front {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(340px, -340px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page,
+  .page::before,
+  .page::after {
+    animation: none;
+  }
 }
 
 .mono {
@@ -27,6 +157,12 @@
   align-items: center;
   justify-content: space-between;
   padding: 24px 40px;
+}
+
+.leftGroup {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .brand {
@@ -43,7 +179,7 @@
 .brandName {
   font-size: 12px;
   letter-spacing: 0.22em;
-  color: #5c5850;
+  color: #d8d4c8;
 }
 
 .meta {
@@ -56,13 +192,13 @@
 .metaCorp {
   font-size: 11px;
   letter-spacing: 0.22em;
-  color: #4a8f5f;
+  color: #6fce8f;
 }
 
 .metaAccess {
   font-size: 10px;
   letter-spacing: 0.22em;
-  color: #9c988c;
+  color: #a9a59a;
 }
 
 /* ---------- card ---------- */
@@ -76,15 +212,44 @@
 }
 
 .card {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
   width: 100%;
   max-width: 980px;
-  background: #ffffff;
+  /* Translucent dark glass over the starfield, blurred so the stars behind
+     it soften into a glow instead of showing through crisp. */
+  background: rgba(13, 13, 24, 0.72);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
-  box-shadow: 0 30px 70px -30px rgba(60, 55, 40, 0.28),
-    0 2px 8px rgba(60, 55, 40, 0.06);
+  /* Slow breathing glow instead of a flat shadow, so the card reads as a lit
+     object in the scene rather than a paper cutout dropped on top of it. */
+  animation: card-glow 5s ease-in-out infinite;
   overflow: hidden;
+}
+
+@keyframes card-glow {
+  0%,
+  100% {
+    box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.65),
+      0 0 55px -18px rgba(75, 99, 214, 0.4),
+      0 0 0 1px rgba(75, 99, 214, 0.12);
+  }
+  50% {
+    box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.65),
+      0 0 85px -14px rgba(75, 99, 214, 0.65),
+      0 0 0 1px rgba(75, 99, 214, 0.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+    box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.65),
+      0 0 60px -18px rgba(75, 99, 214, 0.45);
+  }
 }
 
 /* ---------- left panel ---------- */
@@ -95,9 +260,14 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: #ece8dd;
-  background-image: radial-gradient(#d4cfbf 1px, transparent 1px);
-  background-size: 20px 20px;
+  /* A faint warm wash (not the old solid paper colour) keeps this panel
+     reading as the "brand" side, while still sitting on the same dark glass
+     as the form panel. */
+  background: linear-gradient(165deg, rgba(232, 185, 58, 0.1), rgba(13, 13, 24, 0) 60%);
+  background-image:
+    linear-gradient(165deg, rgba(232, 185, 58, 0.1), rgba(13, 13, 24, 0) 60%),
+    radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+  background-size: auto, 20px 20px;
   min-height: 440px;
 }
 
@@ -110,13 +280,13 @@
 .eyebrow {
   font-size: 11px;
   letter-spacing: 0.22em;
-  color: #7d7a70;
+  color: #9591a6;
 }
 
 .welcome {
   font-size: 11px;
   letter-spacing: 0.22em;
-  color: #4b63d6;
+  color: #7d94f0;
   margin-bottom: 18px;
 }
 
@@ -126,12 +296,13 @@
   line-height: 0.95;
   letter-spacing: -0.02em;
   margin-bottom: 20px;
+  color: #f4f2ec;
 }
 
 .lede {
   font-size: 15px;
   line-height: 1.6;
-  color: #6b675d;
+  color: #b6b2c4;
   max-width: 300px;
 }
 
@@ -143,7 +314,7 @@
 
 .rule {
   height: 1px;
-  background: #d4cfbf;
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .stats {
@@ -151,7 +322,7 @@
   gap: 28px;
   font-size: 10px;
   letter-spacing: 0.18em;
-  color: #9c988c;
+  color: #8f8ba0;
 }
 
 /* ---------- form panel ---------- */
@@ -162,12 +333,15 @@
   flex-direction: column;
   justify-content: center;
   min-height: 440px;
+  /* A hairline seam against the aside panel, since both now sit on the same
+     translucent card background rather than two contrasting solid fills. */
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .formEyebrow {
   font-size: 11px;
   letter-spacing: 0.22em;
-  color: #9c988c;
+  color: #8f8ba0;
   margin-bottom: 8px;
 }
 
@@ -176,6 +350,7 @@
   font-weight: 600;
   letter-spacing: -0.01em;
   margin-bottom: 36px;
+  color: #f4f2ec;
 }
 
 .fields {
@@ -193,21 +368,21 @@
 .label {
   font-size: 10px;
   letter-spacing: 0.2em;
-  color: #7d7a70;
+  color: #9591a6;
 }
 
 .input {
   font-family: var(--font-grotesk), system-ui, sans-serif;
   font-size: 15px;
-  color: #1a1a17;
+  color: #f4f2ec;
   padding: 14px 16px;
-  background: #f4f1ea;
-  border: 1px solid #e2ddd0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 12px;
 }
 
 .input::placeholder {
-  color: #b8b4a8;
+  color: rgba(244, 242, 236, 0.35);
 }
 
 .input:focus {
@@ -239,13 +414,13 @@
   background: none;
   border: none;
   border-radius: 8px;
-  color: #9c988c;
+  color: #9591a6;
   cursor: pointer;
   transition: color 0.15s;
 }
 
 .eye:hover {
-  color: #4b63d6;
+  color: #7d94f0;
 }
 
 .eye:focus-visible {
@@ -256,7 +431,7 @@
 .error {
   font-size: 11px;
   letter-spacing: 0.06em;
-  color: #c0453b;
+  color: #ff7a6b;
   margin-top: -6px;
 }
 
@@ -274,15 +449,83 @@
   padding: 16px;
   border-radius: 12px;
   cursor: pointer;
-  transition: background 0.15s;
+  box-shadow: 0 0 22px -4px rgba(75, 99, 214, 0.7);
+  transition: background 0.15s, box-shadow 0.2s, transform 0.15s;
 }
 
 .submit:hover {
   background: #3a4fb8;
+  box-shadow: 0 0 30px -2px rgba(75, 99, 214, 0.9);
+  transform: translateY(-1px);
 }
 
 .arrow {
   font-size: 14px;
+}
+
+/* ---------- demo mode ---------- */
+
+.demoDivider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 16px;
+}
+
+.demoDivider::before,
+.demoDivider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.demoLabel {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: rgba(244, 242, 236, 0.4);
+  white-space: nowrap;
+}
+
+.demoButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.demoButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: #f4f2ec;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.demoButton:hover {
+  background: rgba(125, 148, 240, 0.14);
+  border-color: rgba(125, 148, 240, 0.45);
+}
+
+.demoRole {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #7d94f0;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.demoTeam {
+  color: rgba(244, 242, 236, 0.4);
+  font-size: 10px;
 }
 
 /* ---------- responsive ---------- */
