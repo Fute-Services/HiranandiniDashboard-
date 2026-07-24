@@ -17,9 +17,9 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hiranandani — Property Index",
+  title: "Hiranandani | Property Index",
   description:
-    "A showcase of the Hiranandani property portfolio — browse each property and continue to its own site.",
+    "A showcase of the Hiranandani property portfolio. Browse each property and continue to its own site.",
 };
 
 export default function RootLayout({

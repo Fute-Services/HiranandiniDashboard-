@@ -9,7 +9,7 @@
   font-family: var(--font-grotesk), system-ui, sans-serif;
 }
 
-/* The 360° VR tour plays behind everything, fully sharp, no blur — the
+/* The 360° VR tour plays behind everything, fully sharp, no blur, since the
    panorama is the visual lead. `fixed` + vw/vh ties sizing directly to the
    real viewport instead of depending on .page's own computed box height. */
 .vrBackdrop {
@@ -19,7 +19,7 @@
   height: 100dvh;
   z-index: 0;
   overflow: hidden;
-  /* Interactive, not just a backdrop — lets touch/drag rotate the panorama
+  /* Interactive, not just a backdrop: lets touch/drag rotate the panorama
      and hit its own hotspots. The header and shelf sit above it at a higher
      z-index, so they still catch their own clicks/taps first. */
   touch-action: none;
@@ -33,7 +33,7 @@
   border: none;
 }
 
-/* A soft gradient at the very top only — just enough for the header text to
+/* A soft gradient at the very top only, just enough for the header text to
    sit on, without a full-screen tint hiding the rest of the scene. */
 .topFade {
   position: fixed;
@@ -154,7 +154,7 @@
 
 /* ---------- bottom glass shelf ---------- */
 
-/* The dock centres the whole group — nav button, glass shelf, nav button —
+/* The dock centres the whole group (nav button, glass shelf, nav button)
    as one unit at the bottom of the screen, so the buttons sit just outside
    the shelf's edges rather than inside it. */
 .dock {
@@ -199,7 +199,7 @@
   }
 }
 
-/* This is where the real frosted-glass treatment lives — a strong blur +
+/* This is where the real frosted-glass treatment lives: a strong blur +
    dark translucent panel, sized to its content rather than a full-width bar
    (a full-width bar leaves big empty glass panels on either side of a
    6-card row on any screen wider than ~900px). */
@@ -223,7 +223,7 @@
   margin-bottom: 8px;
 }
 
-/* Round glass buttons flanking the shelf — same frosted language as it and
+/* Round glass buttons flanking the shelf, same frosted language as it and
    the log-out button, just neutral-tinted instead of red. Scroll the cards
    track by a fixed step rather than a full page-width jump. */
 .navButton {
@@ -256,7 +256,7 @@
   transform: scale(0.9);
 }
 
-/* Centred and evenly spaced when everything fits (the common case — six
+/* Centred and evenly spaced when everything fits (the common case: six
    cards on a normal-width screen); once the row genuinely can't fit, it
    scrolls horizontally with snap points instead of wrapping to a second row,
    which would double the shelf's height and eat into the scene above it. */

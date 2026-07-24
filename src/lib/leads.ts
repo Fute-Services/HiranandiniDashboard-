@@ -1,5 +1,5 @@
 /**
- * Mock lead/customer directory — stands in for the Sperto/CRM lookup this
+ * Mock lead/customer directory, stands in for the Sperto/CRM lookup this
  * app doesn't have API access to yet (see the "Client Requirement Discovery
  * Questionnaire", §2 and §5). Swap `findLead` for a real API call once those
  * docs/credentials land; nothing else in the capture flow should need to
@@ -72,8 +72,8 @@ export function findLead(query: string): Lead | null {
 
 /**
  * A presentation started without a valid Lead ID (questionnaire §2's edge
- * case) — a placeholder lead so the rest of the flow (which always expects
- * an active lead) has something to attach the session to.
+ * case). This is a placeholder lead so the rest of the flow (which always
+ * expects an active lead) has something to attach the session to.
  */
 export function createWalkInLead(): Lead {
   return {

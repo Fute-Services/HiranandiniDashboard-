@@ -30,7 +30,7 @@
   pointer-events: none;
 }
 
-/* Once a real image is set, kill the sheen — it only belongs on empty slots. */
+/* Once a real image is set, kill the sheen since it only belongs on empty slots. */
 .slot:has(.image)::after {
   display: none;
 }

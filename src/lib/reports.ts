@@ -1,11 +1,11 @@
 /**
- * Finalized session log — what the admin and sales-manager dashboards read
+ * Finalized session log: what the admin and sales-manager dashboards read
  * (questionnaire §6). Backed by `localStorage` rather than a real API:
  * there's no backend yet, but unlike an in-memory JS variable, this at least
  * survives a page reload and is shared across tabs in the same browser,
  * which is enough to demo "sales staff finish a session → managers/admin see
  * it" without a server. Swap `logCompletedSession`/`getSessionLog` for real
- * API calls once Sperto/CRM access lands — callers only depend on this shape.
+ * API calls once Sperto/CRM access lands, since callers only depend on this shape.
  */
 export type StepEvent = {
   step: string;
@@ -13,7 +13,7 @@ export type StepEvent = {
   timeSpentMs: number;
 };
 
-/** A specific thing shown/clicked during the session — e.g. which property
+/** A specific thing shown/clicked during the session, e.g. which property
  * card was opened, and when (relative to session start). */
 export type SessionEvent = {
   label: string;
@@ -26,7 +26,7 @@ export type SessionSummary = {
   leadName: string;
   /** Which sales staff member ran this presentation. */
   staffName: string;
-  /** That staff member's manager (src/lib/users.ts `managerEmail`) — what a
+  /** That staff member's manager (src/lib/users.ts `managerEmail`), which is what a
    * sales manager's dashboard filters on to see only their own team. */
   managerEmail: string | null;
   startedAt: number;

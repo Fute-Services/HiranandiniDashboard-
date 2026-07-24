@@ -17,7 +17,7 @@
   display: block;
 }
 
-/* Brand block on the left third of the screen — the globe rests offset to
+/* Brand block on the left third of the screen. The globe rests offset to
    the right (see globe.position.x in EarthPortal.tsx) so this never
    overlaps it. Mirrors the eyebrow/heading/rule/caption rhythm already
    established on the login card's left panel, rather than inventing a new
@@ -37,7 +37,7 @@
 }
 
 /* Each line reveals in turn (staggered animation-delay) rather than the
-   whole block fading in at once — same reveal language as the intro splash's
+   whole block fading in at once, same reveal language as the intro splash's
    logo/button, applied here as a sequence instead of two steps. */
 .eyebrow,
 .welcomeLabel,

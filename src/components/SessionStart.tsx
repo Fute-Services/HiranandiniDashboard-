@@ -9,7 +9,7 @@ import { BackButton } from "./BackButton";
 import styles from "./SessionStart.module.css";
 
 /**
- * "Search Customer → Start Session" — the step between login and the
+ * The "Search Customer" then "Start Session" step, between login and the
  * presentation itself (questionnaire §1's example journey). A sales manager
  * looks a lead up by ID or phone, confirms the match, then starts the
  * session; the Earth-approach (`/space`) is what plays next.

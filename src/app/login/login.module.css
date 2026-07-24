@@ -5,7 +5,7 @@
  * The page behind the card is a dark starfield; the card itself is a dark
  * glass panel (blurred, translucent) so it reads as part of the same scene
  * rather than a bright paper card dropped on top of it. The blue accent
- * (#4b63d6) is kept as-is throughout — it already matches the nebula glow.
+ * (#4b63d6) is kept as-is throughout, since it already matches the nebula glow.
  */
 .page {
   position: relative;
@@ -17,7 +17,7 @@
   /* Just the nebula glows + base gradient here; the stars themselves live on
      the ::before/::after layers below so they can drift and twinkle
      independently without disturbing this static backdrop. All three layers
-     are sized to the full page (100% 100%) rather than a fixed px box — a
+     are sized to the full page (100% 100%) rather than a fixed px box, since a
      fixed size only covers part of a wide viewport and the glow's edge shows
      up as a hard seam, like two panels stitched together. */
   background-image:
@@ -35,8 +35,8 @@
 
 /*
  * Two independent star layers instead of one: different sizes, drift speeds,
- * directions and twinkle timings so they never fall into visual sync — a
- * single layer pulsing together reads as a blinking screen, not a sky.
+ * directions and twinkle timings so they never fall into visual sync. A
+ * single layer pulsing together would read as a blinking screen, not a sky.
  * Shared positioning/stacking lives here; each pseudo-element's own stars,
  * tile size and animation are set below.
  */
@@ -80,7 +80,7 @@
 }
 
 /* Both pseudo-elements sit at z-index: 0 and, in source order, land after
-   these two — without lifting the real content to z-index: 1, the ::after
+   these two. Without lifting the real content to z-index: 1, the ::after
    star layer would paint on top of the card and header. */
 .header,
 .main {

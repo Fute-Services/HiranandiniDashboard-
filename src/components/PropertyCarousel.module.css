@@ -68,7 +68,7 @@
  * rather than pinned to the header's flex-start top edge.
  */
 /* Logo art was recoloured to dark ink on transparent, so it reads on the light
-   header directly — no plate needed. */
+   header directly, no plate needed. */
 .corpLogo {
   align-self: center;
   height: 66px;
@@ -102,7 +102,7 @@
   color: var(--ink-dim);
 }
 
-/* Floating logout, pinned to the bottom-right — solid accent so it stands out. */
+/* Floating logout, pinned to the bottom-right, solid accent so it stands out. */
 .signout {
   position: fixed;
   right: 20px;
@@ -396,7 +396,7 @@
     padding: 0 20px 24px;
   }
 
-  /* No room for the hint beside the buttons — drop it. */
+  /* No room for the hint beside the buttons, so drop it. */
   .controls {
     grid-template-columns: 1fr;
     justify-items: center;

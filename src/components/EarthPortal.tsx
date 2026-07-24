@@ -13,7 +13,7 @@ import styles from "./EarthPortal.module.css";
 
 // Cross-origin-friendly mirror of three.js's own example textures (jsDelivr
 // serves GitHub raw files with Access-Control-Allow-Origin: *, which a plain
-// raw.githubusercontent.com URL does not — required for WebGL to read pixels
+// raw.githubusercontent.com URL does not, which is required for WebGL to read pixels
 // out of a texture loaded from another origin). These are the exact assets
 // used by three.js's own official "webgpu_tsl_earth" reference demo (built
 // on the well-known Three.js Journey earth-shader lesson): 4K day/night maps
@@ -104,7 +104,7 @@ const ATMOSPHERE_FRAGMENT_SHADER = `
 
 /**
  * The screen between a successful login and the property tour: a slowly
- * spinning, realistically lit Earth — day/night shading with lit-up cities
+ * spinning, realistically lit Earth with day/night shading, lit-up cities
  * on the dark side, baked-in clouds, and a day/twilight atmosphere rim,
  * ported from three.js's own official earth reference shader. Clicking
  * anywhere dives the camera toward the surface while the view washes out to
@@ -145,7 +145,7 @@ export function EarthPortal() {
 
     // Bloom is what sells the sun glint, city lights and atmosphere rim as
     // actual light sources rather than flat bright pixels. Threshold is high
-    // so only the brightest highlights bleed — not the whole lit hemisphere.
+    // so only the brightest highlights bleed, not the whole lit hemisphere.
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     const bloomPass = new UnrealBloomPass(
@@ -205,7 +205,7 @@ export function EarthPortal() {
 
     const earthGeometry = new THREE.SphereGeometry(0.92, 96, 96);
     const earth = new THREE.Mesh(earthGeometry, earthMaterial);
-    // Earth's real axial tilt — a small authenticity detail that also keeps
+    // Earth's real axial tilt, a small authenticity detail that also keeps
     // the terminator from cutting the globe in a perfectly vertical line.
     earth.rotation.z = THREE.MathUtils.degToRad(23.4);
     globe.add(earth);

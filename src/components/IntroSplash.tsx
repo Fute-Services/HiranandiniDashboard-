@@ -5,8 +5,8 @@ import styles from "./IntroSplash.module.css";
 /**
  * First thing every visitor sees: a black screen that fades in the
  * Hiranandani logo, then an Enter button that leads to the login page.
- * Pure CSS animation (delayed keyframes) — no client JS needed. No back
- * button here — it's the very first screen, there's nothing before it.
+ * Pure CSS animation (delayed keyframes), so no client JS is needed. There's
+ * no back button here since it's the very first screen; nothing comes before it.
  */
 export function IntroSplash() {
   return (

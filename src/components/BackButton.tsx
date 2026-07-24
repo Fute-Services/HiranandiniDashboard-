@@ -9,7 +9,7 @@ import styles from "./BackButton.module.css";
  *
  * Two placements, chosen per page rather than guessed with fixed coordinates
  * everywhere: `floating` (the default) is for pages with an empty top-left
- * corner (nothing else lives there) — it's absolutely positioned. Pages that
+ * corner (nothing else lives there); it's absolutely positioned. Pages that
  * already have a header row instead render this as a normal flex item
  * inside that row (`floating={false}`), which guarantees it can never
  * overlap that header's own content, since it's part of the same layout

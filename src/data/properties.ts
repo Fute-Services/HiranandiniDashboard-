@@ -1,5 +1,5 @@
 export type Property = {
-  /** Stable slug — will become the API/route key once the backend lands. */
+  /** Stable slug, will become the API/route key once the backend lands. */
   slug: string;
   /** Shown on the card face. */
   name: string;
@@ -15,8 +15,8 @@ export type Property = {
 
 /**
  * The 6 top-level destinations on hiranandanifortunecity.com's own VR-tour
- * menu (The Arena, Elena, Ebony, Golden Willows, Club House, Quality) — name,
- * link and image pulled from that site's (and its two linked microsites',
+ * menu (The Arena, Elena, Ebony, Golden Willows, Club House, Quality). Name,
+ * link and image are pulled from that site's (and its two linked microsites',
  * Elena/Ebony) own bundled data/assets. The carousel derives its geometry
  * from this list's length, so adding or removing entries is safe.
  */

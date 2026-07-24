@@ -21,9 +21,9 @@ const VR_TOUR_URL = "https://futeservices.com/25-26/V2/VR_10/index.html";
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
 /**
- * Where the Earth hands off to: the 360° VR tour plays fully sharp, always —
- * the panorama is the visual lead. Property cards live in a frosted-glass
- * shelf along the bottom. A single screen (not a multi-step flow) — "End
+ * Where the Earth hands off to: the 360° VR tour plays fully sharp, always,
+ * since the panorama is the visual lead. Property cards live in a frosted-glass
+ * shelf along the bottom. It's a single screen, not a multi-step flow, so "End
  * Session" closes out and logs the visit (questionnaire §6) straight from
  * here, no separate feedback step required for V1.
  */

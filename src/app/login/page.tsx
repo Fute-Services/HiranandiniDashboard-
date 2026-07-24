@@ -62,7 +62,7 @@ export default function LoginPage() {
   // No auth backend yet: match against the mock user directory, and on
   // success mark the session with cookies the middleware/pages check to gate
   // routes and branch on role. Swap findUser for a real sign-in call (Sperto
-  // or otherwise) when a backend lands — nothing else here should need to change.
+  // or otherwise) when a backend lands; nothing else here should need to change.
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const user = findUser(email, password);

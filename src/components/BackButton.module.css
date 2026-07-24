@@ -27,7 +27,7 @@
 }
 
 /* Only for pages with no existing header row to sit inline in (an empty
-   corner to float over instead) — see each usage site for which applies. */
+   corner to float over instead); see each usage site for which applies. */
 .floating {
   position: fixed;
   top: 16px;

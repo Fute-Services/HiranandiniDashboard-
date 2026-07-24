@@ -17,7 +17,7 @@ function formatDuration(ms: number) {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
-/** "0:42" style — how far into the session an event happened. */
+/** "0:42" style, showing how far into the session an event happened. */
 function relativeTime(atMs: number, startedAtMs: number) {
   const totalSec = Math.max(0, Math.round((atMs - startedAtMs) / 1000));
   const mins = Math.floor(totalSec / 60);
@@ -39,7 +39,7 @@ function isToday(ts: number) {
  * The reporting view shared by both `/admin/dashboard` and
  * `/manager/dashboard` (questionnaire §6): a projects overview, Today's
  * Presentations, total session duration, and which property cards were
- * opened and when — read straight from `src/lib/reports.ts`'s local session
+ * opened and when, read straight from `src/lib/reports.ts`'s local session
  * log (see that file's comment for why `localStorage`, not a real API,
  * backs this in V1). A sales manager only sees sessions from their own team
  * (`SessionSummary.managerEmail` matching the viewer's own email, from
@@ -74,7 +74,7 @@ export function SessionReports({
     router.refresh();
   }, [router]);
 
-  /** Admin/manager get a direct preview — no lead lookup, unlike the sales
+  /** Admin/manager get a direct preview, no lead lookup, unlike the sales
    * staff flow (`/session/start`) this skips past. */
   const openDashboard = useCallback(() => {
     setActiveSession(createWalkInLead());
@@ -119,7 +119,7 @@ export function SessionReports({
         </div>
         <div className={styles.stat}>
           <div className={styles.statLabel}>Avg. Session Time</div>
-          <div className={styles.statValue}>{list.length ? formatDuration(avgMs) : "—"}</div>
+          <div className={styles.statValue}>{list.length ? formatDuration(avgMs) : "N/A"}</div>
         </div>
       </div>
 
@@ -156,7 +156,7 @@ export function SessionReports({
 
       {sessions === null ? null : list.length === 0 ? (
         <p className={styles.empty}>
-          No sessions logged yet — they show up here once sales staff
+          No sessions logged yet. They&apos;ll show up here once sales staff
           complete one (End Session on the showcase screen).
         </p>
       ) : (
@@ -186,7 +186,7 @@ export function SessionReports({
                     <div className={styles.path}>
                       {s.events.length === 0 ? (
                         <span style={{ opacity: 0.4, fontSize: 12.5 }}>
-                          VR tour only — no property cards opened
+                          VR tour only, no property cards opened
                         </span>
                       ) : (
                         s.events.map((e, i) => (

@@ -10,14 +10,14 @@ import styles from "./PropertyCarousel.module.css";
 /**
  * Coverflow arc rather than the design's closed prism ring. A ring only reads
  * well when neighbours sit within ~50° of the front (true at the design's seven
- * cards); at three they'd be 120° apart — past the backface cutoff, so only one
+ * cards); at three they'd be 120° apart, past the backface cutoff, so only one
  * card would ever be visible. The arc keeps all three on screen at any count.
  */
 const SPACING = 430; // px along X per card of offset
 const DEPTH = 200; // px pushed back per card of offset
 const TILT = 42; // deg turned away per card of offset
 const DESIGN_WIDTH = 2 * SPACING + 440; // centre card + a neighbour either side
-const AUTO_SPEED = 0.0031; // cards per frame — the design's drift rate
+const AUTO_SPEED = 0.0031; // cards per frame, the design's drift rate
 const RESUME_DELAY = 4000;
 /**
  * px of travel before a press counts as a drag rather than a click. Generous
@@ -57,7 +57,7 @@ export function PropertyCarousel({ properties }: { properties: Property[] }) {
   const scalerRef = useRef<HTMLDivElement>(null);
   const prismRef = useRef<HTMLDivElement>(null);
 
-  /** Which card is at the front, as a float — 1.5 means midway between 1 and 2. */
+  /** Which card is at the front, as a float; 1.5 means midway between 1 and 2. */
   const positionRef = useRef(0);
   const autoRef = useRef(true);
   const pressedRef = useRef(false);
@@ -248,7 +248,7 @@ export function PropertyCarousel({ properties }: { properties: Property[] }) {
   /**
    * The move and release are watched on the window so a drag that travels off
    * the stage keeps tracking and still settles. setPointerCapture would do the
-   * same, but it retargets the click that follows to the stage — which is how
+   * same, but it retargets the click that follows to the stage, which is how
    * the cards' links were being swallowed.
    */
   useEffect(() => {
@@ -298,7 +298,7 @@ export function PropertyCarousel({ properties }: { properties: Property[] }) {
           width={142}
           height={66}
           alt="Hiranandani"
-          // No logo asset yet — hide the broken image until /brand/hiranandani.png is added.
+          // No logo asset yet, so hide the broken image until /brand/hiranandani.png is added.
           onError={(e) => {
             e.currentTarget.style.display = "none";
           }}

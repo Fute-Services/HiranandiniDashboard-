@@ -2,29 +2,29 @@ import type { Role } from "./users";
 
 /**
  * Client-side session flags. There's no auth backend yet, so "signed in" is
- * just cookies the login page sets and the middleware/pages check — enough
- * to gate the UI and branch on role. Replace with a real, server-verified
+ * just cookies the login page sets and the middleware/pages check, which is
+ * enough to gate the UI and branch on role. Replace with a real, server-verified
  * session when a backend (Sperto or otherwise) lands.
  */
 export const AUTH_COOKIE = "hiranandani_auth";
-/** Which mock account signed in — see src/lib/users.ts. */
+/** Which mock account signed in, see src/lib/users.ts. */
 export const ROLE_COOKIE = "hiranandani_role";
 export const NAME_COOKIE = "hiranandani_name";
 /** Needed to look a signed-in sales_staff member's manager back up (team scoping). */
 export const EMAIL_COOKIE = "hiranandani_email";
 export const AUTH_MAX_AGE = 60 * 60 * 24 * 7; // 7 days, in seconds
 export const LOGIN_PATH = "/login";
-/** Intro splash — public, shown before login on every visit. */
+/** Intro splash, public and shown before login on every visit. */
 export const INTRO_PATH = "/";
-/** Lead lookup/capture — where sales staff start a presentation. Staff-only. */
+/** Lead lookup/capture, where sales staff start a presentation. Staff-only. */
 export const SESSION_START_PATH = "/session/start";
 /** Earth-approach transition, reached once a lead is active. Staff-only. */
 export const SPACE_PATH = "/space";
 /** VR-tour backdrop + property showcase the Earth hands off to. Staff-only. */
 export const DASHBOARD_PATH = "/dashboard";
-/** Admin-only reporting dashboard — every session, every role. */
+/** Admin-only reporting dashboard, covering every session and every role. */
 export const ADMIN_PATH = "/admin/dashboard";
-/** Sales-manager-only reporting dashboard — their own team's sessions. */
+/** Sales-manager-only reporting dashboard, scoped to their own team's sessions. */
 export const MANAGER_PATH = "/manager/dashboard";
 
 /** Where a freshly signed-in (or already-authed) user of this role lands. */

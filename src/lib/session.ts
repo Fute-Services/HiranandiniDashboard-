@@ -7,10 +7,10 @@ import {
 } from "./reports";
 
 /**
- * The active presentation session — which lead a sales staff member is
+ * The active presentation session: which lead a sales staff member is
  * currently walking through the app with, plus which steps they've visited
- * and how long each took (questionnaire §6's "complete journey" — pages
- * visited, navigation path, time spent). Held in `sessionStorage` (survives
+ * and how long each took (questionnaire §6's "complete journey", meaning
+ * pages visited, navigation path, time spent). Held in `sessionStorage` (survives
  * navigation between steps, cleared when the tab closes) rather than a
  * cookie, since it's read/written entirely client-side and never needs to
  * gate a route the way the auth cookies do.
@@ -74,8 +74,8 @@ export function recordStepEnter(step: string) {
 }
 
 /**
- * Logs a specific "what was shown" moment — e.g. a property card opened for
- * the customer — with a timestamp, so the dashboard can answer "what did
+ * Logs a specific "what was shown" moment, e.g. a property card opened for
+ * the customer, with a timestamp, so the dashboard can answer "what did
  * they show, and how far into the session" (not just total time). Safe to
  * call even if nothing's active (no-ops).
  */
@@ -91,7 +91,7 @@ export function clearActiveSession() {
 }
 
 /**
- * "End Session" — closes out the current step's time, builds the final
+ * "End Session" closes out the current step's time, builds the final
  * summary (with the feedback rating/notes) and logs it to the report store,
  * then clears the active session. Returns null if there was nothing active.
  */
