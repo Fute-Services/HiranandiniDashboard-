@@ -3,11 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearSessionCookies, getSession, LOGIN_PATH, SPACE_PATH } from "@/lib/auth";
-import { properties } from "@/data/properties";
 import { createWalkInLead } from "@/lib/leads";
 import { getSessionLog, type SessionSummary } from "@/lib/reports";
 import { setActiveSession } from "@/lib/session";
-import { ImageSlot } from "./ImageSlot";
 import styles from "./SessionReports.module.css";
 
 function formatDuration(ms: number) {
@@ -35,6 +33,163 @@ function isToday(ts: number) {
   );
 }
 
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
+}
+
+const TREND_DAYS = 14;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Midnight-aligned count of sessions started on each of the last
+ * TREND_DAYS days (oldest first), for the trend chart below. */
+function buildDayCounts(list: SessionSummary[]) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startOfToday = today.getTime();
+
+  return Array.from({ length: TREND_DAYS }, (_, i) => {
+    const dayStart = startOfToday - (TREND_DAYS - 1 - i) * DAY_MS;
+    const count = list.filter(
+      (s) => s.startedAt >= dayStart && s.startedAt < dayStart + DAY_MS,
+    ).length;
+    return {
+      label: new Date(dayStart).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      }),
+      count,
+    };
+  });
+}
+
+/** Top property cards opened across every session's event log, most-shown
+ * first. Events read "Visited <name>" (src/lib/session.ts's logSessionEvent
+ * call site in PropertyShowcase.tsx); strip that prefix for display. */
+function buildTopProperties(list: SessionSummary[], max = 6) {
+  const counts = new Map<string, number>();
+  for (const s of list) {
+    for (const e of s.events) {
+      const label = e.label.replace(/^Visited /, "");
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, max);
+}
+
+const iconProps = {
+  width: 18,
+  height: 18,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.6,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
+
+const CalendarIcon = (
+  <svg {...iconProps}>
+    <rect x="3" y="5" width="18" height="16" rx="2.5" />
+    <path d="M3 10h18M8 3v4M16 3v4" />
+  </svg>
+);
+
+const UsersIcon = (
+  <svg {...iconProps}>
+    <circle cx="9" cy="8" r="3.2" />
+    <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
+    <path d="M16 8.2a3.2 3.2 0 1 1 0 6.4M21.5 20c0-2.9-1.9-5.1-4.5-5.8" />
+  </svg>
+);
+
+const ClockIcon = (
+  <svg {...iconProps}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3.5 2" />
+  </svg>
+);
+
+const EmptyIcon = (
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="3" y="4" width="18" height="15" rx="2.5" />
+    <path d="M3 9h18M8 14h3" />
+  </svg>
+);
+
+/** Column chart, one series (session count), so no legend: the card title
+ * already names what's plotted. Every bar carries its own hover/focus
+ * tooltip; the tallest bar is direct-labeled so the peak reads without
+ * hovering at all. */
+function TrendChart({ data }: { data: { label: string; count: number }[] }) {
+  const max = Math.max(1, ...data.map((d) => d.count));
+  const peakIndex = data.reduce(
+    (best, d, i) => (d.count > data[best].count ? i : best),
+    0,
+  );
+
+  return (
+    <div className={styles.chartCard}>
+      <div className={styles.chartTitle}>Presentations &middot; Last {TREND_DAYS} Days</div>
+      <div className={styles.trendChart}>
+        {data.map((d, i) => (
+          <div key={d.label} className={styles.trendCol} tabIndex={0}>
+            {i === peakIndex && d.count > 0 && (
+              <span className={styles.trendPeakLabel}>{d.count}</span>
+            )}
+            <div className={styles.trendTrack}>
+              <div
+                className={styles.trendBar}
+                style={{ height: `${(d.count / max) * 100}%` }}
+              />
+            </div>
+            <span className={styles.trendTooltip}>
+              {d.count} on {d.label}
+            </span>
+            {i % 2 === 0 && <span className={styles.trendAxisLabel}>{d.label}</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Horizontal bars ranked by count — comparison, not trend, so a bar chart
+ * rather than the column form above. Room on this axis to direct-label
+ * every value, so no hover is needed to read it (hover still lifts the bar
+ * as a response cue). */
+function TopPropertiesChart({ data }: { data: { label: string; count: number }[] }) {
+  const max = Math.max(1, ...data.map((d) => d.count));
+
+  return (
+    <div className={styles.chartCard}>
+      <div className={styles.chartTitle}>Most-Shown Properties</div>
+      {data.length === 0 ? (
+        <p className={styles.chartEmpty}>No property cards opened yet.</p>
+      ) : (
+      <div className={styles.propBars}>
+        {data.map((d) => (
+          <div key={d.label} className={styles.propRow} tabIndex={0}>
+            <span className={styles.propLabel}>{d.label}</span>
+            <div className={styles.propTrack}>
+              <div
+                className={styles.propBar}
+                style={{ width: `${(d.count / max) * 100}%` }}
+              />
+            </div>
+            <span className={styles.propValue}>{d.count}</span>
+          </div>
+        ))}
+      </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * The reporting view shared by both `/admin/dashboard` and
  * `/manager/dashboard` (questionnaire §6): a projects overview, Today's
@@ -44,16 +199,14 @@ function isToday(ts: number) {
  * backs this in V1). A sales manager only sees sessions from their own team
  * (`SessionSummary.managerEmail` matching the viewer's own email, from
  * `src/lib/users.ts`'s `managerEmail` hierarchy); an admin always sees
- * everyone. `showProjects` defaults off since a generic caller may not want it.
+ * everyone.
  */
 export function SessionReports({
   brandLabel,
   title,
-  showProjects = false,
 }: {
   brandLabel: string;
   title: string;
-  showProjects?: boolean;
 }) {
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
@@ -85,6 +238,8 @@ export function SessionReports({
   const today = list.filter((s) => isToday(s.startedAt));
   const avgMs =
     list.length > 0 ? list.reduce((sum, s) => sum + s.totalTimeMs, 0) / list.length : 0;
+  const dayCounts = buildDayCounts(list);
+  const topProperties = buildTopProperties(list);
 
   return (
     <div className={styles.page}>
@@ -110,55 +265,45 @@ export function SessionReports({
 
       <div className={styles.statRow}>
         <div className={styles.stat}>
-          <div className={styles.statLabel}>Today&apos;s Presentations</div>
-          <div className={styles.statValue}>{today.length}</div>
+          <div className={`${styles.statIcon} ${styles.statIconBlue}`}>{CalendarIcon}</div>
+          <div>
+            <div className={styles.statLabel}>Today&apos;s Presentations</div>
+            <div className={styles.statValue}>{today.length}</div>
+          </div>
         </div>
         <div className={styles.stat}>
-          <div className={styles.statLabel}>Total Presentations</div>
-          <div className={styles.statValue}>{list.length}</div>
+          <div className={`${styles.statIcon} ${styles.statIconIndigo}`}>{UsersIcon}</div>
+          <div>
+            <div className={styles.statLabel}>Total Presentations</div>
+            <div className={styles.statValue}>{list.length}</div>
+          </div>
         </div>
         <div className={styles.stat}>
-          <div className={styles.statLabel}>Avg. Session Time</div>
-          <div className={styles.statValue}>{list.length ? formatDuration(avgMs) : "N/A"}</div>
+          <div className={`${styles.statIcon} ${styles.statIconGold}`}>{ClockIcon}</div>
+          <div>
+            <div className={styles.statLabel}>Avg. Session Time</div>
+            <div className={styles.statValue}>{list.length ? formatDuration(avgMs) : "N/A"}</div>
+          </div>
         </div>
       </div>
 
-      {showProjects && (
-        <>
-          <div className={styles.sectionTitle}>Projects</div>
-          <div className={styles.projectGrid}>
-            {properties.map((property) => (
-              <a
-                key={property.slug}
-                className={styles.projectCard}
-                href={property.href}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <div className={styles.projectMedia}>
-                  <ImageSlot
-                    src={property.image}
-                    placeholder={`${property.name || "Property"} image`}
-                    alt={`${property.name || "Property"}, ${property.location}`}
-                  />
-                </div>
-                <div className={styles.projectBody}>
-                  <div className={styles.projectName}>{property.name}</div>
-                  <div className={styles.projectLocation}>{property.location}</div>
-                </div>
-              </a>
-            ))}
-          </div>
-        </>
+      {list.length > 0 && (
+        <div className={styles.chartRow}>
+          <TrendChart data={dayCounts} />
+          <TopPropertiesChart data={topProperties} />
+        </div>
       )}
 
       <div className={styles.sectionTitle}>Recent Customers</div>
 
       {sessions === null ? null : list.length === 0 ? (
-        <p className={styles.empty}>
-          No sessions logged yet. They&apos;ll show up here once sales staff
-          complete one (End Session on the showcase screen).
-        </p>
+        <div className={styles.empty}>
+          <div className={styles.emptyIcon}>{EmptyIcon}</div>
+          <p>
+            No sessions logged yet. They&apos;ll show up here once sales staff
+            complete one (End Session on the showcase screen).
+          </p>
+        </div>
       ) : (
         <div className={styles.tableWrap}>
           <table className={styles.table}>
@@ -172,12 +317,17 @@ export function SessionReports({
               </tr>
             </thead>
             <tbody>
-              {list.map((s) => (
-                <tr key={s.id}>
+              {list.map((s, i) => (
+                <tr key={s.id} style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
                   <td>
-                    {s.leadName}
-                    <br />
-                    <span style={{ opacity: 0.5, fontSize: 11.5 }}>{s.leadId}</span>
+                    <div className={styles.customer}>
+                      <span className={styles.avatar}>{initials(s.leadName)}</span>
+                      <span>
+                        {s.leadName}
+                        <br />
+                        <span className={styles.leadId}>{s.leadId}</span>
+                      </span>
+                    </div>
                   </td>
                   <td>{s.staffName}</td>
                   <td>{new Date(s.startedAt).toLocaleString()}</td>
@@ -185,7 +335,7 @@ export function SessionReports({
                   <td>
                     <div className={styles.path}>
                       {s.events.length === 0 ? (
-                        <span style={{ opacity: 0.4, fontSize: 12.5 }}>
+                        <span className={styles.noEvents}>
                           VR tour only, no property cards opened
                         </span>
                       ) : (

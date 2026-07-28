@@ -39,31 +39,11 @@ export const USERS: User[] = [
     role: "sales_manager",
   },
   {
-    email: "manager2@hiranandani.com",
-    password: "manager123",
-    name: "Rahul Verma",
-    role: "sales_manager",
-  },
-  {
-    email: "hiranandani@gmail.com",
-    password: "hiranandani123",
+    email: "staff@hiranandani.com",
+    password: "staff123",
     name: "Sales Staff",
     role: "sales_staff",
     managerEmail: "manager@hiranandani.com",
-  },
-  {
-    email: "staff2@hiranandani.com",
-    password: "staff123",
-    name: "Aditi Rao",
-    role: "sales_staff",
-    managerEmail: "manager@hiranandani.com",
-  },
-  {
-    email: "staff3@hiranandani.com",
-    password: "staff123",
-    name: "Karan Shah",
-    role: "sales_staff",
-    managerEmail: "manager2@hiranandani.com",
   },
 ];
 

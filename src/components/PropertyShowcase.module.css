@@ -107,6 +107,18 @@
   gap: 10px;
 }
 
+.timer {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 8px 14px;
+}
+
 .endSession {
   font-family: var(--font-mono), monospace;
   font-size: 11px;

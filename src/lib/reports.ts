@@ -49,7 +49,15 @@ export function logCompletedSession(summary: SessionSummary) {
 export function getSessionLog(): SessionSummary[] {
   try {
     const raw = localStorage.getItem(LOG_KEY);
-    return raw ? (JSON.parse(raw) as SessionSummary[]) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as SessionSummary[];
+    // Sessions logged before `path`/`events` existed in this shape won't have
+    // them; default so older localStorage data doesn't crash newer readers.
+    return parsed.map((s) => ({
+      ...s,
+      path: s.path ?? [],
+      events: s.events ?? [],
+    }));
   } catch {
     return [];
   }

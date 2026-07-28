@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
-import { DASHBOARD_PATH } from "@/lib/auth";
+import { properties, type Property } from "@/data/properties";
 import { BackButton } from "./BackButton";
+import { ImageSlot } from "./ImageSlot";
 import styles from "./EarthPortal.module.css";
 
 // Cross-origin-friendly mirror of three.js's own example textures (jsDelivr
@@ -106,15 +106,61 @@ const ATMOSPHERE_FRAGMENT_SHADER = `
  * The screen between a successful login and the property tour: a slowly
  * spinning, realistically lit Earth with day/night shading, lit-up cities
  * on the dark side, baked-in clouds, and a day/twilight atmosphere rim,
- * ported from three.js's own official earth reference shader. Clicking
- * anywhere dives the camera toward the surface while the view washes out to
- * daylight, then hands off to the external VR tour.
+ * ported from three.js's own official earth reference shader. Picking a
+ * project dives the camera toward the surface while the view washes out to
+ * daylight, then opens that property's site.
  */
 export function EarthPortal() {
-  const router = useRouter();
   const hostRef = useRef<HTMLDivElement>(null);
+  const enterRef = useRef<((onComplete: () => void) => void) | null>(null);
   const [ready, setReady] = useState(false);
   const [entering, setEntering] = useState(false);
+  const [openProperty, setOpenProperty] = useState<Property | null>(null);
+  const [frameLoaded, setFrameLoaded] = useState(false);
+  const [featuredIndex, setFeaturedIndex] = useState(0);
+  const [featuredFading, setFeaturedFading] = useState(false);
+  const fadeTimeoutRef = useRef<number | undefined>(undefined);
+  const autoTimeoutRef = useRef<number | undefined>(undefined);
+
+  // Crossfades the featured slot instead of hard-cutting to the new card:
+  // fade out, swap which project is shown, fade back in. Same duration as
+  // the CSS transition on .featuredWrap below. Clears any fade already in
+  // flight first — otherwise two rotations picked close together (a manual
+  // click landing mid-auto-rotate) race, and whichever timeout resolves
+  // first silently drops the other's fade-out.
+  const FEATURED_FADE_MS = 420;
+  const rotateFeatured = (next: (current: number) => number) => {
+    window.clearTimeout(fadeTimeoutRef.current);
+    setFeaturedFading(true);
+    fadeTimeoutRef.current = window.setTimeout(() => {
+      setFeaturedIndex(next);
+      setFeaturedFading(false);
+      scheduleAutoRotate();
+    }, FEATURED_FADE_MS);
+  };
+
+  // Rotates which project holds the large "featured" spot, so all 6 get a
+  // turn instead of the first one always winning it. Off entirely under
+  // reduced-motion rather than just skipping the transition, since this is
+  // an unprompted auto-advancing change, not a user-driven one. Reschedules
+  // itself from whenever the slot last actually changed (see rotateFeatured
+  // above), so a manual pick gets its own full 5s rather than being undone
+  // by a timer that was still counting down from before the click.
+  const scheduleAutoRotate = () => {
+    window.clearTimeout(autoTimeoutRef.current);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    autoTimeoutRef.current = window.setTimeout(() => {
+      rotateFeatured((i) => (i + 1) % properties.length);
+    }, 5000);
+  };
+
+  useEffect(() => {
+    scheduleAutoRotate();
+    return () => {
+      window.clearTimeout(autoTimeoutRef.current);
+      window.clearTimeout(fadeTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -257,20 +303,35 @@ export function EarthPortal() {
     };
     window.addEventListener("resize", handleResize);
 
-    const handleEnter = () => {
+    let enterTimeout: number | undefined;
+
+    const resetCamera = () => {
+      camera.position.x = 0;
+      camera.position.z = cameraStartZ;
+      camera.fov = 45;
+      camera.updateProjectionMatrix();
+      enterStart = null;
+      setEntering(false);
+    };
+
+    // Plays the dive animation first, then calls onComplete (opens the panel)
+    // and resets the camera so another project can be picked afterwards
+    // without leaving this screen.
+    enterRef.current = (onComplete) => {
       if (enterStart !== null) return;
       enterStart = performance.now();
       setEntering(true);
-      window.setTimeout(() => {
-        router.push(DASHBOARD_PATH);
+      enterTimeout = window.setTimeout(() => {
+        resetCamera();
+        onComplete();
       }, ENTER_DURATION_MS);
     };
-    host.addEventListener("click", handleEnter);
 
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", handleResize);
-      host.removeEventListener("click", handleEnter);
+      window.clearTimeout(enterTimeout);
+      enterRef.current = null;
       host.removeChild(renderer.domElement);
       earthGeometry.dispose();
       earthMaterial.dispose();
@@ -279,40 +340,112 @@ export function EarthPortal() {
       composer.dispose();
       renderer.dispose();
     };
-  }, [router]);
+  }, []);
+
+  const closePanel = () => setOpenProperty(null);
+
+  const renderProjectCard = (property: Property, extraClass?: string) => (
+    <a
+      key={property.slug}
+      className={`${styles.projectCard} ${extraClass ?? ""}`}
+      href={property.href}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => {
+        e.preventDefault();
+        enterRef.current?.(() => {
+          setFrameLoaded(false);
+          setOpenProperty(property);
+        });
+      }}
+    >
+      <div className={styles.projectMedia}>
+        <ImageSlot
+          src={property.image}
+          placeholder={`${property.name || "Property"} image`}
+          alt={`${property.name || "Property"}, ${property.location}`}
+        />
+      </div>
+      <div className={styles.projectBody}>
+        <div className={styles.projectName}>{property.name}</div>
+        <div className={styles.projectLocation}>{property.location}</div>
+      </div>
+    </a>
+  );
 
   return (
     <div className={styles.page}>
-      <BackButton />
+      {!openProperty && <BackButton />}
       <div ref={hostRef} className={styles.canvasHost} />
 
       <div className={`${styles.welcome} ${entering ? styles.hidden : ""}`}>
         <div>
-          <div className={styles.eyebrow}>Orbital Approach</div>
-          <div className={styles.welcomeLabel}>Welcome to</div>
-          <h1 className={styles.welcomeText}>
-            Hiranandani
-            <br />
-            <em>Portal View</em>
-          </h1>
-          <div className={styles.welcomeRule} />
-          <p className={styles.welcomeCaption}>
-            Your property portfolio, one descent away.
-          </p>
+          <div className={styles.eyebrowRow}>
+            <div className={styles.eyebrow}>Hiranandani Portfolio</div>
+            <div className={styles.dots}>
+              {properties.map((property, i) => (
+                <button
+                  key={property.slug}
+                  type="button"
+                  className={`${styles.dot} ${i === featuredIndex ? styles.dotActive : ""}`}
+                  aria-label={`Feature ${property.name}`}
+                  aria-current={i === featuredIndex}
+                  onClick={() => {
+                    if (i !== featuredIndex) rotateFeatured(() => i);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className={`${styles.featuredWrap} ${featuredFading ? styles.featuredFading : ""}`}>
+            {renderProjectCard(properties[featuredIndex], styles.featured)}
+          </div>
+          <div className={styles.projectGrid}>
+            {properties
+              .filter((_, i) => i !== featuredIndex)
+              .map((property) => renderProjectCard(property))}
+          </div>
         </div>
       </div>
 
-      <div className={styles.status}>
-        {!ready ? (
+      {!ready && (
+        <div className={styles.status}>
           <span className={styles.loading}>Entering orbit&hellip;</span>
-        ) : (
-          <span className={`${styles.prompt} ${entering ? styles.hidden : ""}`}>
-            Click anywhere to enter
-          </span>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className={`${styles.flash} ${entering ? styles.flashOn : ""}`} />
+
+      {openProperty && (
+        <div className={styles.panelOverlay} onClick={closePanel}>
+          <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.panelHeader}>
+              <span>{openProperty.name}</span>
+              <button
+                type="button"
+                className={styles.panelClose}
+                onClick={closePanel}
+                aria-label="Close"
+              >
+                &#10005;
+              </button>
+            </div>
+            <div className={styles.panelBody}>
+              {!frameLoaded && (
+                <div className={styles.panelSkeleton}>
+                  <div className={styles.panelShimmer} />
+                </div>
+              )}
+              <iframe
+                className={styles.panelFrame}
+                src={openProperty.href}
+                title={openProperty.name}
+                onLoad={() => setFrameLoaded(true)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

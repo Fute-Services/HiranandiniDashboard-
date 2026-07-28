@@ -7,14 +7,14 @@
     #05060e;
   color: #f4f2ec;
   font-family: var(--font-grotesk), system-ui, sans-serif;
-  padding: 28px 32px 60px;
+  padding: 40px 40px 64px;
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 28px;
+  margin-bottom: 32px;
 }
 
 .leftGroup {
@@ -71,6 +71,13 @@
   background: rgba(75, 99, 214, 0.48);
 }
 
+.dashboardLink:focus-visible,
+.signout:focus-visible,
+.projectCard:focus-visible {
+  outline: 2px solid #7d94f0;
+  outline-offset: 2px;
+}
+
 .signout {
   font-family: var(--font-mono), monospace;
   font-size: 11px;
@@ -103,21 +110,49 @@
 .title {
   font-size: clamp(24px, 3.4vw, 34px);
   font-weight: 700;
-  margin: 0 0 28px;
+  margin: 0 0 32px;
 }
 
 .statRow {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 14px;
-  margin-bottom: 32px;
+  gap: 16px;
+  margin-bottom: 40px;
 }
 
 .stat {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
   padding: 16px 18px;
+}
+
+.statIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+}
+
+.statIconBlue {
+  color: #7d94f0;
+  background: rgba(75, 99, 214, 0.18);
+}
+
+.statIconIndigo {
+  color: #a78bfa;
+  background: rgba(139, 92, 246, 0.16);
+}
+
+.statIconGold {
+  color: #f2b73b;
+  background: rgba(242, 183, 59, 0.16);
 }
 
 .statLabel {
@@ -126,12 +161,13 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(244, 242, 236, 0.45);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .statValue {
   font-size: 26px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .sectionTitle {
@@ -140,16 +176,30 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: rgba(244, 242, 236, 0.5);
-  margin: 0 0 14px;
+  margin: 0 0 16px;
 }
 
 .empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
   font-size: 14px;
   color: rgba(244, 242, 236, 0.5);
   background: rgba(255, 255, 255, 0.04);
   border: 1px dashed rgba(255, 255, 255, 0.16);
   border-radius: 14px;
-  padding: 24px;
+  padding: 40px 24px;
+}
+
+.empty p {
+  max-width: 360px;
+  margin: 0;
+}
+
+.emptyIcon {
+  color: rgba(125, 148, 240, 0.7);
 }
 
 .table {
@@ -179,6 +229,63 @@
   border-bottom: none;
 }
 
+.table tbody tr {
+  animation: row-in 260ms ease-out backwards;
+  transition: background 0.15s ease;
+}
+
+.table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table tbody tr {
+    animation: none;
+  }
+}
+
+.customer {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.avatar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(125, 148, 240, 0.16);
+  color: #7d94f0;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.leadId {
+  opacity: 0.5;
+  font-size: 11.5px;
+}
+
+.noEvents {
+  opacity: 0.4;
+  font-size: 12.5px;
+}
+
 .tableWrap {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -199,6 +306,190 @@
   max-width: 380px;
 }
 
+/* ---------- charts ---------- */
+
+.chartRow {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.chartCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 18px 20px 16px;
+}
+
+.chartTitle {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.5);
+  margin-bottom: 18px;
+}
+
+.chartEmpty {
+  font-size: 13px;
+  color: rgba(244, 242, 236, 0.4);
+  margin: 0;
+}
+
+/* Trend column chart: one series (session count), so no legend — the card
+   title already names what's plotted. */
+.trendChart {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.trendCol {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  border-radius: 6px;
+}
+
+.trendCol:focus-visible {
+  outline: 2px solid #7d94f0;
+  outline-offset: 4px;
+}
+
+.trendPeakLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #f4f2ec;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+}
+
+.trendTrack {
+  width: 100%;
+  max-width: 22px;
+  height: 110px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.trendBar {
+  width: 100%;
+  min-height: 2px;
+  background: #4b63d6;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.3s ease, background 0.15s ease;
+}
+
+.trendCol:hover .trendBar,
+.trendCol:focus-visible .trendBar {
+  background: #7d94f0;
+}
+
+.trendAxisLabel {
+  margin-top: 8px;
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  color: rgba(244, 242, 236, 0.4);
+  white-space: nowrap;
+}
+
+.trendTooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: #f4f2ec;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 1;
+}
+
+.trendCol:hover .trendTooltip,
+.trendCol:focus-visible .trendTooltip {
+  opacity: 1;
+}
+
+/* Most-shown properties: horizontal bars ranked by count, direct-labeled
+   (there's room on this axis), so no hover is required to read a value. */
+.propBars {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.propRow {
+  display: grid;
+  grid-template-columns: 96px 1fr 28px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 6px;
+}
+
+.propRow:focus-visible {
+  outline: 2px solid #7d94f0;
+  outline-offset: 2px;
+}
+
+.propLabel {
+  font-size: 12px;
+  color: #f4f2ec;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.propTrack {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.propBar {
+  height: 100%;
+  background: #4b63d6;
+  border-radius: 999px;
+  transition: width 0.4s ease, background 0.15s ease;
+}
+
+.propRow:hover .propBar,
+.propRow:focus-visible .propBar {
+  background: #7d94f0;
+}
+
+.propValue {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(244, 242, 236, 0.6);
+  text-align: right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trendBar,
+  .propBar {
+    transition: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .chartRow {
+    grid-template-columns: 1fr;
+  }
+}
+
 .pathStep {
   font-family: var(--font-mono), monospace;
   font-size: 9.5px;
@@ -212,49 +503,4 @@
   border-radius: 999px;
   padding: 3px 8px;
   white-space: nowrap;
-}
-
-/* ---------- projects (admin only) ---------- */
-
-.projectGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 14px;
-  margin-bottom: 36px;
-}
-
-.projectCard {
-  display: flex;
-  flex-direction: column;
-  border-radius: 14px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  transition: transform 0.2s ease, border-color 0.2s ease;
-}
-
-.projectCard:hover {
-  transform: translateY(-4px);
-  border-color: rgba(125, 148, 240, 0.5);
-}
-
-.projectMedia {
-  position: relative;
-  height: 90px;
-}
-
-.projectBody {
-  padding: 10px 12px 12px;
-}
-
-.projectName {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #f4f2ec;
-  margin-bottom: 2px;
-}
-
-.projectLocation {
-  font-size: 11px;
-  color: rgba(244, 242, 236, 0.45);
 }

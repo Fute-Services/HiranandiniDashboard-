@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sales Staff Flow — Hiranandani Property Index</title>
+<style>
+  @font-face {
+    font-family: 'Space Grotesk';
+    src: local('Space Grotesk');
+    font-weight: 400 700;
+  }
+
+  :root {
+    --paper: oklch(0.975 0.006 95);
+    --ink: oklch(0.22 0.02 265);
+    --ink-soft: oklch(0.42 0.02 265);
+    --ink-dim: oklch(0.58 0.015 265);
+    --line: oklch(0.88 0.01 265);
+    --card: oklch(0.99 0.004 95);
+    --accent: #4b63d6;
+    --accent-soft: oklch(0.92 0.03 265);
+    --gold: #c98a1f;
+    --gold-soft: oklch(0.93 0.05 85);
+
+    /* app-frame tokens (mirrors the real product's own dark UI) */
+    --app-bg: #05060e;
+    --app-panel: rgba(255, 255, 255, 0.05);
+    --app-line: rgba(255, 255, 255, 0.12);
+    --app-ink: #f4f2ec;
+    --app-ink-dim: rgba(244, 242, 236, 0.5);
+    --app-blue: #4b63d6;
+    --app-blue-soft: #7d94f0;
+    --app-gold: #f2b73b;
+    --app-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: oklch(0.16 0.014 265);
+      --ink: oklch(0.94 0.006 95);
+      --ink-soft: oklch(0.78 0.012 95);
+      --ink-dim: oklch(0.6 0.012 95);
+      --line: oklch(0.3 0.02 265);
+      --card: oklch(0.2 0.016 265);
+      --accent-soft: oklch(0.28 0.05 265);
+      --gold-soft: oklch(0.28 0.06 85);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: oklch(0.16 0.014 265);
+    --ink: oklch(0.94 0.006 95);
+    --ink-soft: oklch(0.78 0.012 95);
+    --ink-dim: oklch(0.6 0.012 95);
+    --line: oklch(0.3 0.02 265);
+    --card: oklch(0.2 0.016 265);
+    --accent-soft: oklch(0.28 0.05 265);
+    --gold-soft: oklch(0.28 0.06 85);
+  }
+  :root[data-theme="light"] {
+    --paper: oklch(0.975 0.006 95);
+    --ink: oklch(0.22 0.02 265);
+    --ink-soft: oklch(0.42 0.02 265);
+    --ink-dim: oklch(0.58 0.015 265);
+    --line: oklch(0.88 0.01 265);
+    --card: oklch(0.99 0.004 95);
+    --accent-soft: oklch(0.92 0.03 265);
+    --gold-soft: oklch(0.93 0.05 85);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 56px 32px 120px;
+  }
+
+  header.doc {
+    margin-bottom: 64px;
+  }
+
+  .eyebrow {
+    font-family: var(--app-mono);
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 14px;
+  }
+
+  h1 {
+    font-size: clamp(30px, 4.2vw, 46px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+
+  .lede {
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0;
+  }
+
+  /* ---------- timeline ---------- */
+
+  .timeline {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 27px;
+    top: 14px;
+    bottom: 14px;
+    width: 2px;
+    background: linear-gradient(180deg, var(--accent) 0%, var(--line) 12%, var(--line) 88%, var(--gold) 100%);
+    opacity: 0.55;
+  }
+
+  .step {
+    position: relative;
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 28px;
+    padding-bottom: 56px;
+  }
+
+  .step:last-child { padding-bottom: 0; }
+
+  .marker {
+    position: relative;
+    z-index: 1;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 1.5px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--app-mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .step.final .marker {
+    color: var(--gold);
+    border-color: var(--gold);
+    background: var(--gold-soft);
+  }
+
+  .step-body {
+    padding-top: 4px;
+  }
+
+  .step-label {
+    font-family: var(--app-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 6px;
+  }
+
+  .step-title {
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+  }
+
+  .step-desc {
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    max-width: 56ch;
+    margin: 0 0 20px;
+  }
+
+  .step-desc b { color: var(--ink); font-weight: 600; }
+
+  .then {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--app-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 999px;
+    padding: 5px 12px 5px 10px;
+    margin-bottom: 22px;
+  }
+
+  .then svg { flex-shrink: 0; }
+
+  /* ---------- device frame ---------- */
+
+  .frame {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    box-shadow: 0 18px 40px -22px oklch(0 0 0 / 0.35);
+    max-width: 640px;
+  }
+
+  .frame-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 12px;
+    background: oklch(0.93 0.006 95);
+    border-bottom: 1px solid var(--line);
+  }
+  .frame-bar .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: oklch(0.8 0.02 95);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .frame-bar { background: oklch(0.24 0.01 265); }
+  }
+  :root[data-theme="dark"] .frame-bar { background: oklch(0.24 0.01 265); }
+  :root[data-theme="light"] .frame-bar { background: oklch(0.93 0.006 95); }
+
+  .frame-bar .url {
+    margin-left: 8px;
+    font-family: var(--app-mono);
+    font-size: 10.5px;
+    color: var(--ink-dim);
+    letter-spacing: 0.02em;
+  }
+
+  .frame-body {
+    background: var(--app-bg);
+    color: var(--app-ink);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    padding: 0;
+  }
+
+  /* ===== mockup: login ===== */
+
+  .m-login {
+    padding: 22px 24px 26px;
+    background:
+      radial-gradient(420px circle at 15% 10%, rgba(99, 82, 217, 0.25), transparent 60%),
+      radial-gradient(360px circle at 85% 90%, rgba(56, 130, 199, 0.18), transparent 60%),
+      var(--app-bg);
+  }
+  .m-title { font-size: 19px; font-weight: 700; margin: 0 0 2px; color: var(--app-ink); }
+  .m-sub { font-size: 11px; color: var(--app-ink-dim); margin-bottom: 16px; }
+  .m-demolabel {
+    font-family: var(--app-mono); font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: rgba(244,242,236,0.4); margin: 14px 0 8px;
+  }
+  .m-rolebtn {
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--app-mono); font-size: 11px; color: var(--app-ink);
+    background: var(--app-panel); border: 1px solid var(--app-line); border-radius: 9px;
+    padding: 9px 12px; margin-bottom: 7px;
+  }
+  .m-rolebtn.active { border-color: var(--app-blue-soft); background: rgba(75,99,214,0.14); }
+  .m-roletag { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--app-blue-soft); }
+
+  /* ===== mockup: session start ===== */
+
+  .m-sessionstart { padding: 24px; }
+  .m-lead-card {
+    background: var(--app-panel); border: 1px solid var(--app-line); border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .m-tag { font-family: var(--app-mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--app-ink-dim); margin-bottom: 6px;}
+  .m-lead-name { font-size: 18px; font-weight: 700; color: var(--app-ink); margin-bottom: 10px; }
+  .m-badge {
+    display: inline-block; font-family: var(--app-mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--app-blue-soft); background: rgba(75,99,214,0.16); border: 1px solid rgba(125,148,240,0.4);
+    border-radius: 999px; padding: 4px 10px; margin-bottom: 16px;
+  }
+  .m-gridwrap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 22px; margin-bottom: 18px; }
+  .m-gi-label { font-family: var(--app-mono); font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--app-ink-dim); margin-bottom: 3px; }
+  .m-gi-value { font-size: 13px; color: var(--app-ink); }
+  .m-startbtn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: var(--app-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #fff;
+    background: var(--app-blue); border-radius: 10px; padding: 12px; box-shadow: 0 0 18px -4px rgba(75,99,214,0.7);
+  }
+
+  /* ===== mockup: space/earth ===== */
+
+  .m-space { position: relative; height: 230px; background: #000; overflow: hidden; }
+  .m-earth {
+    position: absolute; right: 14%; top: 50%; width: 190px; height: 190px; border-radius: 50%;
+    transform: translateY(-50%);
+    background:
+      radial-gradient(circle at 32% 30%, #bfe3ff 0%, #4d96d8 24%, #1b3b74 55%, #0a1730 78%, transparent 80%),
+      radial-gradient(circle at 68% 72%, rgba(20,26,46,0.9), transparent 40%);
+    box-shadow: 0 0 50px 6px rgba(77,150,216,0.35);
+  }
+  .m-earth::after {
+    content: ""; position: absolute; inset: -6px; border-radius: 50%;
+    box-shadow: inset 0 0 30px 10px rgba(6,7,14,0.6);
+  }
+  .m-space-grid {
+    position: absolute; left: 20px; top: 20px; bottom: 20px; width: 44%;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: center;
+  }
+  .m-space-card {
+    background: rgba(13,13,24,0.6); border: 1px solid rgba(255,255,255,0.14); border-radius: 8px;
+    height: 46px; display: flex; align-items: flex-end; padding: 5px 7px;
+    font-size: 9px; color: var(--app-ink); font-weight: 600;
+  }
+  .m-eyebrow-space {
+    position: absolute; left: 20px; top: 20px; transform: translateY(-16px);
+    font-family: var(--app-mono); font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.5);
+  }
+
+  /* ===== mockup: panel ===== */
+
+  .m-panel { height: 230px; display: flex; flex-direction: column; background: #0d0d18; }
+  .m-panel-bar {
+    flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; font-family: var(--app-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--app-ink); background: rgba(255,255,255,0.04); border-bottom: 1px solid var(--app-line);
+  }
+  .m-panel-close {
+    width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center;
+    background: rgba(220,60,50,0.25); border: 1px solid rgba(255,120,110,0.4); color: #ff7a6b; font-size: 9px;
+  }
+  .m-panel-site {
+    flex: 1; background: linear-gradient(180deg, #dfe9f3, #c8d6e6);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--app-mono); font-size: 10px; letter-spacing: 0.08em; color: #4a5a70;
+  }
+
+  /* ===== mockup: dashboard/showcase ===== */
+
+  .m-showcase { position: relative; height: 230px; background: linear-gradient(180deg, #2d3d2a, #1b2a20 60%, #0d1712); overflow: hidden; }
+  .m-sc-header {
+    position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; font-family: var(--app-mono); font-size: 9px; color: #fff;
+  }
+  .m-sc-brand { display: flex; align-items: center; gap: 8px; letter-spacing: 0.14em; text-transform: uppercase; }
+  .m-sc-timer {
+    font-family: var(--app-mono); font-size: 10px; font-variant-numeric: tabular-nums; color: #fff;
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); border-radius: 999px; padding: 4px 9px;
+  }
+  .m-sc-end {
+    font-family: var(--app-mono); font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #fff;
+    background: rgba(75,99,214,0.35); border: 1px solid rgba(125,148,240,0.55); border-radius: 999px; padding: 4px 9px;
+  }
+  .m-sc-shelf {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 14px 14px;
+    background: linear-gradient(180deg, transparent, rgba(6,7,14,0.75) 40%);
+  }
+  .m-sc-cards { display: flex; gap: 8px; }
+  .m-sc-card {
+    width: 78px; flex-shrink: 0; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 8px; padding: 6px 7px; font-size: 8.5px; color: #fff;
+  }
+  .m-sc-card .n { opacity: 0.55; font-family: var(--app-mono); font-size: 7.5px; }
+
+  /* ===== mockup: reporting ===== */
+
+  .m-report { padding: 20px 22px; }
+  .m-rep-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .m-rep-stat {
+    display: flex; align-items: center; gap: 9px; background: var(--app-panel); border: 1px solid var(--app-line);
+    border-radius: 10px; padding: 10px 11px;
+  }
+  .m-rep-ic { width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0; display:flex;align-items:center;justify-content:center; }
+  .m-rep-ic.blue { background: rgba(75,99,214,0.18); color: var(--app-blue-soft); }
+  .m-rep-ic.purple { background: rgba(139,92,246,0.16); color: #a78bfa; }
+  .m-rep-ic.gold { background: rgba(242,183,59,0.16); color: var(--app-gold); }
+  .m-rep-label { font-family: var(--app-mono); font-size: 7.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--app-ink-dim); }
+  .m-rep-value { font-size: 15px; font-weight: 700; color: var(--app-ink); font-variant-numeric: tabular-nums; }
+  .m-rep-table { border: 1px solid var(--app-line); border-radius: 10px; overflow: hidden; }
+  .m-rep-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; padding: 9px 12px; font-size: 10.5px; color: var(--app-ink); border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .m-rep-row:last-child { border-bottom: none; }
+  .m-rep-row.head { font-family: var(--app-mono); font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--app-ink-dim); background: rgba(255,255,255,0.03); }
+  .m-rep-cust { display: flex; align-items: center; gap: 7px; }
+  .m-avatar { width: 18px; height: 18px; border-radius: 50%; background: rgba(125,148,240,0.18); color: var(--app-blue-soft); font-family: var(--app-mono); font-size: 7px; display:flex;align-items:center;justify-content:center; }
+
+  /* ---------- footer ---------- */
+
+  .foot {
+    margin-top: 72px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 620px) {
+    .step { grid-template-columns: 40px 1fr; gap: 16px; }
+    .marker { width: 40px; height: 40px; font-size: 11px; }
+    .timeline::before { left: 19px; }
+    .m-gridwrap { grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .step { animation: rise 0.5s ease-out backwards; }
+    .step:nth-child(1) { animation-delay: 0.02s; }
+    .step:nth-child(2) { animation-delay: 0.08s; }
+    .step:nth-child(3) { animation-delay: 0.14s; }
+    .step:nth-child(4) { animation-delay: 0.2s; }
+    .step:nth-child(5) { animation-delay: 0.26s; }
+    .step:nth-child(6) { animation-delay: 0.32s; }
+    .step:nth-child(7) { animation-delay: 0.38s; }
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="doc">
+    <div class="eyebrow">Property Index &middot; Sales Staff</div>
+    <h1>What happens, step by step</h1>
+    <p class="lede">
+      The full path a sales-staff account takes from signing in to a customer
+      session showing up in the manager's report — each step paired with what
+      the screen actually looks like right now, and what happens the moment
+      after.
+    </p>
+  </header>
+
+  <div class="timeline">
+
+    <div class="step">
+      <div class="marker">01</div>
+      <div class="step-body">
+        <div class="step-label">/login</div>
+        <h2 class="step-title">Sign in</h2>
+        <p class="step-desc">
+          Staff signs in with their credentials, or for a demo, one click on
+          the <b>Sales Staff</b> role card.
+        </p>
+        <span class="then">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          Then: lands on the lead search screen
+        </span>
+        <div class="frame">
+          <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">/login</span></div>
+          <div class="frame-body">
+            <div class="m-login">
+              <div class="m-title">HIRANANDANI</div>
+              <div class="m-sub">Sign in to manage your property portfolio.</div>
+              <div class="m-demolabel">Demo mode</div>
+              <div class="m-rolebtn"><span>Admin</span><span class="m-roletag">admin</span></div>
+              <div class="m-rolebtn"><span>Priya Kulkarni</span><span class="m-roletag">sales manager</span></div>
+              <div class="m-rolebtn active"><span>Sales Staff</span><span class="m-roletag">sales staff</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="marker">02</div>
+      <div class="step-body">
+        <div class="step-label">/session/start</div>
+        <h2 class="step-title">Find the customer</h2>
+        <p class="step-desc">
+          Staff searches by lead ID or phone number. A match shows the full
+          lead profile &mdash; budget, preferred project, family size, loan
+          requirement &mdash; pulled from the mock lead directory.
+        </p>
+        <span class="then">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          Then: tap Start Session
+        </span>
+        <div class="frame">
+          <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">/session/start</span></div>
+          <div class="frame-body">
+            <div class="m-sessionstart">
+              <div class="m-lead-card">
+                <div class="m-tag">Customer found</div>
+                <div class="m-lead-name">Arjun &amp; Kavita Shah</div>
+                <span class="m-badge">Negotiation</span>
+                <div class="m-gridwrap">
+                  <div><div class="m-gi-label">Budget</div><div class="m-gi-value">&#8377;3.2 Cr+</div></div>
+                  <div><div class="m-gi-label">Preferred project</div><div class="m-gi-value">Golden Willows</div></div>
+                  <div><div class="m-gi-label">Family size</div><div class="m-gi-value">5</div></div>
+                  <div><div class="m-gi-label">Previous visits</div><div class="m-gi-value">3</div></div>
+                </div>
+                <div class="m-startbtn">Start Session &#8599;</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="marker">03</div>
+      <div class="step-body">
+        <div class="step-label">/space</div>
+        <h2 class="step-title">Orbital approach</h2>
+        <p class="step-desc">
+          A live session starts the instant Start Session is tapped (timer
+          begins here). A slowly spinning, realistically-lit Earth appears
+          with the full property portfolio laid out as a card grid on the left.
+        </p>
+        <span class="then">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          Then: pick a project card
+        </span>
+        <div class="frame">
+          <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">/space</span></div>
+          <div class="frame-body">
+            <div class="m-space">
+              <div class="m-eyebrow-space">Hiranandani Portfolio</div>
+              <div class="m-space-grid">
+                <div class="m-space-card">The Arena</div>
+                <div class="m-space-card">Elena</div>
+                <div class="m-space-card">Ebony</div>
+                <div class="m-space-card">Golden Willows</div>
+              </div>
+              <div class="m-earth"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="marker">04</div>
+      <div class="step-body">
+        <div class="step-label">/space &middot; project panel</div>
+        <h2 class="step-title">Dive in, project opens</h2>
+        <p class="step-desc">
+          Clicking a card plays a 1.5s camera dive toward the globe, then a
+          full-screen in-page panel opens with that property's site loaded
+          inside &mdash; no new browser tab. A small bar up top shows the
+          project name and a close control; closing returns to the same Earth
+          screen to pick another.
+        </p>
+        <span class="then">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          Then: close the panel, or continue to the VR tour
+        </span>
+        <div class="frame">
+          <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">/space &middot; panel</span></div>
+          <div class="frame-body">
+            <div class="m-panel">
+              <div class="m-panel-bar"><span>The Arena</span><span class="m-panel-close">&#10005;</span></div>
+              <div class="m-panel-site">hiranandanifortunecity.com/arena &middot; loaded in an iframe</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="marker">05</div>
+      <div class="step-body">
+        <div class="step-label">/dashboard</div>
+        <h2 class="step-title">Run the presentation</h2>
+        <p class="step-desc">
+          The 360&deg; VR tour plays full-screen behind everything; a frosted
+          shelf along the bottom holds every property card for the customer
+          to browse. The header shows a running <b>mm:ss</b> session timer the
+          whole time.
+        </p>
+        <span class="then">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          Then: tap End Session when the walkthrough is done
+        </span>
+        <div class="frame">
+          <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">/dashboard</span></div>
+          <div class="frame-body">
+            <div class="m-showcase">
+              <div class="m-sc-header">
+                <div class="m-sc-brand">&#9670; Property Index</div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span class="m-sc-timer">04:12</span>
+                  <span class="m-sc-end">End Session</span>
+                </div>
+              </div>
+              <div class="m-sc-shelf">
+                <div class="m-sc-cards">
+                  <div class="m-sc-card"><div class="n">01</div>The Arena</div>
+                  <div class="m-sc-card"><div class="n">02</div>Elena</div>
+                  <div class="m-sc-card"><div class="n">03</div>Ebony</div>
+                  <div class="m-sc-card"><div class="n">04</div>Golden Willows</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step final">
+      <div class="marker">06</div>
+      <div class="step-body">
+        <div class="step-label">/admin/dashboard &middot; /manager/dashboard</div>
+        <h2 class="step-title">Session lands in reporting</h2>
+        <p class="step-desc">
+          Ending the session logs total time, which cards were opened and
+          when, the customer, and which staff member ran it. It shows up
+          immediately in the <b>admin</b> dashboard (every session) and that
+          staff member's <b>manager</b> dashboard (their team only) &mdash;
+          staff is handed back to lead search, ready for the next customer.
+        </p>
+        <div class="frame">
+          <div class="frame-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">/admin/dashboard</span></div>
+          <div class="frame-body">
+            <div class="m-report">
+              <div class="m-rep-stats">
+                <div class="m-rep-stat"><div class="m-rep-ic blue">&#128197;</div><div><div class="m-rep-label">Today</div><div class="m-rep-value">6</div></div></div>
+                <div class="m-rep-stat"><div class="m-rep-ic purple">&#128101;</div><div><div class="m-rep-label">Total</div><div class="m-rep-value">42</div></div></div>
+                <div class="m-rep-stat"><div class="m-rep-ic gold">&#9200;</div><div><div class="m-rep-label">Avg. time</div><div class="m-rep-value">6m</div></div></div>
+              </div>
+              <div class="m-rep-table">
+                <div class="m-rep-row head"><span>Customer</span><span>Staff</span><span>Duration</span></div>
+                <div class="m-rep-row"><span class="m-rep-cust"><span class="m-avatar">AS</span>Arjun &amp; Kavita</span><span>Sales Staff</span><span>4m 12s</span></div>
+                <div class="m-rep-row"><span class="m-rep-cust"><span class="m-avatar">RM</span>Rakesh Mehta</span><span>Sales Staff</span><span>7m 40s</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <span>Hiranandani Property Index &middot; internal workflow reference</span>
+    <span>6 steps &middot; login to reporting</span>
+  </div>
+</div>
+</body>
+</html>

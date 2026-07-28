@@ -5,7 +5,6 @@ export default function AdminDashboardPage() {
     <SessionReports
       brandLabel="Admin Dashboard"
       title="All Presentation Sessions"
-      showProjects
     />
   );
 }

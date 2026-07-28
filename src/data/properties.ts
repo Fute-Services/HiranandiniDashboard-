@@ -47,6 +47,7 @@ export const properties: Property[] = [
     name: "Golden Willows",
     location: "Hiranandani Fortune City",
     href: "https://hiranandanigoldenwillows.com",
+    image: "https://hiranandanigoldenwillows.com/assets/galleryy/Zenia01.webp",
   },
   {
     slug: "club-house",
@@ -60,5 +61,9 @@ export const properties: Property[] = [
     name: "Quality",
     location: "Hiranandani Fortune City",
     href: "https://hiranandanifortunecity.com/quality",
+    // "Quality"'s own page is a construction-standards video with no static
+    // photo asset at all; using a real Fortune City tower render instead of
+    // a placeholder, since there's nothing project-specific to point to.
+    image: "https://hiranandanigoldenwillows.com/assets/galleryy/aster%201.webp",
   },
 ];

@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { SPACE_PATH } from "@/lib/auth";
+import { clearSessionCookies, LOGIN_PATH, SPACE_PATH } from "@/lib/auth";
 import { createWalkInLead, findLead, type Lead } from "@/lib/leads";
 import { setActiveSession } from "@/lib/session";
-import { BackButton } from "./BackButton";
 import styles from "./SessionStart.module.css";
 
 /**
@@ -37,9 +36,17 @@ export function SessionStart() {
     router.push(SPACE_PATH);
   }
 
+  function signOut() {
+    clearSessionCookies();
+    router.push(LOGIN_PATH);
+    router.refresh();
+  }
+
   return (
     <div className={styles.page}>
-      <BackButton />
+      <button type="button" className={styles.logout} onClick={signOut}>
+        Log out
+      </button>
       <div className={styles.card}>
         {!match ? (
           <>
@@ -127,7 +134,7 @@ export function SessionStart() {
             </div>
 
             <button type="button" className={styles.submit} onClick={() => start(match)}>
-              Start Presentation&nbsp;&#8599;
+              Start Session&nbsp;&#8599;
             </button>
 
             <button type="button" className={styles.back} onClick={() => setMatch(null)}>

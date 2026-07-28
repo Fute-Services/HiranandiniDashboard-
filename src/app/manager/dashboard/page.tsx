@@ -5,7 +5,6 @@ export default function ManagerDashboardPage() {
     <SessionReports
       brandLabel="Sales Manager"
       title="Sales Staff Activity"
-      showProjects
     />
   );
 }

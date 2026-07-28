@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { JetBrains_Mono } from "next/font/google";
 import { landingPathForRole, setSessionCookies } from "@/lib/auth";
 import { findUser, USERS, type User } from "@/lib/users";
-import { BackButton } from "@/components/BackButton";
 import styles from "./login.module.css";
 
 // The design sets its mono labels in JetBrains Mono; the rest of the site uses
@@ -59,6 +58,19 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
+  // .page clips its own content, but the document itself (html/body) can still
+  // scroll if anything is a hair taller than the viewport. Lock it at the
+  // document level while this page is mounted, restore on navigate-away.
+  useEffect(() => {
+    const { overflow } = document.body.style;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = overflow;
+    };
+  }, []);
+
   // No auth backend yet: match against the mock user directory, and on
   // success mark the session with cookies the middleware/pages check to gate
   // routes and branch on role. Swap findUser for a real sign-in call (Sperto
@@ -85,26 +97,6 @@ export default function LoginPage() {
 
   return (
     <div className={`${styles.page} ${jetbrains.variable}`}>
-      <header className={styles.header}>
-        <div className={styles.leftGroup}>
-          <BackButton floating={false} />
-          <div className={styles.brand}>
-            <span className={styles.diamond}>◆</span>
-            <span className={`${styles.mono} ${styles.brandName}`}>
-              PROPERTY&nbsp;INDEX
-            </span>
-          </div>
-        </div>
-        <div className={styles.meta}>
-          <div className={`${styles.mono} ${styles.metaCorp}`}>
-            HIRANANDANI
-          </div>
-          <div className={`${styles.mono} ${styles.metaAccess}`}>
-            SECURE&nbsp;ACCESS&nbsp;·&nbsp;2026
-          </div>
-        </div>
-      </header>
-
       <main className={styles.main}>
         <div className={styles.card}>
           <section className={styles.aside}>
@@ -201,27 +193,17 @@ export default function LoginPage() {
               <span className={styles.demoLabel}>DEMO&nbsp;MODE</span>
             </div>
             <div className={styles.demoButtons}>
-              {USERS.map((user) => {
-                const managerName = user.managerEmail
-                  ? USERS.find((u) => u.email === user.managerEmail)?.name
-                  : undefined;
-                return (
-                  <button
-                    key={user.email}
-                    type="button"
-                    className={styles.demoButton}
-                    onClick={() => signInAs(user)}
-                  >
-                    <span>
-                      {user.name}
-                      {managerName && (
-                        <span className={styles.demoTeam}> &middot; reports to {managerName}</span>
-                      )}
-                    </span>
-                    <span className={styles.demoRole}>{user.role.replace("_", " ")}</span>
-                  </button>
-                );
-              })}
+              {USERS.map((user) => (
+                <button
+                  key={user.email}
+                  type="button"
+                  className={styles.demoButton}
+                  onClick={() => signInAs(user)}
+                >
+                  <span>{user.name}</span>
+                  <span className={styles.demoRole}>{user.role.replace("_", " ")}</span>
+                </button>
+              ))}
             </div>
           </section>
         </div>

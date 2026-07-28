@@ -20,6 +20,13 @@ const VR_TOUR_URL = "https://futeservices.com/25-26/V2/VR_10/index.html";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
+function formatElapsed(ms: number) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  return `${pad2(mins)}:${pad2(secs)}`;
+}
+
 /**
  * Where the Earth hands off to: the 360° VR tour plays fully sharp, always,
  * since the panorama is the visual lead. Property cards live in a frosted-glass
@@ -32,6 +39,7 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   const cardsRef = useRef<HTMLDivElement>(null);
   const [session, setSession] = useState<ActiveSession | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
     const active = getActiveSession();
@@ -43,6 +51,15 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
     setIsAdmin(getSession()?.role === "admin");
     recordStepEnter("presentation");
   }, [router]);
+
+  useEffect(() => {
+    if (!session) return;
+    setElapsedMs(Date.now() - session.startedAt);
+    const id = window.setInterval(() => {
+      setElapsedMs(Date.now() - session.startedAt);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [session]);
 
   const endSession = useCallback(() => {
     const staff = getSession();
@@ -83,6 +100,7 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
           </div>
         </div>
         <div className={styles.headerRight}>
+          {session && <span className={styles.timer}>{formatElapsed(elapsedMs)}</span>}
           {!isAdmin && (
             <button type="button" className={styles.endSession} onClick={endSession}>
               End Session
