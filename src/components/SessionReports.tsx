@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearSessionCookies, getSession, LOGIN_PATH, SPACE_PATH } from "@/lib/auth";
+import { getBlockedProjectsFor, kickStaff, setProjectBlockedFor } from "@/lib/controls";
 import { createWalkInLead } from "@/lib/leads";
 import { getSessionLog, type SessionSummary } from "@/lib/reports";
 import { setActiveSession } from "@/lib/session";
+import { USERS } from "@/lib/users";
+import { properties } from "@/data/properties";
 import styles from "./SessionReports.module.css";
 
 function formatDuration(ms: number) {
@@ -150,7 +153,12 @@ function TrendChart({ data }: { data: { label: string; count: number }[] }) {
             <span className={styles.trendTooltip}>
               {d.count} on {d.label}
             </span>
-            {i % 2 === 0 && <span className={styles.trendAxisLabel}>{d.label}</span>}
+            <span
+              className={styles.trendAxisLabel}
+              style={i % 2 === 0 ? undefined : { visibility: "hidden" }}
+            >
+              {d.label}
+            </span>
           </div>
         ))}
       </div>
@@ -190,6 +198,119 @@ function TopPropertiesChart({ data }: { data: { label: string; count: number }[]
   );
 }
 
+/** Admin/manager controls: force-logout a sales staff member (their own tab
+ * polls for this, see PropertyShowcase + lib/controls.ts), and, with many
+ * sales staff on the roster, pick one and set which projects are active vs.
+ * blocked just for them (per-staff, not one global switch for everyone).
+ * Sales managers only see and control their own team. */
+function ControlsPanel({ staff }: { staff: { email: string; name: string }[] }) {
+  const [kicked, setKicked] = useState<Set<string>>(new Set());
+  const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<string[]>([]);
+
+  // Default to the first staff member so the Projects card never sits empty
+  // with just a "pick someone" placeholder when there's an obvious one to show.
+  useEffect(() => {
+    if (!selectedEmail && staff.length > 0) setSelectedEmail(staff[0].email);
+  }, [staff, selectedEmail]);
+
+  useEffect(() => {
+    if (!selectedEmail) {
+      setBlocked([]);
+      return;
+    }
+    let cancelled = false;
+    getBlockedProjectsFor(selectedEmail).then((slugs) => {
+      if (!cancelled) setBlocked(slugs);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEmail]);
+
+  const forceLogout = (email: string) => {
+    kickStaff(email);
+    setKicked((prev) => new Set(prev).add(email));
+  };
+
+  const toggleBlocked = (slug: string) => {
+    if (!selectedEmail) return;
+    const next = !blocked.includes(slug);
+    setProjectBlockedFor(selectedEmail, slug, next);
+    setBlocked((prev) => (next ? [...prev, slug] : prev.filter((s) => s !== slug)));
+  };
+
+  const selectedStaff = staff.find((s) => s.email === selectedEmail) ?? null;
+
+  return (
+    <div className={styles.controlsStack}>
+      <div className={styles.chartCard}>
+        <div className={styles.chartTitle}>Sales Staff</div>
+        {staff.length === 0 ? (
+          <p className={styles.chartEmpty}>No sales staff on this team yet.</p>
+        ) : (
+          <div className={styles.staffList}>
+            {staff.map((s) => (
+              <div
+                key={s.email}
+                className={`${styles.staffRow} ${styles.staffRowSelectable} ${
+                  s.email === selectedEmail ? styles.staffRowSelected : ""
+                }`}
+                tabIndex={0}
+                role="button"
+                aria-pressed={s.email === selectedEmail}
+                onClick={() => setSelectedEmail(s.email)}
+                onKeyDown={(e) => e.key === "Enter" && setSelectedEmail(s.email)}
+              >
+                <div>
+                  <div className={styles.staffName}>{s.name}</div>
+                  <div className={styles.staffEmail}>{s.email}</div>
+                </div>
+                <button
+                  type="button"
+                  className={styles.kickBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    forceLogout(s.email);
+                  }}
+                >
+                  {kicked.has(s.email) ? "Signal Sent" : "Force Logout"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className={styles.chartCard}>
+        <div className={styles.chartTitle}>
+          Projects{selectedStaff ? ` · ${selectedStaff.name}` : ""}
+        </div>
+        {!selectedStaff ? (
+          <p className={styles.chartEmpty}>Select a sales staff member to manage their projects.</p>
+        ) : (
+          <div className={styles.staffList}>
+            {properties.map((p) => {
+              const isBlocked = blocked.includes(p.slug);
+              return (
+                <div key={p.slug} className={styles.staffRow}>
+                  <div className={styles.staffName}>{p.name}</div>
+                  <button
+                    type="button"
+                    className={`${styles.blockBtn} ${isBlocked ? styles.blockBtnBlocked : ""}`}
+                    onClick={() => toggleBlocked(p.slug)}
+                  >
+                    {isBlocked ? "Blocked" : "Active"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
  * The reporting view shared by both `/admin/dashboard` and
  * `/manager/dashboard` (questionnaire §6): a projects overview, Today's
@@ -210,14 +331,13 @@ export function SessionReports({
 }) {
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
+  const [viewer, setViewer] = useState<ReturnType<typeof getSession>>(null);
 
   useEffect(() => {
     const all = getSessionLog();
-    const viewer = getSession();
-    const scoped =
-      viewer?.role === "sales_manager"
-        ? all.filter((s) => s.managerEmail === viewer.email)
-        : all;
+    const v = getSession();
+    setViewer(v);
+    const scoped = v?.role === "sales_manager" ? all.filter((s) => s.managerEmail === v.email) : all;
     setSessions([...scoped].reverse());
   }, []);
 
@@ -240,6 +360,11 @@ export function SessionReports({
     list.length > 0 ? list.reduce((sum, s) => sum + s.totalTimeMs, 0) / list.length : 0;
   const dayCounts = buildDayCounts(list);
   const topProperties = buildTopProperties(list);
+  const staffList = USERS.filter(
+    (u) =>
+      u.role === "sales_staff" &&
+      (viewer?.role === "admin" || (viewer?.role === "sales_manager" && u.managerEmail === viewer.email)),
+  );
 
   return (
     <div className={styles.page}>
@@ -286,6 +411,8 @@ export function SessionReports({
           </div>
         </div>
       </div>
+
+      {viewer && <ControlsPanel staff={staffList} />}
 
       {list.length > 0 && (
         <div className={styles.chartRow}>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Property } from "@/data/properties";
 import { clearSessionCookies, getSession, LOGIN_PATH, SESSION_START_PATH } from "@/lib/auth";
+import { getBlockedProjectsFor } from "@/lib/controls";
 import { findUserByEmail } from "@/lib/users";
 import {
   clearActiveSession,
@@ -40,6 +41,7 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   const [session, setSession] = useState<ActiveSession | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [blockedSlugs, setBlockedSlugs] = useState<string[]>([]);
 
   useEffect(() => {
     const active = getActiveSession();
@@ -51,6 +53,32 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
     setIsAdmin(getSession()?.role === "admin");
     recordStepEnter("presentation");
   }, [router]);
+
+  /** Lets an admin/manager block a project out of this staff member's
+   * showcase mid-session (see SessionReports's Sales Staff/Projects panel
+   * and `/api/controls`). Force-logout itself is handled globally by
+   * `KickWatcher` (root layout) so it works on every page, not just this
+   * one. Polls as a fallback, but also reacts instantly to visibilitychange
+   * /focus, since background tabs throttle setInterval. */
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      const email = getSession()?.email;
+      const slugs = email ? await getBlockedProjectsFor(email) : [];
+      if (!cancelled) setBlockedSlugs(slugs);
+    };
+    poll();
+    const id = window.setInterval(poll, 2000);
+    const onVisible = () => document.visibilityState === "visible" && poll();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", poll);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", poll);
+    };
+  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -125,7 +153,9 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
         <div className={styles.shelf}>
           <div className={styles.shelfLabel}>Hiranandani Portfolio &middot; 2026</div>
           <div className={styles.cards} ref={cardsRef}>
-            {properties.map((property, i) => (
+            {properties
+              .filter((property) => !blockedSlugs.includes(property.slug))
+              .map((property, i) => (
               <a
                 key={property.slug}
                 className={styles.card}
