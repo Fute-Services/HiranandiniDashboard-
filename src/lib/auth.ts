@@ -12,6 +12,10 @@ export const ROLE_COOKIE = "hiranandani_role";
 export const NAME_COOKIE = "hiranandani_name";
 /** Needed to look a signed-in sales_staff member's manager back up (team scoping). */
 export const EMAIL_COOKIE = "hiranandani_email";
+/** Groups every activity-log event (src/lib/activity.ts) from this login
+ * until logout under one id, so the admin/manager timeline can tell distinct
+ * login sessions apart. */
+export const SESSION_ID_COOKIE = "hiranandani_session_id";
 export const AUTH_MAX_AGE = 60 * 60 * 24 * 7; // 7 days, in seconds
 export const LOGIN_PATH = "/login";
 /** Intro splash, public and shown before login on every visit. */
@@ -34,13 +38,18 @@ export function landingPathForRole(role: Role): string {
   return SESSION_START_PATH;
 }
 
-/** Sets every session cookie a fresh sign-in needs. Client-side only. */
-export function setSessionCookies(role: Role, name: string, email: string) {
+/** Sets every session cookie a fresh sign-in needs, including a fresh
+ * activity-log session id. Client-side only. Returns that session id so the
+ * caller can log the "login" activity event against it immediately. */
+export function setSessionCookies(role: Role, name: string, email: string): string {
   const opts = `path=/; max-age=${AUTH_MAX_AGE}; samesite=lax`;
+  const sessionId = crypto.randomUUID();
   document.cookie = `${AUTH_COOKIE}=1; ${opts}`;
   document.cookie = `${ROLE_COOKIE}=${role}; ${opts}`;
   document.cookie = `${NAME_COOKIE}=${encodeURIComponent(name)}; ${opts}`;
   document.cookie = `${EMAIL_COOKIE}=${encodeURIComponent(email)}; ${opts}`;
+  document.cookie = `${SESSION_ID_COOKIE}=${sessionId}; ${opts}`;
+  return sessionId;
 }
 
 /** Clears every session cookie. Client-side only. */
@@ -50,6 +59,13 @@ export function clearSessionCookies() {
   document.cookie = `${ROLE_COOKIE}=; ${expire}`;
   document.cookie = `${NAME_COOKIE}=; ${expire}`;
   document.cookie = `${EMAIL_COOKIE}=; ${expire}`;
+  document.cookie = `${SESSION_ID_COOKIE}=; ${expire}`;
+}
+
+/** The current login session's activity-log id (see SESSION_ID_COOKIE), or
+ * null before any sign-in has set one. Client-side only. */
+export function getSessionId(): string | null {
+  return readCookie(SESSION_ID_COOKIE) ?? null;
 }
 
 function readCookie(name: string): string | undefined {

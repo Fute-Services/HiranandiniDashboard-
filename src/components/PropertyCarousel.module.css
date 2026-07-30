@@ -4,7 +4,7 @@
   height: 100dvh;
   background: var(--bg);
   color: var(--ink);
-  font-family: var(--font-grotesk), system-ui, sans-serif;
+  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -349,7 +349,7 @@
   background: none;
   cursor: pointer;
   padding: 2px 0;
-  font-family: var(--font-grotesk), sans-serif;
+  font-family: var(--font-grotesk, "Space Grotesk"), sans-serif;
   font-size: 15px;
   color: var(--ink-muted);
   font-weight: 400;

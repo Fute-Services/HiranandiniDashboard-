@@ -25,6 +25,10 @@ body {
   margin: 0;
   padding: 0;
   background: var(--bg);
+  /* Root-level fallback: without this, any component that forgets to set
+     its own font-family (as EarthPortal did) silently renders in the
+     browser's default serif instead of the app's intended sans. */
+  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 a {

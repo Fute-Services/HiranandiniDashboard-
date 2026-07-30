@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Space_Mono } from "next/font/google";
 import { KickWatcher } from "@/components/KickWatcher";
+import { IdleLogoutWatcher } from "@/components/IdleLogoutWatcher";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -32,6 +33,7 @@ export default function RootLayout({
     <html lang="en" className={`${spaceGrotesk.variable} ${spaceMono.variable}`}>
       <body>
         <KickWatcher />
+        <IdleLogoutWatcher />
         {children}
       </body>
     </html>

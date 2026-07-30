@@ -6,7 +6,7 @@
   overflow: hidden;
   background: #000;
   color: var(--ink);
-  font-family: var(--font-grotesk), system-ui, sans-serif;
+  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
 }
 
 /* The 360° VR tour plays behind everything, fully sharp, no blur, since the
@@ -162,6 +162,52 @@
   background: rgba(220, 60, 50, 0.38);
   border-color: rgba(255, 150, 140, 0.65);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 10px 26px -10px rgba(209, 59, 50, 0.75);
+}
+
+/* ---------- meeting notes ---------- */
+
+.notesBar {
+  position: fixed;
+  top: 78px;
+  right: 20px;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+}
+
+.notesInput {
+  width: 220px;
+  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
+  font-size: 12.5px;
+  color: #fff;
+  background: rgba(10, 12, 24, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 8px 14px;
+}
+
+.notesInput::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.notesBtn {
+  flex-shrink: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(75, 99, 214, 0.32);
+  border: 1px solid rgba(125, 148, 240, 0.5);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.notesBtn:hover {
+  background: rgba(75, 99, 214, 0.5);
 }
 
 /* ---------- bottom glass shelf ---------- */
@@ -414,4 +460,168 @@
   .customer {
     display: none;
   }
+}
+
+/* ---------- busy/available toggle ---------- */
+
+.busyToggle {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.busyToggleActive {
+  color: #ffe4e1;
+  background: rgba(209, 59, 50, 0.28);
+  border-color: rgba(255, 120, 110, 0.45);
+}
+
+/* ---------- per-project details (floor plan / gallery / amenities / brochure) ---------- */
+
+.detailsDock {
+  position: fixed;
+  left: 50%;
+  bottom: 128px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: min(90vw, 720px);
+  transform: translateX(-50%);
+}
+
+.detailsBtn {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(10, 12, 24, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.detailsBtn:hover {
+  background: rgba(75, 99, 214, 0.35);
+  border-color: rgba(125, 148, 240, 0.5);
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  width: min(520px, 92vw);
+  max-height: 82vh;
+  overflow-y: auto;
+  background: #0c0e1a;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 20px 22px 24px;
+  color: #f4f2ec;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.modalTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.modalClose {
+  font-size: 20px;
+  line-height: 1;
+  color: rgba(244, 242, 236, 0.6);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.modalClose:hover {
+  color: #fff;
+}
+
+.modalTabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.modalTab {
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.6);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 7px 13px;
+  cursor: pointer;
+}
+
+.modalTabActive {
+  color: #fff;
+  background: rgba(75, 99, 214, 0.35);
+  border-color: rgba(125, 148, 240, 0.55);
+}
+
+.modalBody {
+  min-height: 160px;
+}
+
+.modalMedia {
+  position: relative;
+  height: 220px;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.amenitiesList {
+  margin: 0;
+  padding: 0 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13.5px;
+}
+
+.brochureBlurb {
+  font-size: 13px;
+  color: rgba(244, 242, 236, 0.7);
+  text-align: center;
+  max-width: 320px;
+  margin: 0;
 }

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { clearSessionCookies, LOGIN_PATH, SPACE_PATH } from "@/lib/auth";
+import { clearSessionCookies, getSession, getSessionId, LOGIN_PATH, SPACE_PATH } from "@/lib/auth";
+import { actorFields, logLogout, track } from "@/lib/activity";
 import { createWalkInLead, findLead, type Lead } from "@/lib/leads";
 import { setActiveSession } from "@/lib/session";
 import styles from "./SessionStart.module.css";
@@ -19,9 +20,25 @@ export function SessionStart() {
   const [error, setError] = useState("");
   const [match, setMatch] = useState<Lead | null>(null);
 
+  function logActivity(type: "search" | "customer_profile", label: string, lead: Lead | null) {
+    const staff = getSession();
+    const sessionId = getSessionId();
+    if (!staff || !sessionId) return;
+    track({
+      sessionId,
+      type,
+      label,
+      leadId: lead?.leadId ?? null,
+      leadName: lead?.name ?? null,
+      durationMs: null,
+      ...actorFields(staff.email, staff.name),
+    });
+  }
+
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
     const lead = findLead(query);
+    logActivity("search", `Searched "${query.trim()}"`, lead);
     if (!lead) {
       setError(`No customer found for "${query.trim()}". Check the Lead ID or phone number.`);
       setMatch(null);
@@ -29,6 +46,7 @@ export function SessionStart() {
     }
     setError("");
     setMatch(lead);
+    logActivity("customer_profile", `Opened profile for ${lead.name}`, lead);
   }
 
   function start(lead: Lead) {
@@ -37,6 +55,7 @@ export function SessionStart() {
   }
 
   function signOut() {
+    logLogout();
     clearSessionCookies();
     router.push(LOGIN_PATH);
     router.refresh();

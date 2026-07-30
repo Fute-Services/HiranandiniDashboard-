@@ -45,6 +45,20 @@ export const USERS: User[] = [
     role: "sales_staff",
     managerEmail: "manager@hiranandani.com",
   },
+  {
+    email: "aditya@hiranandani.com",
+    password: "staff123",
+    name: "Aditya Rane",
+    role: "sales_staff",
+    managerEmail: "manager@hiranandani.com",
+  },
+  {
+    email: "sneha@hiranandani.com",
+    password: "staff123",
+    name: "Sneha Iyer",
+    role: "sales_staff",
+    managerEmail: "manager@hiranandani.com",
+  },
 ];
 
 export function findUser(email: string, password: string): User | null {

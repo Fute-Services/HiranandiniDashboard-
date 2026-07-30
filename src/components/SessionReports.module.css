@@ -1,20 +1,26 @@
+/* The page scrolls normally — sections size to their content instead of
+   being squeezed into the viewport, so nothing lives in a cramped
+   inner scroll box. */
 .page {
   min-height: 100vh;
   min-height: 100dvh;
   width: 100%;
-  background: radial-gradient(circle at 15% 10%, rgba(75, 99, 214, 0.14), transparent 55%),
-    radial-gradient(circle at 85% 90%, rgba(232, 185, 58, 0.08), transparent 55%),
-    #05060e;
+  display: flex;
+  flex-direction: column;
+  background: #000;
   color: #f4f2ec;
-  font-family: var(--font-grotesk), system-ui, sans-serif;
-  padding: 40px 40px 64px;
+  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
+  /* Deep bottom padding clears the fixed navbar, so the last rows of a long
+     table aren't stuck underneath it. */
+  padding: 24px 32px 92px;
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 32px;
+  margin-bottom: 18px;
+  flex-shrink: 0;
 }
 
 .leftGroup {
@@ -44,58 +50,31 @@
   color: #fff;
 }
 
-.headerRight {
+/* Live wall clock, top-right. Fixed min-width and tabular figures so the
+   digits don't jiggle the layout as they tick. */
+.clock {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 104px;
+  min-height: 34px;
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
 }
 
-.dashboardLink {
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
+.clockTime {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #f4f2ec;
+}
+
+.clockDate {
+  font-size: 9.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #fff;
-  background: rgba(75, 99, 214, 0.3);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(125, 148, 240, 0.5);
-  border-radius: 999px;
-  padding: 8px 16px;
-  cursor: pointer;
-  text-decoration: none;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.dashboardLink:hover {
-  background: rgba(75, 99, 214, 0.48);
-}
-
-.dashboardLink:focus-visible,
-.signout:focus-visible,
-.projectCard:focus-visible {
-  outline: 2px solid #7d94f0;
-  outline-offset: 2px;
-}
-
-.signout {
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #ffe4e1;
-  background: rgba(209, 59, 50, 0.22);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 120, 110, 0.4);
-  border-radius: 999px;
-  padding: 8px 16px;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.signout:hover {
-  background: rgba(220, 60, 50, 0.38);
+  color: rgba(244, 242, 236, 0.45);
 }
 
 .eyebrow {
@@ -103,31 +82,34 @@
   font-size: 11px;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: #7d94f0;
-  margin-bottom: 8px;
+  color: #ff9330;
+  margin-bottom: 6px;
+  flex-shrink: 0;
 }
 
 .title {
-  font-size: clamp(24px, 3.4vw, 34px);
+  font-size: clamp(20px, 2.4vw, 28px);
   font-weight: 700;
-  margin: 0 0 32px;
+  margin: 0 0 16px;
+  flex-shrink: 0;
 }
 
 .statRow {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
-  margin-bottom: 40px;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .stat {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
-  padding: 16px 18px;
+  padding: 12px 16px;
 }
 
 .statIcon {
@@ -140,19 +122,15 @@
   border-radius: 11px;
 }
 
-.statIconBlue {
-  color: #7d94f0;
-  background: rgba(75, 99, 214, 0.18);
-}
-
-.statIconIndigo {
-  color: #a78bfa;
-  background: rgba(139, 92, 246, 0.16);
-}
-
+/* Neutral tiles: the big white number is the thing that matters here, not
+   the icon — three orange icons in a row next to three more orange stat
+   cards below them was a lot of the "everything is orange" effect. */
+.statIconBlue,
+.statIconIndigo,
 .statIconGold {
-  color: #f2b73b;
-  background: rgba(242, 183, 59, 0.16);
+  color: rgba(244, 242, 236, 0.75);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .statLabel {
@@ -176,21 +154,29 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: rgba(244, 242, 236, 0.5);
-  margin: 0 0 16px;
+  margin: 0 0 10px;
+}
+
+/* Holds whichever section the navbar selected. Grows with its content; the
+   page scrolls if that runs past the viewport. */
+.viewArea {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   text-align: center;
-  font-size: 14px;
+  font-size: 13px;
   color: rgba(244, 242, 236, 0.5);
   background: rgba(255, 255, 255, 0.04);
   border: 1px dashed rgba(255, 255, 255, 0.16);
   border-radius: 14px;
-  padding: 40px 24px;
+  padding: 24px 20px;
 }
 
 .empty p {
@@ -199,28 +185,28 @@
 }
 
 .emptyIcon {
-  color: rgba(125, 148, 240, 0.7);
+  color: rgba(255, 147, 48, 0.7);
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13.5px;
+  font-size: 12.5px;
 }
 
 .table th {
   text-align: left;
   font-family: var(--font-mono), monospace;
-  font-size: 10px;
+  font-size: 9.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(244, 242, 236, 0.45);
-  padding: 0 14px 10px;
+  padding: 10px 12px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .table td {
-  padding: 12px 14px;
+  padding: 8px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   vertical-align: top;
 }
@@ -261,6 +247,8 @@
   gap: 10px;
 }
 
+/* Ringed, not filled: a translucent orange disc over black mixes down to a
+   muddy brown, so the colour lives in the ring and the initials instead. */
 .avatar {
   flex-shrink: 0;
   display: flex;
@@ -269,11 +257,13 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: rgba(125, 148, 240, 0.16);
-  color: #7d94f0;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: rgba(244, 242, 236, 0.85);
   font-family: var(--font-mono), monospace;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .leadId {
@@ -286,56 +276,122 @@
   font-size: 12.5px;
 }
 
+/* Full height of its rows — the page scrolls, not the table. Only sideways
+   overflow is handled here, for narrow windows. */
 .tableWrap {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
-  overflow: hidden;
   overflow-x: auto;
 }
 
-.stars {
-  color: #f2b73b;
-  letter-spacing: 1px;
+.shownCell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 420px;
 }
 
 .path {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  max-width: 380px;
+  gap: 5px;
+}
+
+.shownCount {
+  font-family: var(--font-mono), monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.35);
 }
 
 /* ---------- charts ---------- */
 
-.chartRow {
+/* Reports section: a 3-up card grid, .reportWide for cards that need a
+   full row. Grows with its content; the page scrolls. */
+.reportGrid {
   display: grid;
-  grid-template-columns: 1.3fr 1fr;
-  align-items: start;
-  gap: 16px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(3, 1fr);
+  align-content: start;
+  gap: 12px;
+}
+
+.reportWide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1100px) {
+  .reportGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .reportGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Compact table used inside a report card — lighter than the full-width
+   .table above, with tighter rows. */
+.miniTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.miniTable th {
+  text-align: left;
+  font-family: var(--font-mono), monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.45);
+  padding: 0 10px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.miniTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: middle;
+}
+
+.miniTable tr:last-child td {
+  border-bottom: none;
+}
+
+.miniTable th:not(:first-child),
+.numCell {
+  text-align: right;
+}
+
+.numCell {
+  font-variant-numeric: tabular-nums;
+  color: rgba(244, 242, 236, 0.85);
 }
 
 .chartCard {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
-  padding: 18px 20px 16px;
+  padding: 14px 16px;
 }
 
 .chartTitle {
   font-family: var(--font-mono), monospace;
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(244, 242, 236, 0.5);
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
 .chartEmpty {
   font-size: 13px;
   color: rgba(244, 242, 236, 0.4);
-  margin: 0;
+  margin: 8px 0 0;
 }
 
 /* Trend column chart: one series (session count), so no legend — the card
@@ -358,7 +414,7 @@
 }
 
 .trendCol:focus-visible {
-  outline: 2px solid #7d94f0;
+  outline: 2px solid #ff9330;
   outline-offset: 4px;
 }
 
@@ -372,8 +428,8 @@
 
 .trendTrack {
   width: 100%;
-  max-width: 22px;
-  height: 110px;
+  max-width: 18px;
+  height: 64px;
   display: flex;
   align-items: flex-end;
 }
@@ -381,14 +437,14 @@
 .trendBar {
   width: 100%;
   min-height: 2px;
-  background: #4b63d6;
+  background: #ff6b00;
   border-radius: 4px 4px 0 0;
   transition: height 0.3s ease, background 0.15s ease;
 }
 
 .trendCol:hover .trendBar,
 .trendCol:focus-visible .trendBar {
-  background: #7d94f0;
+  background: #ff9330;
 }
 
 .trendAxisLabel {
@@ -404,7 +460,7 @@
   bottom: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
-  background: #1a1a2e;
+  background: #140f09;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 6px;
   padding: 4px 8px;
@@ -428,19 +484,19 @@
 .propBars {
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  gap: 7px;
 }
 
 .propRow {
   display: grid;
-  grid-template-columns: 96px 1fr 28px;
+  grid-template-columns: 92px 1fr 24px;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   border-radius: 6px;
 }
 
 .propRow:focus-visible {
-  outline: 2px solid #7d94f0;
+  outline: 2px solid #ff9330;
   outline-offset: 2px;
 }
 
@@ -461,14 +517,14 @@
 
 .propBar {
   height: 100%;
-  background: #4b63d6;
+  background: #ff6b00;
   border-radius: 999px;
   transition: width 0.4s ease, background 0.15s ease;
 }
 
 .propRow:hover .propBar,
 .propRow:focus-visible .propBar {
-  background: #7d94f0;
+  background: #ff9330;
 }
 
 .propValue {
@@ -478,73 +534,38 @@
   text-align: right;
 }
 
-/* Sales Staff / Projects controls panel. Stacked (not a side-by-side grid
-   row) so a short staff list never leaves a tall empty gap beside a longer
-   projects list, or vice versa — each card only ever takes its own height. */
-.controlsStack {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 32px;
-}
-
-.staffList {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 340px;
-  overflow-y: auto;
-}
-
-.staffRow {
+/* One project's Active/Blocked toggle: name left, badge hard right on a
+   single row, so all six cards line up as an even grid regardless of how
+   long the project name is. */
+.permCard {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 8px 10px 8px 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
 }
 
-.staffRowSelectable {
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.staffRowSelectable:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.staffRowSelectable:focus-visible {
-  outline: 2px solid #7d94f0;
-  outline-offset: 2px;
-}
-
-.staffRowSelected {
-  background: rgba(75, 99, 214, 0.16);
-  border-color: rgba(125, 148, 240, 0.5);
-}
-
-.staffName {
-  font-size: 13px;
+.permCardName {
+  font-size: 12.5px;
   font-weight: 600;
-}
-
-.staffEmail {
-  font-size: 11.5px;
-  color: rgba(244, 242, 236, 0.5);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kickBtn,
 .blockBtn {
   flex-shrink: 0;
   font-family: var(--font-mono), monospace;
-  font-size: 10.5px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border-radius: 999px;
-  padding: 7px 14px;
+  padding: 6px 12px;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
@@ -586,10 +607,590 @@
   }
 }
 
-@media (max-width: 760px) {
-  .chartRow {
+/* ---------- filters ---------- */
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+
+.filterInput {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  line-height: 1.3;
+  color: #f4f2ec;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 8px 14px;
+  min-width: 140px;
+  color-scheme: dark;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.filterInput:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.filterInput:focus-visible {
+  outline: none;
+  border-color: #ff7a10;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.filterInput::placeholder {
+  color: rgba(244, 242, 236, 0.4);
+}
+
+/* The dropdown trigger button (StyledDropdown) reuses .filterInput's pill
+   look, plus its own chevron — everything below its own text is a custom
+   menu we render ourselves, not the browser's native option popup. */
+.filterSelect {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.selectValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectCaret {
+  flex-shrink: 0;
+  color: rgba(244, 242, 236, 0.55);
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+
+.filterSelectOpen {
+  border-color: rgba(255, 122, 16, 0.7);
+}
+
+.filterSelectOpen .selectCaret {
+  color: #ff9330;
+  transform: rotate(180deg);
+}
+
+.dropdownWrap {
+  position: relative;
+}
+
+/* Squared-off panel with a drawn top rail, not a soft floating card: it
+   reads as part of the same drafting-table language as the mono labels and
+   hairline rules elsewhere, and lines up flush under the trigger. */
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 5;
+  list-style: none;
+  margin: 0;
+  min-width: 100%;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 0;
+  background: #0d0a06;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 2px;
+  box-shadow: 0 18px 40px -16px #000;
+}
+
+/* ---------- date range calendar ---------- */
+
+.calendarPanel {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 5;
+  width: 280px;
+  padding: 12px;
+  background: #0d0a06;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 2px;
+  box-shadow: 0 18px 40px -16px #000;
+}
+
+.calPresets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.calPreset {
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.65);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease;
+}
+
+.calPreset:hover {
+  color: #f4f2ec;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.calPresetActive {
+  color: #ff9330;
+  border-color: #ff7a10;
+}
+
+.calHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.calMonth {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: #f4f2ec;
+}
+
+.calNav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: rgba(244, 242, 236, 0.7);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.calNav:hover:not(:disabled) {
+  color: #f4f2ec;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.calNav:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.calGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.calWeekday {
+  text-align: center;
+  font-family: var(--font-mono), monospace;
+  font-size: 9.5px;
+  color: rgba(244, 242, 236, 0.4);
+  padding-bottom: 4px;
+}
+
+.calDay {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono), monospace;
+  font-size: 11.5px;
+  color: #f4f2ec;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.calDay:hover:not(:disabled) {
+  border-color: rgba(255, 122, 16, 0.5);
+}
+
+.calDay:disabled {
+  color: rgba(244, 242, 236, 0.2);
+  cursor: not-allowed;
+}
+
+.calDayToday {
+  color: #ff9330;
+}
+
+.calDayInRange {
+  background: rgba(255, 122, 16, 0.14);
+  border-radius: 0;
+}
+
+.calDayEdge {
+  background: #ff7a10;
+  border-color: #ff7a10;
+  color: #1a0d00;
+  font-weight: 700;
+}
+
+.calFoot {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: rgba(244, 242, 236, 0.55);
+  text-align: center;
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.65);
+  padding: 9px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.14s ease, background 0.14s ease;
+}
+
+.dropdownItem + .dropdownItem {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* A small square that fills in when the row is chosen — a deliberate
+   marker column, so rows don't shift and the selection is legible without
+   relying on a background wash. */
+.dropdownMarker {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.dropdownItem:hover {
+  background: rgba(255, 255, 255, 0.045);
+  color: #f4f2ec;
+}
+
+.dropdownItem:hover .dropdownMarker {
+  border-color: #ff9330;
+}
+
+.dropdownItemActive {
+  color: #ff9330;
+  background: transparent;
+}
+
+.dropdownItemActive .dropdownMarker {
+  background: #ff7a10;
+  border-color: #ff7a10;
+}
+
+/* ---------- session timeline / replay ---------- */
+
+.clickableRow {
+  cursor: pointer;
+}
+
+.clickableRow:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.clickableRowActive {
+  background: rgba(255, 122, 16, 0.08);
+  box-shadow: inset 3px 0 0 #ff7a10;
+}
+
+/* Table on the left, the open walkthrough pinned on the right — so opening
+   a row never means scrolling past a long list to find what just appeared.
+   Stacks on narrow screens, where a side rail doesn't have room. */
+.customersLayout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  align-items: start;
+  gap: 14px;
+}
+
+.walkthroughRail {
+  position: sticky;
+  top: 16px;
+}
+
+.railEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(244, 242, 236, 0.5);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  padding: 32px 20px;
+}
+
+.railEmpty p {
+  margin: 0;
+  max-width: 220px;
+}
+
+@media (max-width: 1000px) {
+  .customersLayout {
     grid-template-columns: 1fr;
   }
+
+  .walkthroughRail {
+    position: static;
+  }
+}
+
+.timelinePanel {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 16px 18px;
+}
+
+/* Nested inside another panel: no card chrome, and the title/meta are
+   already stated by the chip above it, so only the replay controls show. */
+.timelinePanelFlat {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.timelinePanelFlat .chartTitle,
+.timelinePanelFlat .timelineMeta {
+  display: none;
+}
+
+.timelinePanelFlat .timelineHeader {
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.timelineHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 12px;
+}
+
+.timelineMeta {
+  font-size: 12px;
+  color: rgba(244, 242, 236, 0.5);
+}
+
+.timelineActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* A row of short facts (email, last active, device, location) — each its
+   own span with a middot rendered between them via CSS, so a long value
+   never runs the whole line together, and wraps cleanly at small widths. */
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(244, 242, 236, 0.5);
+}
+
+.metaRow span:not(:first-child)::before {
+  content: "·";
+  margin-right: 6px;
+  color: rgba(244, 242, 236, 0.3);
+}
+
+/* Solid orange, not a translucent wash: low-alpha orange over black mixes
+   down to a muddy brown, so filled accents here use the real hue. */
+.replayBtn {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1a0d00;
+  font-weight: 600;
+  background: #ff7a10;
+  border: 1px solid #ff9330;
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.replayBtn:hover {
+  background: #ff8c2e;
+  box-shadow: 0 0 14px -2px rgba(255, 122, 16, 0.8);
+}
+
+
+.timelineStep {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  color: rgba(244, 242, 236, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+.timelineClose {
+  font-size: 18px;
+  line-height: 1;
+  color: rgba(244, 242, 236, 0.6);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.timelineClose:hover {
+  color: #f4f2ec;
+}
+
+.timelineList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timelineItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.timelineItem:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.timelineItemActive {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 3px 0 0 #ff7a10;
+}
+
+/* Neutral, not orange: this badge repeats once per event, and a solid
+   orange fill on every single row is what made the whole page read as
+   "orange" rather than mostly-neutral-with-orange-accents. Orange is saved
+   for selection/active states, which is where it actually means something. */
+.timelineBadge {
+  flex-shrink: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.7);
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 3px 8px;
+  min-width: 70px;
+  text-align: center;
+}
+
+.timelineLabel {
+  flex: 1;
+  font-size: 13px;
+}
+
+.timelineDuration,
+.timelineTime {
+  flex-shrink: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  color: rgba(244, 242, 236, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- staff profile / live status ---------- */
+
+.statusPill {
+  flex-shrink: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+/* Ringed like the avatars and stat tiles, so the status colour stays clean
+   instead of washing into the black behind it. */
+.statusOnline {
+  color: #6ee7a8;
+  background: transparent;
+  border: 1px solid rgba(110, 231, 168, 0.5);
+}
+
+.statusInMeeting {
+  color: #ffa519;
+  background: transparent;
+  border: 1px solid rgba(255, 165, 25, 0.55);
+}
+
+.statusBusy {
+  color: #ff8f85;
+  background: transparent;
+  border: 1px solid rgba(255, 143, 133, 0.5);
+}
+
+.statusOffline {
+  color: rgba(244, 242, 236, 0.5);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.snapshotLabel {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.5);
+}
+
+.deviceCell {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: rgba(244, 242, 236, 0.6);
 }
 
 .pathStep {
@@ -597,12 +1198,369 @@
   font-size: 9.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(125, 148, 240, 0.9);
-  background: rgba(125, 148, 240, 0.14);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(125, 148, 240, 0.28);
+  color: rgba(244, 242, 236, 0.75);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
   padding: 3px 8px;
   white-space: nowrap;
+}
+
+/* ---------- staff control panel ---------- */
+
+/* Outer card. Sections inside are visually separated by hairline rules
+   rather than nested boxes — one border instead of three keeps it calm. */
+.staffPanel {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 16px 18px;
+}
+
+.staffPanelHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.staffIdentity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Same ringed treatment as .avatar, one size up. */
+.staffAvatar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(244, 242, 236, 0.85);
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.staffPanelName {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.staffSection {
+  padding-top: 14px;
+  flex-shrink: 0;
+}
+
+.staffSection + .staffSection {
+  margin-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Label left, its own control/summary hard right — every section header on
+   this panel lines up the same way. */
+.staffSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  min-height: 28px;
+}
+
+.staffSectionMeta {
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  color: rgba(244, 242, 236, 0.45);
+  flex-shrink: 0;
+}
+
+.permissionsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+/* ---------- client chips ---------- */
+
+.clientChips {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+
+.clientChip {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  /* Buttons don't inherit the page's text color, so set it explicitly —
+     without this the browser's default dark button text is unreadable on
+     this near-black card. */
+  color: #f4f2ec;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.clientChip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* Selected client: a lit edge rather than a translucent orange fill, which
+   over black muddies into brown. */
+.clientChipActive {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: #ff7a10;
+  box-shadow: 0 0 14px -3px rgba(255, 122, 16, 0.7), inset 0 0 12px -6px rgba(255, 122, 16, 0.8);
+}
+
+.clientChipActive .clientChipName {
+  color: #ff9330;
+}
+
+.clientChipName {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.clientChipMeta {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  color: rgba(244, 242, 236, 0.5);
+}
+
+/* ---------- roadmap diagram ---------- */
+
+/* Sideways scroll only — the journey runs left-to-right, so that one is
+   natural; vertically it just takes the height its nodes need. */
+.roadmap {
+  display: flex;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.roadmapTrack {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: max-content;
+  padding: 4px 2px;
+}
+
+.roadmapStep {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.roadmapNode {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 128px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.roadmapBadge {
+  align-self: flex-start;
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.7);
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+/* Capped at two lines so every node is the same height and the row can't
+   grow past the space reserved for it; the full text is in the title
+   attribute and in the step-by-step replay list. */
+.roadmapLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.roadmapTime {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  color: rgba(244, 242, 236, 0.45);
+}
+
+.roadmapDuration {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f4f2ec;
+  font-variant-numeric: tabular-nums;
+}
+
+.roadmapConnector {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 18px;
+}
+
+/* ---------- scrollbars ---------- */
+
+/* The few boxes that still scroll on their own (sideways lists, the
+   dropdown menu) get a thin, theme-colored scrollbar
+   instead of the browser's default white/gray one, which reads as a stray
+   light bar against this dark UI. */
+.roadmap,
+.dropdownMenu,
+.clientChips,
+.tableWrap {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 147, 48, 0.45) transparent;
+}
+
+.roadmap::-webkit-scrollbar,
+.dropdownMenu::-webkit-scrollbar,
+.clientChips::-webkit-scrollbar,
+.tableWrap::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.roadmap::-webkit-scrollbar-track,
+.dropdownMenu::-webkit-scrollbar-track,
+.clientChips::-webkit-scrollbar-track,
+.tableWrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.roadmap::-webkit-scrollbar-thumb,
+.dropdownMenu::-webkit-scrollbar-thumb,
+.clientChips::-webkit-scrollbar-thumb,
+.tableWrap::-webkit-scrollbar-thumb {
+  background: rgba(255, 147, 48, 0.5);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.roadmap::-webkit-scrollbar-thumb:hover,
+.dropdownMenu::-webkit-scrollbar-thumb:hover,
+.clientChips::-webkit-scrollbar-thumb:hover,
+.tableWrap::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 147, 48, 0.6);
+}
+
+/* ---------- bottom quick-action dock ---------- */
+
+/* Frosted-glass pill. A normal flex child (not position:fixed), so
+   .viewArea's flex:1 shrinks to make room for it — it never floats over the
+   scrollable content, keeping the "whole dashboard fits one screen" layout
+   intact. Glassmorphism here = heavy backdrop blur + saturation lift, a
+   translucent gradient fill (lighter at the top edge), a hairline border,
+   and an inset top highlight to fake a lit glass rim. No outer drop shadow:
+   its soft spread read as a rectangular band behind the rounded bar. */
+.bottomDock {
+  /* Pinned to the viewport, not the document: it stays put at the bottom of
+     the screen while the page scrolls behind it, so the section switcher is
+     always in the same place. */
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  /* Wider bar: spans most of the viewport instead of hugging its buttons. */
+  width: calc(100vw - 64px);
+  max-width: 1180px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  /* Not pure black: the page itself is #000, so an opaque bar needs a
+     shade of its own to read as a distinct panel rather than vanishing
+     into the page behind it. Still solid, not frosted glass — it sits over
+     scrolling content and stays legible no matter what passes behind it. */
+  background: #0d0a06;
+  border: 1px solid rgba(255, 122, 16, 0.4);
+  box-shadow: 0 0 0 1px rgba(255, 122, 16, 0.12), 0 0 24px -6px rgba(255, 107, 0, 0.35),
+    0 20px 45px -10px rgba(0, 0, 0, 0.9);
+}
+
+/* Each button keeps its own pill boundary. The orange lives on that
+   boundary — a lit border plus a glow bleeding outward from it — while the
+   face stays transparent glass, so nothing is filled in solid orange. */
+.dockBtn {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.72);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 8px 17px;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dockBtn:hover {
+  color: #fff;
+  border-color: rgba(255, 107, 0, 0.55);
+  box-shadow: 0 0 10px -1px rgba(255, 107, 0, 0.45);
+}
+
+/* Selected section: the same edge light, held on and brighter — an outer
+   bloom off the boundary plus a faint inner rim. */
+.dockBtnActive {
+  color: #fff;
+  border-color: #ff6b00;
+  box-shadow: 0 0 16px -1px rgba(255, 107, 0, 0.85),
+    0 0 4px rgba(255, 107, 0, 0.6),
+    inset 0 0 10px -4px rgba(255, 107, 0, 0.7);
+}
+
+.dockBtnDanger:hover {
+  background: rgba(209, 59, 50, 0.3);
+  color: #ffe4e1;
+}
+
+/* Pushes the action buttons to the right end of the wider bar, so the
+   section tabs sit left and actions sit right instead of all bunching in
+   the middle. */
+.dockDivider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.16);
+  flex-shrink: 0;
+  margin: 0 4px 0 auto;
 }

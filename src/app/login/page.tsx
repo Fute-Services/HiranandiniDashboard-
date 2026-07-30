@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { JetBrains_Mono } from "next/font/google";
 import { landingPathForRole, setSessionCookies } from "@/lib/auth";
+import { actorFields, track } from "@/lib/activity";
 import { findUser, USERS, type User } from "@/lib/users";
 import styles from "./login.module.css";
 
@@ -90,7 +91,16 @@ export default function LoginPage() {
   // real sign-in does, so there's nothing role-specific screens need to
   // handle differently.
   function signInAs(user: User) {
-    setSessionCookies(user.role, user.name, user.email);
+    const sessionId = setSessionCookies(user.role, user.name, user.email);
+    track({
+      sessionId,
+      type: "login",
+      label: `${user.name} signed in`,
+      leadId: null,
+      leadName: null,
+      durationMs: null,
+      ...actorFields(user.email, user.name),
+    });
     router.push(landingPathForRole(user.role));
     router.refresh();
   }

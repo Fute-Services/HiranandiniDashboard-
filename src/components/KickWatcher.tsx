@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { clearSessionCookies, getSession, LOGIN_PATH } from "@/lib/auth";
+import { logLogout } from "@/lib/activity";
 import { ackKick, fetchControlState } from "@/lib/controls";
 import { clearActiveSession } from "@/lib/session";
 
@@ -27,6 +28,7 @@ export function KickWatcher() {
       if (cancelled) return;
       if (state.kicked) {
         ackKick(email);
+        logLogout();
         clearActiveSession();
         clearSessionCookies();
         router.push(LOGIN_PATH);

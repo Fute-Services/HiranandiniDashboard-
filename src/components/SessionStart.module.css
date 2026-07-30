@@ -7,7 +7,7 @@
     radial-gradient(circle at 80% 85%, rgba(232, 185, 58, 0.1), transparent 55%),
     #05060e;
   color: #f4f2ec;
-  font-family: var(--font-grotesk), system-ui, sans-serif;
+  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -91,7 +91,7 @@
 }
 
 .input {
-  font-family: var(--font-grotesk), system-ui, sans-serif;
+  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
   font-size: 15px;
   color: #f4f2ec;
   padding: 13px 16px;

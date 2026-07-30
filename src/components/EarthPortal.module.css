@@ -1,50 +1,27 @@
 .page {
   position: relative;
-  height: 100vh;
-  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
-  background: #000;
-  overflow: hidden;
+  background: radial-gradient(circle at 50% 0%, rgba(75, 99, 214, 0.14), transparent 55%), #000;
+  color: #f4f2ec;
+  /* Missing here entirely before — every heading on this page (both the
+     dark portfolio picker and the light showroom below) was falling back to
+     the browser's default serif for lack of any font-family in the cascade,
+     since body itself doesn't set one either. */
+  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 24px;
 }
 
-.canvasHost {
-  position: absolute;
-  inset: 0;
-}
-
-.canvasHost canvas {
-  display: block;
-}
-
-/* Brand block on the left third of the screen. The globe rests offset to
-   the right (see globe.position.x in EarthPortal.tsx) so this never
-   overlaps it. Mirrors the eyebrow/heading/rule/caption rhythm already
-   established on the login card's left panel, rather than inventing a new
-   pattern for a single screen. */
+/* Centered column — there's no globe to leave room for anymore, so this
+   just occupies the page instead of the left third of it. */
 .welcome {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: min(64%, 760px);
-  display: flex;
-  align-items: center;
-  padding: 0 4% 0 6%;
-  pointer-events: none;
-  z-index: 2;
-  transition: opacity 0.4s ease;
-}
-
-.welcome > div {
-  width: 100%;
-}
-
-.eyebrowRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 18px;
+  width: min(100%, 900px);
 }
 
 .eyebrow {
@@ -57,146 +34,72 @@
   transform: translateY(14px);
   animation: reveal 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
   animation-delay: 0.15s;
+  margin-bottom: 18px;
 }
 
-/* Manual override for the auto-rotating featured slot: an auto-advancing
-   carousel with no way to jump to a specific project or tell how many
-   there are is a real interaction gap, not just decoration. */
-.dots {
-  pointer-events: auto;
-  display: flex;
-  gap: 7px;
-  opacity: 0;
-  animation: reveal 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
-  animation-delay: 0.15s;
-}
-
-.dot {
-  width: 7px;
-  height: 7px;
-  padding: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
-  border: none;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.dot:hover {
-  background: rgba(255, 255, 255, 0.5);
-}
-
-.dot:focus-visible {
-  outline: 2px solid #7d94f0;
-  outline-offset: 2px;
-}
-
-.dotActive {
-  background: #f2b73b;
-  transform: scale(1.3);
-}
-
-/* One full-width slot up top that rotates through every project in turn
-   (see the featuredIndex interval in EarthPortal.tsx), and the other five
-   in a single row underneath rather than split across a right column. */
-.featuredWrap {
-  pointer-events: auto;
-  margin-bottom: 14px;
-  opacity: 0;
-  transform: translateY(14px);
-  animation: reveal 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
-  transition: opacity 420ms cubic-bezier(0.4, 0, 0.2, 1),
-    transform 420ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.featuredFading {
-  opacity: 0;
-  transform: translateY(-10px) scale(0.985);
-}
-
-
-.projectGrid {
-  pointer-events: auto;
+/* Level 1: the portfolio picker. Same card language as the project grid
+   below, just larger and only ever 2-3 wide. */
+.groupGrid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
 }
 
-.featured {
-  display: flex;
-  flex-direction: row;
-  min-height: 280px;
-  box-shadow: 0 0 60px -14px rgba(242, 183, 59, 0.5);
-  /* The featuredWrap around this card already drives the crossfade on
-     rotation; suppress this card's own mount-in animation so switching
-     projects doesn't play two motions (fade + slide) at once. */
-  opacity: 1;
-  transform: none;
-  animation: none;
-}
-
-.featured .projectMedia {
-  flex: 1.4;
-}
-
-.featured .projectBody {
-  flex: 1;
+.groupCard {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-}
-
-.featured .projectName {
-  font-size: 18px;
-}
-
-.projectCard {
-  display: flex;
-  flex-direction: column;
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
   background: rgba(13, 13, 24, 0.55);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  font: inherit;
+  color: inherit;
   opacity: 0;
   transform: translateY(14px);
   animation: reveal 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
-  /* Ambient glow behind each card against the black backdrop; box-shadow
-     paints outside the border box so it isn't clipped by this element's own
-     overflow: hidden (that's only clipping the media/body content). */
   box-shadow: 0 0 34px -12px rgba(125, 148, 240, 0.45);
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.projectCard:nth-child(1) { animation-delay: 0.2s; }
-.projectCard:nth-child(2) { animation-delay: 0.28s; }
-.projectCard:nth-child(3) { animation-delay: 0.36s; }
-.projectCard:nth-child(4) { animation-delay: 0.44s; }
-.projectCard:nth-child(5) { animation-delay: 0.52s; }
-.projectCard:nth-child(6) { animation-delay: 0.6s; }
+.groupCard:nth-child(1) { animation-delay: 0.15s; }
+.groupCard:nth-child(2) { animation-delay: 0.25s; }
+.groupCard:nth-child(3) { animation-delay: 0.35s; }
 
-.projectCard:hover,
-.projectCard:focus-visible {
+.groupCard:hover,
+.groupCard:focus-visible {
   transform: translateY(-4px);
   border-color: rgba(125, 148, 240, 0.6);
   box-shadow: 0 0 46px -8px rgba(125, 148, 240, 0.7);
 }
 
-.featured:hover,
-.featured:focus-visible {
-  box-shadow: 0 0 74px -10px rgba(242, 183, 59, 0.75);
-}
-
-.projectCard:focus-visible {
+.groupCard:focus-visible {
   outline: 2px solid #7d94f0;
   outline-offset: 2px;
 }
 
+.groupCard .projectMedia {
+  aspect-ratio: 16 / 10;
+}
+
+.groupCard .projectName {
+  font-size: 17px;
+}
+
+/* A fixed ratio, not flex:1 — the media box's height needs to be
+   deterministic from its width alone, since .slot inside it is
+   position:absolute and just fills whatever box it's given. flex:1 relied
+   on the flex column having a definite height to grow into, which grid's
+   default row-stretch was silently supplying (see .projectGrid's comment),
+   producing an oversized box with the photo's actual pixels confined to a
+   sliver at the top and empty dark space filling the rest. */
 .projectMedia {
   position: relative;
-  flex: 1;
-  min-height: 84px;
+  aspect-ratio: 4 / 3;
 }
 
 .projectBody {
@@ -222,55 +125,350 @@
   }
 }
 
-.status {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 12%;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.loading {
-  font-family: var(--font-mono), monospace;
-  font-size: 12px;
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.hidden {
-  opacity: 0;
-}
-
-/* Full-screen wash that brightens as the camera dives toward the surface,
-   masking the moment a picked project opens. */
-.flash {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  background: radial-gradient(circle at 50% 50%, #eaf3ff 0%, #9fc4ff 45%, #1c3a73 100%);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 1.3s ease-in;
-}
-
-.flashOn {
-  opacity: 1;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .eyebrow,
-  .dots,
-  .projectCard,
-  .featuredWrap,
+  .groupCard,
   .panelOverlay {
     animation: none;
     opacity: 1;
     transform: none;
     transition: none;
+  }
+}
+
+/* ---------- level 2: light-themed project showroom ---------- */
+
+/* Fits one screen, no scroll: every dimension below is viewport-relative
+   (vh clamps on the card, tighter vertical rhythm) rather than fixed pixel
+   sizes, so the whole showroom — header, card, nav, list — always resolves
+   to less than 100dvh instead of running long and forcing a scrollbar. */
+.lightPage {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  /* Faint dot grid, like a print layout guide — the reference card's own
+     background treatment, kept subtle enough to stay out of the way. */
+  background-color: #f4f1ea;
+  background-image: radial-gradient(circle, rgba(20, 18, 14, 0.14) 1px, transparent 1px);
+  background-size: 22px 22px;
+  color: #14120e;
+  display: flex;
+  flex-direction: column;
+  padding: 20px clamp(20px, 5vw, 64px) 16px;
+}
+
+.lightBack {
+  position: absolute;
+  top: 28px;
+  left: clamp(20px, 5vw, 64px);
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 9px 16px;
+  cursor: pointer;
+  color: rgba(20, 18, 14, 0.65);
+  background: transparent;
+  border: 1px solid rgba(20, 18, 14, 0.18);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.lightBack:hover {
+  background: rgba(20, 18, 14, 0.06);
+}
+
+.lightHeader {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 900px;
+  margin: 44px auto 16px;
+}
+
+.lightBrandRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+/* Everything below the header, vertically centered in whatever height is
+   left — this is what keeps the showroom on one screen: shrink this, not
+   the page, when space is tight. */
+.lightBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.lightDiamond {
+  width: 11px;
+  height: 11px;
+  background: #14120e;
+  transform: rotate(45deg);
+}
+
+.lightBrand {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(20, 18, 14, 0.6);
+}
+
+.lightTitle {
+  font-size: clamp(22px, 3.2vw, 30px);
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.lightSubtitle {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(20, 18, 14, 0.5);
+}
+
+.lightCounter {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.lightCounterNum {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.lightCounterSlash {
+  color: rgba(20, 18, 14, 0.3);
+  margin: 0 2px;
+}
+
+.lightCounterTotal {
+  color: rgba(20, 18, 14, 0.35);
+  font-weight: 400;
+}
+
+.lightCounterCaption {
+  margin-top: 6px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(20, 18, 14, 0.45);
+}
+
+/* Ambient bloom behind the card, in the app's own orange accent rather than
+   the reference's literal red — same "hero card glowing on a light page"
+   idea, brand-consistent color. */
+.lightCard {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 1;
+  min-height: 0;
+  max-width: 1040px;
+  width: 100%;
+  margin: 0 auto;
+  border-radius: 22px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(20, 18, 14, 0.1);
+  box-shadow: 0 0 90px -20px rgba(255, 107, 0, 0.35), 0 28px 70px -24px rgba(20, 18, 14, 0.4);
+  transition: opacity 0.3s ease, transform 0.3s ease, box-shadow 0.2s ease;
+}
+
+.lightCard:hover {
+  box-shadow: 0 32px 80px -20px rgba(20, 18, 14, 0.48);
+}
+
+.lightCardFading {
+  opacity: 0;
+  transform: scale(0.985);
+}
+
+/* Height capped in vh, not a fixed aspect-ratio — that let the card demand
+   more height than a short window actually has, which is what pushed the
+   page into a scrollbar. min-height keeps it from collapsing to nothing on
+   a very short window instead. */
+.lightCardMedia {
+  position: relative;
+  flex-shrink: 1;
+  min-height: 140px;
+  height: min(34vh, 320px);
+  background: #f4f1ea;
+}
+
+.lightCardFoot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+}
+
+.lightCardIndex {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: rgba(20, 18, 14, 0.4);
+}
+
+.lightCardName {
+  flex: 1;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.lightVisit {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2b5fd9;
+}
+
+.lightCard:hover .lightVisit {
+  text-decoration: underline;
+}
+
+.lightNav {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 900px;
+  margin: 14px auto 0;
+}
+
+.lightNavBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid rgba(20, 18, 14, 0.14);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.lightNavBtn:hover:not(:disabled) {
+  background: rgba(20, 18, 14, 0.05);
+  border-color: rgba(20, 18, 14, 0.3);
+}
+
+.lightNavBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.lightHint {
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(20, 18, 14, 0.4);
+  margin-left: 6px;
+}
+
+/* One box per project, not a thin text list — the list read as a cramped,
+   scroll-clipped column floating off to one side; a grid of boxes uses the
+   same width as the card above it and every project gets equal visual
+   weight. Last-resort scroll if a short window can't fit every row even
+   after wrapping (the header/card/nav above have already claimed their
+   space, so this is what gives, not the page). */
+.lightGrid {
+  flex-shrink: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  max-width: 1040px;
+  width: 100%;
+  margin: 16px auto 0;
+  padding: 2px;
+}
+
+.lightGridItem {
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(20, 18, 14, 0.12);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.lightGridItem:hover {
+  transform: translateY(-2px);
+  border-color: rgba(20, 18, 14, 0.28);
+  box-shadow: 0 10px 22px -12px rgba(20, 18, 14, 0.35);
+}
+
+.lightGridItemActive {
+  border-color: #2b5fd9;
+  box-shadow: 0 0 0 1px #2b5fd9;
+}
+
+.lightGridMedia {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: #f4f1ea;
+}
+
+.lightGridFoot {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.lightGridIndex {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  color: rgba(20, 18, 14, 0.4);
+}
+
+.lightGridName {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #14120e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .lightBack {
+    position: static;
+    display: inline-block;
+    margin-bottom: 16px;
+  }
+
+  .lightHeader {
+    flex-direction: column;
+    margin-top: 0;
+  }
+
+  .lightCounter {
+    text-align: left;
   }
 }
 
@@ -346,6 +544,18 @@
   background: #fff;
 }
 
+.panelEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.5);
+}
+
 .panelSkeleton {
   position: absolute;
   inset: 0;
@@ -384,24 +594,3 @@
   }
 }
 
-/* Below this, a 64%-wide panel with a fixed 5-column grid gets unusably
-   cramped — stack the featured card and drop to 2 columns instead. */
-@media (max-width: 720px) {
-  .welcome {
-    width: 100%;
-    padding: 0 20px;
-  }
-
-  .featured {
-    flex-direction: column;
-    min-height: 0;
-  }
-
-  .featured .projectMedia {
-    min-height: 140px;
-  }
-
-  .projectGrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
