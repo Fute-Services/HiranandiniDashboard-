@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { portfolioGroups, type PortfolioGroup, type Property } from "@/data/properties";
+import { getSession } from "@/lib/auth";
+import { getBlockedProjectsFor } from "@/lib/controls";
 import { BackButton } from "./BackButton";
 import { ImageSlot } from "./ImageSlot";
 import styles from "./EarthPortal.module.css";
@@ -20,6 +22,40 @@ export function EarthPortal() {
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [featuredFading, setFeaturedFading] = useState(false);
   const fadeTimeoutRef = useRef<number | undefined>(undefined);
+
+  /** An admin/manager can block a project out of this staff member's
+   * showcase (SessionReports's Sales Staff panel, /api/controls) — this
+   * screen sits before PropertyShowcase in the staff flow, so it has to
+   * enforce the same block or a blocked project is still fully reachable
+   * from here. Same poll pattern as PropertyShowcase. */
+  const [blockedSlugs, setBlockedSlugs] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      if (document.hidden) return;
+      const email = getSession()?.email;
+      const slugs = email ? await getBlockedProjectsFor(email) : [];
+      if (!cancelled) setBlockedSlugs(slugs);
+    };
+    poll();
+    const id = window.setInterval(poll, 8000);
+    const onVisible = () => document.visibilityState === "visible" && poll();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", poll);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", poll);
+    };
+  }, []);
+
+  // A block landing while the blocked project's panel is already open
+  // wouldn't otherwise do anything — close it immediately, same as
+  // PropertyShowcase does for its details modal.
+  useEffect(() => {
+    setOpenProperty((current) => (current && blockedSlugs.includes(current.slug) ? null : current));
+  }, [blockedSlugs]);
 
   // Crossfades the featured slot instead of hard-cutting to the new card:
   // fade out, swap which project is shown, fade back in. Clears any fade
@@ -49,8 +85,12 @@ export function EarthPortal() {
     setOpenProperty(property);
   };
 
-  const featured = group?.projects[featuredIndex] ?? null;
-  const count = group?.projects.length ?? 0;
+  // Blocked projects are filtered out here entirely — same as
+  // PropertyShowcase's carousel — rather than shown disabled, so a blocked
+  // project is simply not offered as an option.
+  const visibleProjects = group?.projects.filter((p) => !blockedSlugs.includes(p.slug)) ?? [];
+  const featured = visibleProjects[featuredIndex] ?? null;
+  const count = visibleProjects.length;
 
   return (
     <div className={styles.page}>
@@ -70,7 +110,9 @@ export function EarthPortal() {
                     // A single-project portfolio's card opens that project
                     // directly — there's nothing to browse once you're past
                     // it, so the showroom screen would just be a detour.
-                    if (g.projects.length === 1) {
+                    // Skipped if that one project is blocked, though — fall
+                    // through to the group view instead of opening it anyway.
+                    if (g.projects.length === 1 && !blockedSlugs.includes(g.projects[0].slug)) {
                       openProject(g.projects[0]);
                     } else {
                       setGroup(g);
@@ -91,6 +133,20 @@ export function EarthPortal() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Every project in this portfolio is blocked for this staff member —
+          rare (blocking one is the normal case), but worth a real message
+          instead of silently rendering nothing. */}
+      {group && !featured && (
+        <div className={styles.lightPage}>
+          <button type="button" className={styles.lightBack} onClick={() => setGroup(null)}>
+            &#8592; Portfolios
+          </button>
+          <p className={styles.lightSubtitle}>
+            No projects available to show from {group.name} right now.
+          </p>
         </div>
       )}
 
@@ -176,7 +232,7 @@ export function EarthPortal() {
             </div>
 
             <div className={styles.lightGrid}>
-              {group.projects.map((p, i) => (
+              {visibleProjects.map((p, i) => (
                 <button
                   key={p.slug}
                   type="button"
