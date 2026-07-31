@@ -79,7 +79,10 @@ export function ChatWidget({ buttonClassName }: { buttonClassName: string }) {
               <div className={`${styles.bubble} ${styles.assistant} ${styles.typing}`}>&hellip;</div>
             )}
             {status === "error" && (
-              <p className={styles.error}>Something went wrong — please try again.</p>
+              <p className={styles.error}>
+                I&apos;m having trouble connecting right now. Please try again in a
+                moment, or reach our sales team directly.
+              </p>
             )}
           </div>
 
