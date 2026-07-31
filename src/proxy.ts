@@ -37,7 +37,7 @@ import { verifySessionToken } from "@/lib/session-token";
  * role cookie — that cookie is display-only now; it can't grant access on
  * its own even if someone edits it by hand.
  */
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const token = req.cookies.get(AUTH_COOKIE)?.value;
   const secret = process.env.SESSION_SECRET;
   const payload = token && secret ? await verifySessionToken(token, secret) : null;
