@@ -47,8 +47,15 @@ export async function middleware(req: NextRequest) {
   const isLoginPage = pathname === LOGIN_PATH;
   // /api/login and /api/logout must be reachable while signed out — that's
   // the whole point of them (you can't be authed yet to call /api/login).
+  // /api/cron/* runs on Vercel's schedule, never in a signed-in browser
+  // session — it authenticates itself via CRON_SECRET instead (see the
+  // route), not our session cookie.
   const isPublicPage =
-    isLoginPage || pathname === INTRO_PATH || pathname === "/api/login" || pathname === "/api/logout";
+    isLoginPage ||
+    pathname === INTRO_PATH ||
+    pathname === "/api/login" ||
+    pathname === "/api/logout" ||
+    pathname.startsWith("/api/cron/");
 
   if (!isAuthed && !isPublicPage) {
     const url = req.nextUrl.clone();
