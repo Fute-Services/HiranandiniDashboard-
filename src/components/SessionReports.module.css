@@ -321,7 +321,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   align-content: start;
-  gap: 6px;
+  gap: 4px;
 }
 
 .reportWide {
@@ -360,7 +360,7 @@
 }
 
 .miniTable td {
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   vertical-align: middle;
 }
@@ -383,7 +383,7 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 
 .chartTitle {
@@ -392,7 +392,7 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(244, 242, 236, 0.5);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .chartEmpty {
@@ -491,7 +491,7 @@
 .propBars {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 3px;
 }
 
 .propRow {
