@@ -329,15 +329,18 @@ function buildStaffLeaderboard(list: Presentation[]) {
 }
 
 /** How often each kind of content actually got shown to customers — answers
- * "what are they leaning on: tours, floor plans, brochures?" */
-function buildContentBreakdown(list: Presentation[]) {
+ * "what are they leaning on: tours, floor plans, brochures?" Capped at the
+ * top 6, same as buildTopProperties, so this card has a fixed height
+ * regardless of how many content types are actually in use. */
+function buildContentBreakdown(list: Presentation[], max = 6) {
   const counts = new Map<ActivityType, number>();
   for (const p of list) {
     for (const e of p.shown) counts.set(e.type, (counts.get(e.type) ?? 0) + 1);
   }
   return [...counts.entries()]
     .map(([type, count]) => ({ label: TYPE_LABEL[type], count }))
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => b.count - a.count)
+    .slice(0, max);
 }
 
 /** Which hours of the day presentations start in, so a manager can see when

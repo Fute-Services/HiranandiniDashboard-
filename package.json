@@ -12,10 +12,12 @@
     "db:seed": "node --env-file=.env.local scripts/db/seed.mjs"
   },
   "dependencies": {
+    "@ai-sdk/react": "^4.0.47",
     "@neondatabase/serverless": "^1.1.0",
     "@sentry/nextjs": "^10.69.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.6.1",
+    "ai": "^7.0.44",
     "next": "16.2.12",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
