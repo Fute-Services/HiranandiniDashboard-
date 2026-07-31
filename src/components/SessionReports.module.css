@@ -384,6 +384,12 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 8px 10px;
+  /* Contains the hover tooltip on TrendChart/BusyHoursChart bars — it's
+     centered under each bar via absolute positioning, so the tooltip for
+     the first/last bar can extend past this card's edge. Without this,
+     that overflow propagated all the way out to the page, causing a
+     horizontal scrollbar just from hovering a bar near either edge. */
+  overflow: hidden;
 }
 
 .chartTitle {
