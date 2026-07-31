@@ -1107,25 +1107,22 @@ function StaffControlPanel({
   // didn't accept the change — otherwise the panel would keep showing a
   // permission or logout signal that was never actually applied.
   const forceLogout = async () => {
-    if (!window.confirm(`Force logout ${staffName}? They'll be signed out immediately, mid-session if active.`)) {
-      return;
-    }
     setKicked(true);
     if (!(await kickStaff(staffEmail))) setKicked(false);
   };
 
-  const toggleBlocked = async (slug: string, projectName: string) => {
+  const toggleBlocked = async (slug: string) => {
     const next = !blocked.includes(slug);
-    // Only confirm when blocking — reverting a block back to active is the
-    // safe direction and doesn't need a gate.
-    if (next && !window.confirm(`Block ${projectName} for ${staffName}? They won't be able to open it.`)) {
-      return;
-    }
     setBlocked((prev) => (next ? [...prev, slug] : prev.filter((s) => s !== slug)));
     if (!(await setProjectBlockedFor(staffEmail, slug, next))) {
       setBlocked((prev) => (next ? prev.filter((s) => s !== slug) : [...prev, slug]));
     }
   };
+
+  // A themed confirm step for anything disruptive (force logout, blocking a
+  // project) instead of the browser's own unstyleable window.confirm().
+  const [pendingConfirm, setPendingConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const requestConfirm = (message: string, onConfirm: () => void) => setPendingConfirm({ message, onConfirm });
 
   const sorted = useMemo(() => [...events].sort((a, b) => a.at - b.at), [events]);
   const status = deriveStatus(sorted, now);
@@ -1190,7 +1187,16 @@ function StaffControlPanel({
           <span className={`${styles.statusPill} ${styles[`status${status.replace(" ", "")}`]}`}>
             &#9679; {status}
           </span>
-          <button type="button" className={styles.kickBtn} onClick={forceLogout}>
+          <button
+            type="button"
+            className={styles.kickBtn}
+            onClick={() =>
+              requestConfirm(
+                `Force logout ${staffName}? They'll be signed out immediately, mid-session if active.`,
+                forceLogout,
+              )
+            }
+          >
             {kicked ? "Signal Sent" : "Force Logout"}
           </button>
           <button type="button" className={styles.timelineClose} onClick={onClose} aria-label="Close">
@@ -1215,7 +1221,17 @@ function StaffControlPanel({
                 <button
                   type="button"
                   className={`${styles.blockBtn} ${isBlocked ? styles.blockBtnBlocked : ""}`}
-                  onClick={() => toggleBlocked(p.slug, p.name)}
+                  onClick={() => {
+                    // Only confirm when blocking — reverting a block back to
+                    // active is the safe direction and doesn't need a gate.
+                    if (isBlocked) {
+                      toggleBlocked(p.slug);
+                    } else {
+                      requestConfirm(`Block ${p.name} for ${staffName}? They won't be able to open it.`, () =>
+                        toggleBlocked(p.slug),
+                      );
+                    }
+                  }}
                 >
                   {isBlocked ? "Blocked" : "Active"}
                 </button>
@@ -1272,6 +1288,29 @@ function StaffControlPanel({
             ))}
         </section>
       )}
+
+      {pendingConfirm && (
+        <div className={styles.confirmOverlay} onClick={() => setPendingConfirm(null)}>
+          <div className={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
+            <p className={styles.confirmMessage}>{pendingConfirm.message}</p>
+            <div className={styles.confirmActions}>
+              <button type="button" className={styles.confirmCancel} onClick={() => setPendingConfirm(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.confirmOk}
+                onClick={() => {
+                  pendingConfirm.onConfirm();
+                  setPendingConfirm(null);
+                }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1302,8 +1341,22 @@ export function SessionReports({
   const [customerFilter, setCustomerFilter] = useState("");
   const [range, setRange] = useState<DateRange>({});
   /** Staff Activity's own search box — narrows the staff picker by name,
-   * separate from staffFilter (which is the selected value, not a query). */
+   * separate from staffFilter (which is the selected value, not a query).
+   * Typing opens the results live, rather than needing a separate dropdown
+   * click after typing. */
   const [staffSearch, setStaffSearch] = useState("");
+  const [staffSearchOpen, setStaffSearchOpen] = useState(false);
+  const staffSearchRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!staffSearchOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (staffSearchRef.current && !staffSearchRef.current.contains(e.target as Node)) {
+        setStaffSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [staffSearchOpen]);
 
   const [customersPage, setCustomersPage] = useState(1);
   const [loginsPage, setLoginsPage] = useState(1);
@@ -1469,25 +1522,48 @@ export function SessionReports({
         <>
           <div className={styles.sectionTitle}>Select Sales Staff</div>
           <div className={styles.filterBar}>
-            <input
-              type="text"
-              className={styles.filterInput}
-              placeholder="Search staff by name…"
-              value={staffSearch}
-              onChange={(e) => setStaffSearch(e.target.value)}
-            />
-            <StyledDropdown
-              value={staffFilter}
-              placeholder="All Sales Staff"
-              options={staffList
-                .filter((s) => s.name.toLowerCase().includes(staffSearch.trim().toLowerCase()))
-                .map((s) => ({ value: s.email, label: s.name }))}
-              onChange={(email) => {
-                setStaffFilter(email);
-                const staff = staffList.find((s) => s.email === email);
-                setProfile(staff ? { email: staff.email, name: staff.name } : null);
-              }}
-            />
+            <div className={styles.dropdownWrap} ref={staffSearchRef}>
+              <input
+                type="text"
+                className={styles.filterInput}
+                placeholder="Search staff by name…"
+                value={staffSearch}
+                onChange={(e) => {
+                  setStaffSearch(e.target.value);
+                  setStaffSearchOpen(true);
+                }}
+                onFocus={() => setStaffSearchOpen(true)}
+              />
+              {staffSearchOpen && (
+                <ul className={styles.dropdownMenu} role="listbox">
+                  {(() => {
+                    const matches = staffList.filter((s) =>
+                      s.name.toLowerCase().includes(staffSearch.trim().toLowerCase()),
+                    );
+                    if (matches.length === 0) {
+                      return <li className={styles.dropdownEmpty}>No staff found</li>;
+                    }
+                    return matches.map((s) => (
+                      <li
+                        key={s.email}
+                        className={`${styles.dropdownItem} ${staffFilter === s.email ? styles.dropdownItemActive : ""}`}
+                        role="option"
+                        aria-selected={staffFilter === s.email}
+                        onClick={() => {
+                          setStaffFilter(s.email);
+                          setProfile({ email: s.email, name: s.name });
+                          setStaffSearch(s.name);
+                          setStaffSearchOpen(false);
+                        }}
+                      >
+                        <span className={styles.dropdownMarker} aria-hidden="true" />
+                        {s.name}
+                      </li>
+                    ));
+                  })()}
+                </ul>
+              )}
+            </div>
           </div>
         </>
       )}
