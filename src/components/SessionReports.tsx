@@ -1301,6 +1301,9 @@ export function SessionReports({
   const [staffFilter, setStaffFilter] = useState("");
   const [customerFilter, setCustomerFilter] = useState("");
   const [range, setRange] = useState<DateRange>({});
+  /** Staff Activity's own search box — narrows the staff picker by name,
+   * separate from staffFilter (which is the selected value, not a query). */
+  const [staffSearch, setStaffSearch] = useState("");
 
   const [customersPage, setCustomersPage] = useState(1);
   const [loginsPage, setLoginsPage] = useState(1);
@@ -1466,10 +1469,19 @@ export function SessionReports({
         <>
           <div className={styles.sectionTitle}>Select Sales Staff</div>
           <div className={styles.filterBar}>
+            <input
+              type="text"
+              className={styles.filterInput}
+              placeholder="Search staff by name…"
+              value={staffSearch}
+              onChange={(e) => setStaffSearch(e.target.value)}
+            />
             <StyledDropdown
               value={staffFilter}
               placeholder="All Sales Staff"
-              options={staffList.map((s) => ({ value: s.email, label: s.name }))}
+              options={staffList
+                .filter((s) => s.name.toLowerCase().includes(staffSearch.trim().toLowerCase()))
+                .map((s) => ({ value: s.email, label: s.name }))}
               onChange={(email) => {
                 setStaffFilter(email);
                 const staff = staffList.find((s) => s.email === email);
