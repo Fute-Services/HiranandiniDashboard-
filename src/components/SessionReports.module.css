@@ -1026,22 +1026,37 @@
 .customersLayout {
   display: grid;
   grid-template-columns: 1fr 340px;
-  align-items: start;
+  align-items: stretch;
   gap: 10px;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Groups the table and its pagination as one grid item, so pagination
    always renders directly under the table — not wherever grid
-   auto-placement happens to put a third loose child. */
+   auto-placement happens to put a third loose child. A short result set
+   used to leave the whole column (and the rail beside it) as tall as its
+   own content, with a big dead void underneath — stretching it to the
+   layout's full height and letting the table itself scroll internally
+   keeps the panel visually filled either way. */
 .tableColumn {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+}
+
+.tableColumn .tableWrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .walkthroughRail {
   position: sticky;
   top: 16px;
+  height: 100%;
+  min-height: 0;
 }
 
 .railEmpty {
