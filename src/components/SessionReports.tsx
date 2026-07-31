@@ -1420,30 +1420,57 @@ export function SessionReports({
       <div className={styles.eyebrow}>Reporting</div>
       <h1 className={styles.title}>{title}</h1>
 
-      <div className={styles.sectionTitle}>Search &amp; Filter</div>
-      <div className={styles.filterBar}>
-        <StyledDropdown
-          value={staffFilter}
-          placeholder="All Sales Staff"
-          options={staffList.map((s) => ({ value: s.email, label: s.name }))}
-          onChange={(email) => {
-            setStaffFilter(email);
-            const staff = staffList.find((s) => s.email === email);
-            setProfile(staff ? { email: staff.email, name: staff.name } : null);
-            // Picking a staff member is a request to look at that staff
-            // member, so jump straight to their section.
-            if (staff) setView("staff");
-          }}
-        />
-        <input
-          type="text"
-          className={styles.filterInput}
-          placeholder="Customer or project…"
-          value={customerFilter}
-          onChange={(e) => setCustomerFilter(e.target.value)}
-        />
-        <DateRangePicker range={range} onChange={setRange} />
-      </div>
+      {/* Full filter bar only where it actually drives a table/chart
+          (Customer Visits, Reports). Staff Activity keeps just the staff
+          picker — that dropdown is how you select who to view, customer
+          and date filters don't apply there. Login History has neither:
+          nothing in that table is filterable by customer or project. */}
+      {(view === "customers" || view === "analytics") && (
+        <>
+          <div className={styles.sectionTitle}>Search &amp; Filter</div>
+          <div className={styles.filterBar}>
+            <StyledDropdown
+              value={staffFilter}
+              placeholder="All Sales Staff"
+              options={staffList.map((s) => ({ value: s.email, label: s.name }))}
+              onChange={(email) => {
+                setStaffFilter(email);
+                const staff = staffList.find((s) => s.email === email);
+                setProfile(staff ? { email: staff.email, name: staff.name } : null);
+                // Picking a staff member is a request to look at that staff
+                // member, so jump straight to their section.
+                if (staff) setView("staff");
+              }}
+            />
+            <input
+              type="text"
+              className={styles.filterInput}
+              placeholder="Customer or project…"
+              value={customerFilter}
+              onChange={(e) => setCustomerFilter(e.target.value)}
+            />
+            <DateRangePicker range={range} onChange={setRange} />
+          </div>
+        </>
+      )}
+
+      {view === "staff" && (
+        <>
+          <div className={styles.sectionTitle}>Select Sales Staff</div>
+          <div className={styles.filterBar}>
+            <StyledDropdown
+              value={staffFilter}
+              placeholder="All Sales Staff"
+              options={staffList.map((s) => ({ value: s.email, label: s.name }))}
+              onChange={(email) => {
+                setStaffFilter(email);
+                const staff = staffList.find((s) => s.email === email);
+                setProfile(staff ? { email: staff.email, name: staff.name } : null);
+              }}
+            />
+          </div>
+        </>
+      )}
 
       <div className={styles.statRow}>
         <div className={styles.stat}>
