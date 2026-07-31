@@ -68,12 +68,13 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   useEffect(() => {
     let cancelled = false;
     const poll = async () => {
+      if (document.hidden) return;
       const email = getSession()?.email;
       const slugs = email ? await getBlockedProjectsFor(email) : [];
       if (!cancelled) setBlockedSlugs(slugs);
     };
     poll();
-    const id = window.setInterval(poll, 2000);
+    const id = window.setInterval(poll, 8000);
     const onVisible = () => document.visibilityState === "visible" && poll();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", poll);

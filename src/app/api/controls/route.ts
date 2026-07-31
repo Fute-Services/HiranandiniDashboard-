@@ -38,7 +38,10 @@ export async function POST(req: NextRequest) {
   if (!isSameOrigin(req)) {
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   }
-  if (!checkRateLimit(`controls:${clientKey(req)}`, 60, 60_000)) {
+  // Per-IP only, kept loose for the same office-NAT reason as /api/login and
+  // /api/activity — this is only admin/manager actions (kick, block), but
+  // several managers on one office network shouldn't collide with each other.
+  if (!checkRateLimit(`controls:${clientKey(req)}`, 300, 60_000)) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 

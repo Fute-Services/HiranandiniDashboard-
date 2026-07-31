@@ -22,6 +22,10 @@ export function KickWatcher() {
   useEffect(() => {
     let cancelled = false;
     const check = async () => {
+      // Runs for every signed-in session on every page, so a hidden-tab skip
+      // matters here more than almost anywhere else in the app — this is the
+      // single biggest multiplier across many concurrent staff.
+      if (document.hidden) return;
       const email = getSession()?.email;
       if (!email) return;
       const state = await fetchControlState(email);
@@ -36,14 +40,18 @@ export function KickWatcher() {
       }
     };
     check();
-    const id = window.setInterval(check, 2000);
+    // 8s background poll, same fallback role as PropertyShowcase's blocked-
+    // projects poll below — focus/visibilitychange below still catches a
+    // kick within moments of switching back to this tab regardless.
+    const id = window.setInterval(check, 8000);
+    const onVisible = () => document.visibilityState === "visible" && check();
     window.addEventListener("focus", check);
-    document.addEventListener("visibilitychange", check);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       window.clearInterval(id);
       window.removeEventListener("focus", check);
-      document.removeEventListener("visibilitychange", check);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [router]);
 

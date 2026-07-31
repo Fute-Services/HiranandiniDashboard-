@@ -33,7 +33,10 @@ export async function POST(req: NextRequest) {
   const email = body.email?.trim().toLowerCase();
   if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
 
-  if (!checkRateLimit(`login:${clientKey(req)}`, 20, 60_000) || !checkRateLimit(`login:${email}`, 10, 60_000)) {
+  // Per-email is the real brute-force guard; per-IP is just a runaway-script
+  // backstop and has to stay loose — a real sales office's staff all log in
+  // from behind one shared/NAT'd IP, often within the same minute.
+  if (!checkRateLimit(`login:${clientKey(req)}`, 100, 60_000) || !checkRateLimit(`login:${email}`, 10, 60_000)) {
     return NextResponse.json({ error: "Too many attempts, try again shortly." }, { status: 429 });
   }
 

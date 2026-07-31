@@ -66,7 +66,10 @@ export async function POST(req: NextRequest) {
   if (!isSameOrigin(req)) {
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   }
-  if (!checkRateLimit(`activity:${clientKey(req)}`, 120, 60_000)) {
+  // Per-IP only (no per-account dimension here, unlike login) — kept loose
+  // for the same reason: many staff behind one shared/office IP, each firing
+  // an event per click, adds up fast under real concurrent use.
+  if (!checkRateLimit(`activity:${clientKey(req)}`, 600, 60_000)) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 

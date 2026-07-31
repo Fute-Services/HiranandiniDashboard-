@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Space_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { KickWatcher } from "@/components/KickWatcher";
 import { IdleLogoutWatcher } from "@/components/IdleLogoutWatcher";
 import "./globals.css";
@@ -35,6 +36,7 @@ export default function RootLayout({
         <KickWatcher />
         <IdleLogoutWatcher />
         {children}
+        <Analytics />
       </body>
     </html>
   );

@@ -1323,18 +1323,23 @@ export function SessionReports({
     }
     let cancelled = false;
     const v = getSession();
-    const load = () =>
-      listActivity({
+    const load = () => {
+      if (document.hidden) return Promise.resolve();
+      return listActivity({
         staffEmail: profile.email,
         managerEmail: v?.role === "sales_manager" ? v.email : undefined,
       }).then((evts) => {
         if (!cancelled) setProfileEvents(evts);
       });
+    };
     load();
-    const id = window.setInterval(load, 10000);
+    const id = window.setInterval(load, 20000);
+    const onVisible = () => document.visibilityState === "visible" && load();
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [profile]);
 
