@@ -16,7 +16,7 @@ import { checkRateLimit, clientKey } from "@/lib/rate-limit";
  * tied to a single browser's storage — this route is that channel.
  */
 
-type Row = { kicked: boolean; blocked_projects: string[] };
+type Row = { kicked: boolean; blocked_projects: string[]; login_suspended: boolean };
 
 export async function GET(req: NextRequest) {
   const email = req.nextUrl.searchParams.get("email");
@@ -24,13 +24,14 @@ export async function GET(req: NextRequest) {
 
   const sql = getSql();
   const rows = (await sql`
-    SELECT kicked, blocked_projects FROM staff_controls WHERE email = ${email}
+    SELECT kicked, blocked_projects, login_suspended FROM staff_controls WHERE email = ${email}
   `) as Row[];
   const row = rows[0];
 
   return NextResponse.json({
     kicked: row?.kicked ?? false,
     blockedProjects: row?.blocked_projects ?? [],
+    loginSuspended: row?.login_suspended ?? false,
   });
 }
 
@@ -57,9 +58,18 @@ export async function POST(req: NextRequest) {
   `;
 
   if (action === "kick") {
-    await sql`UPDATE staff_controls SET kicked = true WHERE email = ${email}`;
+    // Force logout also suspends login — the staff member is ejected right
+    // now AND can't just sign back in a moment later. Only "restore" lifts
+    // that, which only an admin/manager can trigger (this whole route is
+    // already admin/manager-only surface).
+    await sql`UPDATE staff_controls SET kicked = true, login_suspended = true WHERE email = ${email}`;
   } else if (action === "ack") {
+    // The kicked staff member's own tab calls this right after it's forced
+    // itself to sign out — clears only the transient "eject now" flag, not
+    // the persistent suspension, so they still can't log back in.
     await sql`UPDATE staff_controls SET kicked = false WHERE email = ${email}`;
+  } else if (action === "restore") {
+    await sql`UPDATE staff_controls SET login_suspended = false WHERE email = ${email}`;
   } else if (action === "block" || action === "unblock") {
     if (!slug) return NextResponse.json({ error: "slug required" }, { status: 400 });
     if (action === "block") {

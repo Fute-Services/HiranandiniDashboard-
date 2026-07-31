@@ -23,15 +23,21 @@ async function post(action: string, email: string, slug?: string): Promise<boole
   }
 }
 
-/** Admin/manager action: flags a sales_staff email for forced logout. */
+/** Admin/manager action: flags a sales_staff email for forced logout. Also
+ * suspends login (see /api/controls) -- restoreLogin is the only way back. */
 export function kickStaff(email: string): Promise<boolean> {
   return post("kick", email);
 }
 
-/** Called by the kicked staff member's own tab once it's signed them out, so
- * the flag doesn't also block their next sign-in. */
+/** Called by the kicked staff member's own tab once it's signed them out --
+ * clears only the transient "eject now" flag. Login stays suspended. */
 export function ackKick(email: string) {
   void post("ack", email);
+}
+
+/** Admin/manager action: lifts a login suspension left by a force-logout. */
+export function restoreLogin(email: string): Promise<boolean> {
+  return post("restore", email);
 }
 
 export function setProjectBlockedFor(
@@ -42,9 +48,9 @@ export function setProjectBlockedFor(
   return post(blocked ? "block" : "unblock", staffEmail, slug);
 }
 
-export type StaffControlState = { kicked: boolean; blockedProjects: string[] };
+export type StaffControlState = { kicked: boolean; blockedProjects: string[]; loginSuspended: boolean };
 
-const EMPTY_STATE: StaffControlState = { kicked: false, blockedProjects: [] };
+const EMPTY_STATE: StaffControlState = { kicked: false, blockedProjects: [], loginSuspended: false };
 
 /** Single poll covering both flags for one staff email, so callers (the
  * kick watcher, the showcase's block filter) only make one request. */

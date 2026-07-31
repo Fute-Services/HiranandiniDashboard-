@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/csrf";
+import { getSql } from "@/lib/db";
 import { signSessionToken } from "@/lib/session-token";
 import { findUser, findUserByEmail } from "@/lib/users";
 
@@ -42,6 +43,20 @@ export async function POST(req: NextRequest) {
 
   const user = body.demo ? findUserByEmail(email) : findUser(email, body.password ?? "");
   if (!user) return NextResponse.json({ error: "Incorrect email or password." }, { status: 401 });
+
+  // A force-logout suspends login until an admin/manager explicitly
+  // restores it (src/app/api/controls/route.ts's "restore" action) --
+  // otherwise the staff member could just sign back in immediately.
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT login_suspended FROM staff_controls WHERE email = ${user.email}
+  `) as { login_suspended: boolean }[];
+  if (rows[0]?.login_suspended) {
+    return NextResponse.json(
+      { error: "Your access has been suspended. Contact your admin or sales manager to restore it." },
+      { status: 403 },
+    );
+  }
 
   const sessionId = crypto.randomUUID();
   const secret = process.env.SESSION_SECRET;

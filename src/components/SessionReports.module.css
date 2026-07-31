@@ -1261,6 +1261,42 @@
   padding: 6px 12px;
 }
 
+/* Persists across a force-logout itself (unlike the transient "Signal
+   Sent" kick state) — a clear, standing signal that this account can't
+   log back in until restored. */
+.suspendedPill {
+  flex-shrink: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: #ffe4e1;
+  background: rgba(209, 59, 50, 0.28);
+  border: 1px solid rgba(255, 120, 110, 0.5);
+}
+
+.restoreBtn {
+  flex-shrink: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #fff;
+  background: #2f9e56;
+  border: 1px solid #2f9e56;
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.restoreBtn:hover {
+  background: #38b864;
+  border-color: #38b864;
+}
+
 /* Ringed like the avatars and stat tiles, so the status colour stays clean
    instead of washing into the black behind it. */
 .statusOnline {

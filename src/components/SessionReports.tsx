@@ -4,11 +4,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearSessionCookies, getSession, LOGIN_PATH, SPACE_PATH } from "@/lib/auth";
 import { listActivity, logLogout, type ActivityEvent, type ActivityType } from "@/lib/activity";
-import { getBlockedProjectsFor, kickStaff, setProjectBlockedFor } from "@/lib/controls";
+import { fetchControlState, kickStaff, restoreLogin, setProjectBlockedFor } from "@/lib/controls";
 import { createWalkInLead } from "@/lib/leads";
 import { setActiveSession } from "@/lib/session";
 import { USERS } from "@/lib/users";
-import { properties } from "@/data/properties";
+import { portfolioGroups } from "@/data/properties";
+
+/** Every project across every portfolio (Alibaug + Fortune City), not just
+ * Fortune City's six — the block/active grid should cover everything a
+ * staff member could actually show a customer. */
+const ALL_PROJECTS = portfolioGroups.flatMap((g) => g.projects);
 import styles from "./SessionReports.module.css";
 
 function formatDuration(ms: number) {
@@ -1092,11 +1097,14 @@ function StaffControlPanel({
 
   const [kicked, setKicked] = useState(false);
   const [blocked, setBlocked] = useState<string[]>([]);
+  const [loginSuspended, setLoginSuspended] = useState(false);
   useEffect(() => {
     setKicked(false);
     let cancelled = false;
-    getBlockedProjectsFor(staffEmail).then((slugs) => {
-      if (!cancelled) setBlocked(slugs);
+    fetchControlState(staffEmail).then((state) => {
+      if (cancelled) return;
+      setBlocked(state.blockedProjects);
+      setLoginSuspended(state.loginSuspended);
     });
     return () => {
       cancelled = true;
@@ -1108,7 +1116,16 @@ function StaffControlPanel({
   // permission or logout signal that was never actually applied.
   const forceLogout = async () => {
     setKicked(true);
-    if (!(await kickStaff(staffEmail))) setKicked(false);
+    setLoginSuspended(true);
+    if (!(await kickStaff(staffEmail))) {
+      setKicked(false);
+      setLoginSuspended(false);
+    }
+  };
+
+  const restoreAccess = async () => {
+    setLoginSuspended(false);
+    if (!(await restoreLogin(staffEmail))) setLoginSuspended(true);
   };
 
   const toggleBlocked = async (slug: string) => {
@@ -1199,6 +1216,14 @@ function StaffControlPanel({
           >
             {kicked ? "Signal Sent" : "Force Logout"}
           </button>
+          {loginSuspended && (
+            <>
+              <span className={styles.suspendedPill}>&#9679; Login Suspended</span>
+              <button type="button" className={styles.restoreBtn} onClick={restoreAccess}>
+                Restore Access
+              </button>
+            </>
+          )}
           <button type="button" className={styles.timelineClose} onClick={onClose} aria-label="Close">
             &times;
           </button>
@@ -1209,11 +1234,11 @@ function StaffControlPanel({
         <div className={styles.staffSectionHead}>
           <span className={styles.snapshotLabel}>Projects This Staff Can Show</span>
           <span className={styles.staffSectionMeta}>
-            {properties.length - blockedCount} active &middot; {blockedCount} blocked
+            {ALL_PROJECTS.length - blockedCount} active &middot; {blockedCount} blocked
           </span>
         </div>
         <div className={styles.permissionsGrid}>
-          {properties.map((p) => {
+          {ALL_PROJECTS.map((p) => {
             const isBlocked = blocked.includes(p.slug);
             return (
               <div key={p.slug} className={styles.permCard}>

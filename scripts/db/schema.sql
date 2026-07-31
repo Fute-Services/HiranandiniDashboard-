@@ -20,5 +20,11 @@ CREATE INDEX IF NOT EXISTS idx_activity_manager_at ON activity_events (manager_e
 CREATE TABLE IF NOT EXISTS staff_controls (
   email TEXT PRIMARY KEY,
   kicked BOOLEAN NOT NULL DEFAULT FALSE,
-  blocked_projects TEXT[] NOT NULL DEFAULT '{}'
+  blocked_projects TEXT[] NOT NULL DEFAULT '{}',
+  -- Persists across the force-logout itself (unlike `kicked`, which is
+  -- transient and self-clears the moment the live session is ejected).
+  -- Only an admin/manager can flip this back off, via the "restore" action.
+  login_suspended BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+ALTER TABLE staff_controls ADD COLUMN IF NOT EXISTS login_suspended BOOLEAN NOT NULL DEFAULT FALSE;
