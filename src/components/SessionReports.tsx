@@ -6,6 +6,7 @@ import { clearSessionCookies, getSession, LOGIN_PATH, SPACE_PATH } from "@/lib/a
 import { listActivity, logLogout, type ActivityEvent, type ActivityType } from "@/lib/activity";
 import { getBlockedProjectsFor, kickStaff, setProjectBlockedFor } from "@/lib/controls";
 import { createWalkInLead } from "@/lib/leads";
+import { ChatWidget } from "./ChatWidget";
 import { setActiveSession } from "@/lib/session";
 import { USERS } from "@/lib/users";
 import { properties } from "@/data/properties";
@@ -1674,6 +1675,7 @@ export function SessionReports({
         <button type="button" className={styles.dockBtn} onClick={openDashboard}>
           Open Showcase&nbsp;&#8599;
         </button>
+        <ChatWidget buttonClassName={styles.dockBtn} />
         <span className={styles.dockDivider} />
         <button type="button" className={`${styles.dockBtn} ${styles.dockBtnDanger}`} onClick={signOut}>
           Log out
