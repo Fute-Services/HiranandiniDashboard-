@@ -1,25 +1,28 @@
-/* The page scrolls normally — sections size to their content instead of
-   being squeezed into the viewport, so nothing lives in a cramped
-   inner scroll box. */
+/* Locked to the viewport height rather than growing with content — every
+   section below is sized to fit inside it without the page itself
+   scrolling. overflow stays auto (not hidden) as a safety net only: on a
+   very short window content still scrolls rather than getting silently
+   clipped, but at normal sizes nothing should need to. */
 .page {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   width: 100%;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
   background: #000;
   color: #f4f2ec;
   font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
-  /* Deep bottom padding clears the fixed navbar, so the last rows of a long
-     table aren't stuck underneath it. */
-  padding: 24px 32px 92px;
+  /* Deep left padding clears the fixed side navbar, so content never sits
+     underneath it. */
+  padding: 14px 20px 14px 256px;
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 8px;
   flex-shrink: 0;
 }
 
@@ -79,37 +82,37 @@
 
 .eyebrow {
   font-family: var(--font-mono), monospace;
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.24em;
   text-transform: uppercase;
   color: #ff9330;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
   flex-shrink: 0;
 }
 
 .title {
-  font-size: clamp(20px, 2.4vw, 28px);
+  font-size: clamp(16px, 1.8vw, 21px);
   font-weight: 700;
-  margin: 0 0 16px;
+  margin: 0 0 8px;
   flex-shrink: 0;
 }
 
 .statRow {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 10px;
   flex-shrink: 0;
 }
 
 .stat {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  padding: 12px 16px;
+  border-radius: 12px;
+  padding: 8px 12px;
 }
 
 .statIcon {
@@ -117,9 +120,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
 }
 
 /* Neutral tiles: the big white number is the thing that matters here, not
@@ -135,48 +138,52 @@
 
 .statLabel {
   font-family: var(--font-mono), monospace;
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(244, 242, 236, 0.45);
-  margin-bottom: 6px;
+  margin-bottom: 3px;
 }
 
 .statValue {
-  font-size: 26px;
+  font-size: 19px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .sectionTitle {
   font-family: var(--font-mono), monospace;
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: rgba(244, 242, 236, 0.5);
-  margin: 0 0 10px;
+  margin: 0 0 6px;
 }
 
-/* Holds whichever section the navbar selected. Grows with its content; the
-   page scrolls if that runs past the viewport. */
+/* Holds whichever section the navbar selected. flex:1 + min-height:0 lets
+   it consume exactly the remaining space in the (fixed-height) .page and
+   own its own scroll if content ever runs long, instead of pushing .page
+   itself taller than the viewport. */
 .viewArea {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
 }
 
 .empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   color: rgba(244, 242, 236, 0.5);
   background: rgba(255, 255, 255, 0.04);
   border: 1px dashed rgba(255, 255, 255, 0.16);
-  border-radius: 14px;
-  padding: 24px 20px;
+  border-radius: 12px;
+  padding: 16px 16px;
 }
 
 .empty p {
@@ -191,22 +198,22 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
 .table th {
   text-align: left;
   font-family: var(--font-mono), monospace;
-  font-size: 9.5px;
+  font-size: 9px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(244, 242, 236, 0.45);
-  padding: 10px 12px 8px;
+  padding: 6px 10px 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .table td {
-  padding: 8px 12px;
+  padding: 5px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   vertical-align: top;
 }
@@ -254,14 +261,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.22);
   color: rgba(244, 242, 236, 0.85);
   font-family: var(--font-mono), monospace;
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -314,7 +321,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   align-content: start;
-  gap: 12px;
+  gap: 8px;
 }
 
 .reportWide {
@@ -375,17 +382,17 @@
 .chartCard {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  padding: 14px 16px;
+  border-radius: 12px;
+  padding: 10px 12px;
 }
 
 .chartTitle {
   font-family: var(--font-mono), monospace;
-  font-size: 10.5px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(244, 242, 236, 0.5);
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .chartEmpty {
@@ -428,8 +435,8 @@
 
 .trendTrack {
   width: 100%;
-  max-width: 18px;
-  height: 64px;
+  max-width: 16px;
+  height: 40px;
   display: flex;
   align-items: flex-end;
 }
@@ -484,7 +491,7 @@
 .propBars {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
 }
 
 .propRow {
@@ -926,9 +933,18 @@
    Stacks on narrow screens, where a side rail doesn't have room. */
 .customersLayout {
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: 1fr 340px;
   align-items: start;
-  gap: 14px;
+  gap: 10px;
+}
+
+/* Groups the table and its pagination as one grid item, so pagination
+   always renders directly under the table — not wherever grid
+   auto-placement happens to put a third loose child. */
+.tableColumn {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .walkthroughRail {
@@ -940,14 +956,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   color: rgba(244, 242, 236, 0.5);
   background: rgba(255, 255, 255, 0.03);
   border: 1px dashed rgba(255, 255, 255, 0.14);
-  border-radius: 14px;
-  padding: 32px 20px;
+  border-radius: 12px;
+  padding: 18px 16px;
 }
 
 .railEmpty p {
@@ -970,8 +986,10 @@
   flex-direction: column;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 16px;
-  padding: 16px 18px;
+  border-radius: 14px;
+  padding: 10px 12px;
+  max-height: 100%;
+  overflow-y: auto;
 }
 
 /* Nested inside another panel: no card chrome, and the title/meta are
@@ -998,8 +1016,9 @@
   align-items: center;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 10px 16px;
-  margin-bottom: 12px;
+  gap: 8px 12px;
+  margin-bottom: 6px;
+  flex-shrink: 0;
 }
 
 .timelineMeta {
@@ -1215,8 +1234,11 @@
   flex-direction: column;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 16px;
-  padding: 16px 18px;
+  border-radius: 14px;
+  padding: 10px 14px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .staffPanelHead {
@@ -1224,15 +1246,15 @@
   align-items: center;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 12px 16px;
-  padding-bottom: 14px;
+  gap: 8px 12px;
+  padding-bottom: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .staffIdentity {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -1242,31 +1264,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: rgba(244, 242, 236, 0.85);
   font-family: var(--font-mono), monospace;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
 
 .staffPanelName {
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 700;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 .staffSection {
-  padding-top: 14px;
+  padding-top: 8px;
   flex-shrink: 0;
 }
 
 .staffSection + .staffSection {
-  margin-top: 14px;
+  margin-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -1276,9 +1298,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-  min-height: 28px;
+  gap: 10px;
+  margin-bottom: 6px;
+  min-height: 24px;
 }
 
 .staffSectionMeta {
@@ -1294,23 +1316,22 @@
   gap: 8px;
 }
 
-/* ---------- client chips ---------- */
+/* ---------- client cards ---------- */
 
-.clientChips {
-  flex-shrink: 0;
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 6px;
+/* Cards instead of a horizontal-scrolling chip row — 2-3 fit per row and
+   nothing is hidden off-screen behind a scrollbar. */
+.clientCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
   margin-bottom: 10px;
 }
 
-.clientChip {
-  flex-shrink: 0;
+.clientCard {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
   /* Buttons don't inherit the page's text color, so set it explicitly —
      without this the browser's default dark button text is unreadable on
      this near-black card. */
@@ -1318,34 +1339,66 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
-  padding: 6px 12px;
+  padding: 8px 10px;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
-.clientChip:hover {
+.clientCard:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+
+.clientCardAvatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(244, 242, 236, 0.85);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.clientCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 /* Selected client: a lit edge rather than a translucent orange fill, which
    over black muddies into brown. */
-.clientChipActive {
+.clientCardActive {
   background: rgba(255, 255, 255, 0.06);
   border-color: #ff7a10;
   box-shadow: 0 0 14px -3px rgba(255, 122, 16, 0.7), inset 0 0 12px -6px rgba(255, 122, 16, 0.8);
 }
 
-.clientChipActive .clientChipName {
+.clientCardActive .clientCardName {
   color: #ff9330;
 }
 
-.clientChipName {
-  font-size: 12.5px;
-  font-weight: 600;
+.clientCardActive .clientCardAvatar {
+  border-color: #ff7a10;
+  color: #ff9330;
 }
 
-.clientChipMeta {
+.clientCardName {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clientCardMeta {
   font-family: var(--font-mono), monospace;
   font-size: 10px;
   color: rgba(244, 242, 236, 0.5);
@@ -1441,7 +1494,6 @@
    light bar against this dark UI. */
 .roadmap,
 .dropdownMenu,
-.clientChips,
 .tableWrap {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 147, 48, 0.45) transparent;
@@ -1449,7 +1501,6 @@
 
 .roadmap::-webkit-scrollbar,
 .dropdownMenu::-webkit-scrollbar,
-.clientChips::-webkit-scrollbar,
 .tableWrap::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -1457,14 +1508,12 @@
 
 .roadmap::-webkit-scrollbar-track,
 .dropdownMenu::-webkit-scrollbar-track,
-.clientChips::-webkit-scrollbar-track,
 .tableWrap::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .roadmap::-webkit-scrollbar-thumb,
 .dropdownMenu::-webkit-scrollbar-thumb,
-.clientChips::-webkit-scrollbar-thumb,
 .tableWrap::-webkit-scrollbar-thumb {
   background: rgba(255, 147, 48, 0.5);
   border-radius: 999px;
@@ -1474,32 +1523,71 @@
 
 .roadmap::-webkit-scrollbar-thumb:hover,
 .dropdownMenu::-webkit-scrollbar-thumb:hover,
-.clientChips::-webkit-scrollbar-thumb:hover,
 .tableWrap::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 147, 48, 0.6);
 }
 
-/* ---------- bottom quick-action dock ---------- */
+/* ---------- table pagination ---------- */
 
-/* Solid white pill, floating above the dark page on its own drop shadow. */
-.bottomDock {
-  /* Pinned to the viewport, not the document: it stays put at the bottom of
-     the screen while the page scrolls behind it, so the section switcher is
-     always in the same place. */
-  position: fixed;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
+.pagination {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  /* Wider bar: spans most of the viewport instead of hugging its buttons. */
-  width: calc(100vw - 64px);
-  max-width: 1180px;
-  padding: 8px 16px;
+  gap: 12px;
+  padding: 12px 0 4px;
+}
+
+.pageBtn {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.8);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.pageBtn:hover:not(:disabled) {
+  color: #ff6b00;
+  border-color: rgba(255, 107, 0, 0.5);
+}
+
+.pageBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pageStatus {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: rgba(244, 242, 236, 0.6);
+}
+
+/* ---------- left-side quick-action dock ---------- */
+
+/* Solid white panel, floating over the dark page on its own drop shadow. */
+.sideDock {
+  /* Pinned to the viewport, not the document: it stays put on the left of
+     the screen while the page scrolls behind it, so the section switcher is
+     always in the same place. */
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  bottom: 16px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 220px;
+  padding: 16px 12px;
+  border-radius: 20px;
+  overflow-y: auto;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.12);
@@ -1516,8 +1604,9 @@
   color: #2a2620;
   background: #f3f1ec;
   border: 1px solid transparent;
-  border-radius: 999px;
-  padding: 8px 17px;
+  border-radius: 12px;
+  padding: 10px 14px;
+  text-align: left;
   cursor: pointer;
   transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
@@ -1545,13 +1634,13 @@
   color: #c0392b;
 }
 
-/* Pushes the action buttons to the right end of the wider bar, so the
-   section tabs sit left and actions sit right instead of all bunching in
-   the middle. */
+/* Pushes the action buttons to the bottom of the sidebar, so the section
+   tabs sit at the top and actions sit at the bottom instead of all bunching
+   together. */
 .dockDivider {
-  width: 1px;
-  height: 18px;
+  width: 100%;
+  height: 1px;
   background: rgba(0, 0, 0, 0.14);
   flex-shrink: 0;
-  margin: 0 4px 0 auto;
+  margin: 8px 0 auto;
 }

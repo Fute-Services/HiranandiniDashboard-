@@ -71,6 +71,44 @@ function shortDevice(ua: string | null): string | null {
 
 const TREND_DAYS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const PAGE_SIZE = 6;
+
+/** Prev/Next + "Page X of Y", shared by the Customer Visits and Login
+ * History tables so a long history doesn't render as one giant scroll. */
+function Pagination({
+  page,
+  totalPages,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className={styles.pagination}>
+      <button
+        type="button"
+        className={styles.pageBtn}
+        onClick={() => onChange(page - 1)}
+        disabled={page <= 1}
+      >
+        &#8249; Prev
+      </button>
+      <span className={styles.pageStatus}>
+        Page {page} of {totalPages}
+      </span>
+      <button
+        type="button"
+        className={styles.pageBtn}
+        onClick={() => onChange(page + 1)}
+        disabled={page >= totalPages}
+      >
+        Next &#8250;
+      </button>
+    </div>
+  );
+}
 
 const TYPE_LABEL: Record<ActivityType, string> = {
   login: "Login",
@@ -883,15 +921,11 @@ function LiveClock() {
   );
 }
 
-const REPLAY_STEP_MS = 1100;
-
 /** Full chronological walkthrough for one presentation *or* one staff
- * member's whole day, with a "replay" control that steps through the
- * timeline on a timer so an admin/manager can watch exactly what a sales
- * staff member showed a customer, in order, without a real screen recording
- * (questionnaire: "understand exactly what the Sales Staff showed the
- * customer"). Generic over its `timeline` so both the per-customer table
- * below and StaffProfilePanel's full-day view can reuse the same replay UI. */
+ * member's whole day (questionnaire: "understand exactly what the Sales
+ * Staff showed the customer"). Generic over its `timeline` so both the
+ * per-customer table below and StaffProfilePanel's full-day view can reuse
+ * the same list UI. */
 function TimelinePanel({
   panelKey,
   title,
@@ -911,30 +945,11 @@ function TimelinePanel({
   flat?: boolean;
 }) {
   const [cursor, setCursor] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const timerRef = useRef<number | null>(null);
   const anchorAt = timeline[0]?.at ?? 0;
 
   useEffect(() => {
     setCursor(0);
-    setPlaying(false);
   }, [panelKey]);
-
-  useEffect(() => {
-    if (!playing) return;
-    timerRef.current = window.setInterval(() => {
-      setCursor((c) => {
-        if (c >= timeline.length - 1) {
-          setPlaying(false);
-          return c;
-        }
-        return c + 1;
-      });
-    }, REPLAY_STEP_MS);
-    return () => {
-      if (timerRef.current) window.clearInterval(timerRef.current);
-    };
-  }, [playing, timeline.length]);
 
   return (
     <div className={`${styles.timelinePanel} ${flat ? styles.timelinePanelFlat : ""}`}>
@@ -944,16 +959,6 @@ function TimelinePanel({
           <div className={styles.timelineMeta}>{meta}</div>
         </div>
         <div className={styles.timelineActions}>
-          <button
-            type="button"
-            className={styles.replayBtn}
-            onClick={() => {
-              if (cursor >= timeline.length - 1) setCursor(0);
-              setPlaying((p) => !p);
-            }}
-          >
-            {playing ? "Pause" : "▶ Replay"}
-          </button>
           <span className={styles.timelineStep}>
             {timeline.length ? cursor + 1 : 0} / {timeline.length}
           </span>
@@ -1220,20 +1225,23 @@ function StaffControlPanel({
               className={styles.replayBtn}
               onClick={() => setViewMode((m) => (m === "roadmap" ? "list" : "roadmap"))}
             >
-              {viewMode === "roadmap" ? "Step-by-Step Replay" : "Journey Map"}
+              {viewMode === "roadmap" ? "Timeline List" : "Journey Map"}
             </button>
           </div>
 
-          <div className={styles.clientChips}>
+          <div className={styles.clientCards}>
             {chips.map((c) => (
               <button
                 key={c.key}
                 type="button"
-                className={`${styles.clientChip} ${c.key === activeChip?.key ? styles.clientChipActive : ""}`}
+                className={`${styles.clientCard} ${c.key === activeChip?.key ? styles.clientCardActive : ""}`}
                 onClick={() => setActiveKey(c.key)}
               >
-                <span className={styles.clientChipName}>{c.label}</span>
-                <span className={styles.clientChipMeta}>{c.meta}</span>
+                <span className={styles.clientCardAvatar}>{initials(c.label)}</span>
+                <span className={styles.clientCardBody}>
+                  <span className={styles.clientCardName}>{c.label}</span>
+                  <span className={styles.clientCardMeta}>{c.meta}</span>
+                </span>
               </button>
             ))}
           </div>
@@ -1282,6 +1290,15 @@ export function SessionReports({
   const [staffFilter, setStaffFilter] = useState("");
   const [customerFilter, setCustomerFilter] = useState("");
   const [range, setRange] = useState<DateRange>({});
+
+  const [customersPage, setCustomersPage] = useState(1);
+  const [loginsPage, setLoginsPage] = useState(1);
+  // A changed filter can shrink the list out from under whatever page the
+  // user was on, so start back at page 1 rather than land on a blank page.
+  useEffect(() => {
+    setCustomersPage(1);
+    setLoginsPage(1);
+  }, [staffFilter, customerFilter, range]);
 
   const [profile, setProfile] = useState<{ email: string; name: string } | null>(null);
   const [profileEvents, setProfileEvents] = useState<ActivityEvent[] | null>(null);
@@ -1343,41 +1360,6 @@ export function SessionReports({
     };
   }, [profile]);
 
-  const exportCsv = useCallback(() => {
-    const rows = events ?? [];
-    const header = ["Time", "Staff", "Customer", "Type", "Label", "Duration (ms)", "Device", "Location"];
-    const lines = rows.map((e) =>
-      [
-        new Date(e.at).toISOString(),
-        e.staffName,
-        e.leadName ?? "",
-        e.type,
-        e.label,
-        e.durationMs ?? "",
-        e.device ?? "",
-        e.location ?? "",
-      ]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-        .join(","),
-    );
-    const csv = [header.join(","), ...lines].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `activity-log-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [events]);
-
-  const hasFilters = Boolean(staffFilter || customerFilter || range.from !== undefined);
-  const clearFilters = useCallback(() => {
-    setStaffFilter("");
-    setCustomerFilter("");
-    setRange({});
-    setProfile(null);
-  }, []);
-
   const signOut = useCallback(() => {
     logLogout();
     clearSessionCookies();
@@ -1395,6 +1377,14 @@ export function SessionReports({
   const presentations = useMemo(() => groupPresentations(events ?? []), [events]);
   const logins = useMemo(() => groupLogins(events ?? []), [events]);
   const openPresentation = presentations.find((p) => p.key === openKey) ?? null;
+
+  const customerTotalPages = Math.max(1, Math.ceil(presentations.length / PAGE_SIZE));
+  const pagedPresentations = presentations.slice(
+    (customersPage - 1) * PAGE_SIZE,
+    customersPage * PAGE_SIZE,
+  );
+  const loginTotalPages = Math.max(1, Math.ceil(logins.length / PAGE_SIZE));
+  const pagedLogins = logins.slice((loginsPage - 1) * PAGE_SIZE, loginsPage * PAGE_SIZE);
 
   const today = presentations.filter((s) => isToday(s.startedAt));
   const avgMs =
@@ -1527,73 +1517,77 @@ export function SessionReports({
             </div>
           ) : (
             <div className={styles.customersLayout}>
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Customer</th>
-                      <th>Sales Staff</th>
-                      <th>Started</th>
-                      <th>Duration</th>
-                      <th>What Was Shown</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {presentations.map((s, i) => (
-                      <tr
-                        key={s.key}
-                        className={`${styles.clickableRow} ${s.key === openKey ? styles.clickableRowActive : ""}`}
-                        style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
-                        onClick={() => setOpenKey(s.key === openKey ? null : s.key)}
-                      >
-                        <td>
-                          <div className={styles.customer}>
-                            <span className={styles.avatar}>{initials(s.leadName)}</span>
-                            <span>
-                              {s.leadName}
-                              <br />
-                              <span className={styles.leadId}>{s.leadId}</span>
-                            </span>
-                          </div>
-                        </td>
-                        <td>{s.staffName}</td>
-                        <td>{new Date(s.startedAt).toLocaleString()}</td>
-                        <td>{formatDuration(s.totalTimeMs)}</td>
-                        <td>
-                          {/* A summary, not the full event list: the
-                              per-event detail is one click away in the
-                              panel beside this table, and listing every
-                              chip here made the row unreadable. */}
-                          <div className={styles.shownCell}>
-                            {s.shown.length === 0 ? (
-                              <span className={styles.noEvents}>Nothing opened</span>
-                            ) : (
-                              <>
-                                <div className={styles.path}>
-                                  {s.tourShown && (
-                                    <span className={styles.pathStep}>360&deg; Tour</span>
-                                  )}
-                                  {s.projects.map((p) => (
-                                    <span key={p} className={styles.pathStep}>
-                                      {p}
-                                    </span>
-                                  ))}
-                                  {s.projects.length === 0 && !s.tourShown && (
-                                    <span className={styles.noEvents}>No projects opened</span>
-                                  )}
-                                </div>
-                                <span className={styles.shownCount}>
-                                  {s.shown.length} action{s.shown.length === 1 ? "" : "s"} &middot; tap
-                                  row to view
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </td>
+              <div className={styles.tableColumn}>
+                <div className={styles.tableWrap}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Customer</th>
+                        <th>Sales Staff</th>
+                        <th>Started</th>
+                        <th>Duration</th>
+                        <th>What Was Shown</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {pagedPresentations.map((s, i) => (
+                        <tr
+                          key={s.key}
+                          className={`${styles.clickableRow} ${s.key === openKey ? styles.clickableRowActive : ""}`}
+                          style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}
+                          onClick={() => setOpenKey(s.key === openKey ? null : s.key)}
+                        >
+                          <td>
+                            <div className={styles.customer}>
+                              <span className={styles.avatar}>{initials(s.leadName)}</span>
+                              <span>
+                                {s.leadName}
+                                <br />
+                                <span className={styles.leadId}>{s.leadId}</span>
+                              </span>
+                            </div>
+                          </td>
+                          <td>{s.staffName}</td>
+                          <td>{new Date(s.startedAt).toLocaleString()}</td>
+                          <td>{formatDuration(s.totalTimeMs)}</td>
+                          <td>
+                            {/* A summary, not the full event list: the
+                                per-event detail is one click away in the
+                                panel beside this table, and listing every
+                                chip here made the row unreadable. */}
+                            <div className={styles.shownCell}>
+                              {s.shown.length === 0 ? (
+                                <span className={styles.noEvents}>Nothing opened</span>
+                              ) : (
+                                <>
+                                  <div className={styles.path}>
+                                    {s.tourShown && (
+                                      <span className={styles.pathStep}>360&deg; Tour</span>
+                                    )}
+                                    {s.projects.map((p) => (
+                                      <span key={p} className={styles.pathStep}>
+                                        {p}
+                                      </span>
+                                    ))}
+                                    {s.projects.length === 0 && !s.tourShown && (
+                                      <span className={styles.noEvents}>No projects opened</span>
+                                    )}
+                                  </div>
+                                  <span className={styles.shownCount}>
+                                    {s.shown.length} action{s.shown.length === 1 ? "" : "s"} &middot; tap
+                                    row to view
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <Pagination page={customersPage} totalPages={customerTotalPages} onChange={setCustomersPage} />
               </div>
 
               {/* Pinned beside the table rather than appearing below it —
@@ -1632,34 +1626,37 @@ export function SessionReports({
               <p>No logins recorded yet.</p>
             </div>
           ) : (
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Sales Staff</th>
-                    <th>Login</th>
-                    <th>Logout</th>
-                    <th>Device</th>
-                    <th>Location</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logins.map((l) => (
-                    <tr key={l.sessionId}>
-                      <td>{l.staffName}</td>
-                      <td>{l.loginAt ? new Date(l.loginAt).toLocaleString() : "-"}</td>
-                      <td>{l.logoutAt ? new Date(l.logoutAt).toLocaleString() : "Still active"}</td>
-                      <td className={styles.deviceCell}>{shortDevice(l.device) ?? "-"}</td>
-                      <td>{l.location ?? "-"}</td>
+            <>
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Sales Staff</th>
+                      <th>Login</th>
+                      <th>Logout</th>
+                      <th>Device</th>
+                      <th>Location</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {pagedLogins.map((l) => (
+                      <tr key={l.sessionId}>
+                        <td>{l.staffName}</td>
+                        <td>{l.loginAt ? new Date(l.loginAt).toLocaleString() : "-"}</td>
+                        <td>{l.logoutAt ? new Date(l.logoutAt).toLocaleString() : "Still active"}</td>
+                        <td className={styles.deviceCell}>{shortDevice(l.device) ?? "-"}</td>
+                        <td>{l.location ?? "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination page={loginsPage} totalPages={loginTotalPages} onChange={setLoginsPage} />
+            </>
           ))}
       </div>
 
-      <nav className={styles.bottomDock} aria-label="Dashboard sections and actions">
+      <nav className={styles.sideDock} aria-label="Dashboard sections and actions">
         {VIEW_TABS.map((t) => (
           <button
             key={t.key}
@@ -1672,17 +1669,6 @@ export function SessionReports({
           </button>
         ))}
         <span className={styles.dockDivider} />
-        <button type="button" className={styles.dockBtn} onClick={reload}>
-          &#8635;&nbsp; Refresh
-        </button>
-        <button type="button" className={styles.dockBtn} onClick={exportCsv}>
-          &#8595;&nbsp; Download
-        </button>
-        {hasFilters && (
-          <button type="button" className={styles.dockBtn} onClick={clearFilters}>
-            &times;&nbsp; Reset
-          </button>
-        )}
         <button type="button" className={styles.dockBtn} onClick={openDashboard}>
           Open Showcase&nbsp;&#8599;
         </button>
