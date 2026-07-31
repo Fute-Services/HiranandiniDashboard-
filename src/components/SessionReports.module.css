@@ -1199,9 +1199,10 @@
 
 .timelineItem {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 8px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 8px;
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s ease;
@@ -1221,6 +1222,7 @@
    "orange" rather than mostly-neutral-with-orange-accents. Orange is saved
    for selection/active states, which is where it actually means something. */
 .timelineBadge {
+  order: 1;
   flex-shrink: 0;
   font-family: var(--font-mono), monospace;
   font-size: 9px;
@@ -1236,8 +1238,10 @@
 }
 
 .timelineLabel {
-  flex: 1;
+  order: 3;
+  flex: 1 1 100%;
   font-size: 13px;
+  line-height: 1.4;
 }
 
 .timelineDuration,
@@ -1247,6 +1251,15 @@
   font-size: 11px;
   color: rgba(244, 242, 236, 0.45);
   font-variant-numeric: tabular-nums;
+}
+
+.timelineTime {
+  order: 2;
+  margin-left: auto;
+}
+
+.timelineDuration {
+  order: 4;
 }
 
 /* ---------- staff profile / live status ---------- */
@@ -1622,27 +1635,43 @@
    light bar against this dark UI. */
 .roadmap,
 .dropdownMenu,
-.tableWrap {
+.tableWrap,
+.page,
+.staffPanel,
+.timelinePanel,
+.sideDock {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 147, 48, 0.45) transparent;
 }
 
 .roadmap::-webkit-scrollbar,
 .dropdownMenu::-webkit-scrollbar,
-.tableWrap::-webkit-scrollbar {
+.tableWrap::-webkit-scrollbar,
+.page::-webkit-scrollbar,
+.staffPanel::-webkit-scrollbar,
+.timelinePanel::-webkit-scrollbar,
+.sideDock::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 .roadmap::-webkit-scrollbar-track,
 .dropdownMenu::-webkit-scrollbar-track,
-.tableWrap::-webkit-scrollbar-track {
+.tableWrap::-webkit-scrollbar-track,
+.page::-webkit-scrollbar-track,
+.staffPanel::-webkit-scrollbar-track,
+.timelinePanel::-webkit-scrollbar-track,
+.sideDock::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .roadmap::-webkit-scrollbar-thumb,
 .dropdownMenu::-webkit-scrollbar-thumb,
-.tableWrap::-webkit-scrollbar-thumb {
+.tableWrap::-webkit-scrollbar-thumb,
+.page::-webkit-scrollbar-thumb,
+.staffPanel::-webkit-scrollbar-thumb,
+.timelinePanel::-webkit-scrollbar-thumb,
+.sideDock::-webkit-scrollbar-thumb {
   background: rgba(255, 147, 48, 0.5);
   border-radius: 999px;
   border: 2px solid transparent;
@@ -1651,7 +1680,11 @@
 
 .roadmap::-webkit-scrollbar-thumb:hover,
 .dropdownMenu::-webkit-scrollbar-thumb:hover,
-.tableWrap::-webkit-scrollbar-thumb:hover {
+.tableWrap::-webkit-scrollbar-thumb:hover,
+.page::-webkit-scrollbar-thumb:hover,
+.staffPanel::-webkit-scrollbar-thumb:hover,
+.timelinePanel::-webkit-scrollbar-thumb:hover,
+.sideDock::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 147, 48, 0.6);
 }
 

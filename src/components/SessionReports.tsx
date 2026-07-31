@@ -1181,6 +1181,13 @@ function StaffControlPanel({
   }, [staffEmail]);
   const activeChip = chips.find((c) => c.key === activeKey) ?? chips[0] ?? null;
 
+  const [chipsPage, setChipsPage] = useState(1);
+  useEffect(() => {
+    setChipsPage(1);
+  }, [staffEmail]);
+  const chipsTotalPages = Math.max(1, Math.ceil(chips.length / PAGE_SIZE));
+  const pagedChips = chips.slice((chipsPage - 1) * PAGE_SIZE, chipsPage * PAGE_SIZE);
+
   const [viewMode, setViewMode] = useState<"roadmap" | "list">("roadmap");
 
   const blockedCount = blocked.length;
@@ -1282,7 +1289,7 @@ function StaffControlPanel({
           </div>
 
           <div className={styles.clientCards}>
-            {chips.map((c) => (
+            {pagedChips.map((c) => (
               <button
                 key={c.key}
                 type="button"
@@ -1297,6 +1304,7 @@ function StaffControlPanel({
               </button>
             ))}
           </div>
+          <Pagination page={chipsPage} totalPages={chipsTotalPages} onChange={setChipsPage} />
 
           {activeChip &&
             (viewMode === "roadmap" ? (
