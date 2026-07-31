@@ -35,7 +35,9 @@ export function KickWatcher() {
         logLogout();
         clearActiveSession();
         clearSessionCookies();
-        router.push(LOGIN_PATH);
+        // Tells the login page why it's showing this staff member the
+        // login form again, instead of a silent, unexplained redirect.
+        router.push(`${LOGIN_PATH}?kicked=1`);
         router.refresh();
       }
     };

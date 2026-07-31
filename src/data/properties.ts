@@ -107,7 +107,7 @@ export const portfolioGroups: PortfolioGroup[] = [
     projects: [
       {
         slug: "hiranandani-sands",
-        name: "Hiranandani Sands",
+        name: "Alibaug",
         location: "Alibaug, Maharashtra",
         href: "https://hiranandanisands.in/",
         // Their own site is a fully client-rendered app with no

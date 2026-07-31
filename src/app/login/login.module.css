@@ -386,6 +386,19 @@
   margin-top: -6px;
 }
 
+/* Shown once, right after a manager/admin force-logs a staff member out —
+   explains why they've landed back on this screen, instead of a silent,
+   unexplained redirect. */
+.notice {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #f2b73b;
+  background: rgba(242, 183, 59, 0.1);
+  border: 1px solid rgba(242, 183, 59, 0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
 .submit {
   margin-top: 6px;
   display: flex;

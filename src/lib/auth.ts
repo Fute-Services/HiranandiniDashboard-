@@ -39,20 +39,25 @@ export function landingPathForRole(role: Role): string {
   return SESSION_START_PATH;
 }
 
+export type LoginResult =
+  | { ok: true; role: Role; name: string; email: string; sessionId: string }
+  | { ok: false; error: string };
+
 /** Calls the real login endpoint, which verifies the password (or, for the
  * demo buttons, just that the account exists) server-side and sets the
- * signed session cookie — see src/app/api/login/route.ts. Client-side only. */
-export async function login(
-  email: string,
-  opts: { password: string } | { demo: true },
-): Promise<{ role: Role; name: string; email: string; sessionId: string } | null> {
+ * signed session cookie — see src/app/api/login/route.ts. Client-side only.
+ * Surfaces the server's actual message on failure (e.g. "Your access has
+ * been suspended...") rather than collapsing every failure into one
+ * generic string. */
+export async function login(email: string, opts: { password: string } | { demo: true }): Promise<LoginResult> {
   const res = await fetch("/api/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, ...opts }),
   });
-  if (!res.ok) return null;
-  return res.json();
+  const data = await res.json();
+  if (!res.ok) return { ok: false, error: data.error ?? "Incorrect email or password." };
+  return { ok: true, ...data };
 }
 
 /** Clears every session cookie, both the plain ones (directly) and the

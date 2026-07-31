@@ -58,6 +58,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [kickedNotice, setKickedNotice] = useState(false);
+
+  // Plain browser API rather than useSearchParams(), which would force this
+  // client component into a <Suspense> boundary just to read one flag.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("kicked") === "1") {
+      setKickedNotice(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
 
   // .page clips its own content, but the document itself (html/body) can still
   // scroll if anything is a hair taller than the viewport. Lock it at the
@@ -73,15 +83,17 @@ export default function LoginPage() {
   }, []);
 
   // Password verification happens server-side (src/app/api/login/route.ts) —
-  // this just relays the form and reacts to the result.
+  // this just relays the form and shows whatever the server actually said
+  // (e.g. a suspended account gets its own clear message, not a generic
+  // "wrong password").
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const session = await login(email, { password });
-    if (!session) {
-      setError("Incorrect email or password.");
+    const result = await login(email, { password });
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    afterSignIn(session);
+    afterSignIn(result);
   }
 
   // Demo mode: one click into any of the three roles, no credentials to
@@ -89,8 +101,12 @@ export default function LoginPage() {
   // /api/login endpoint (with `demo: true`, skipping the password check),
   // so there's nothing role-specific screens need to handle differently.
   async function signInAs(user: User) {
-    const session = await login(user.email, { demo: true });
-    if (session) afterSignIn(session);
+    const result = await login(user.email, { demo: true });
+    if (result.ok) {
+      afterSignIn(result);
+    } else {
+      setError(result.error);
+    }
   }
 
   function afterSignIn(session: { role: User["role"]; name: string; email: string; sessionId: string }) {
@@ -141,6 +157,12 @@ export default function LoginPage() {
               SIGN&nbsp;IN&nbsp;↗
             </div>
             <h2 className={styles.formTitle}>Log in to your account</h2>
+
+            {kickedNotice && (
+              <p className={styles.notice} role="status">
+                You&apos;ve been signed out by your admin or sales manager. Sign in again to continue.
+              </p>
+            )}
 
             <form className={styles.fields} onSubmit={onSubmit}>
               <label className={styles.field}>
