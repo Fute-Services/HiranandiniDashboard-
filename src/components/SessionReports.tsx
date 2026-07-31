@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { clearSessionCookies, getSession, LOGIN_PATH, SPACE_PATH } from "@/lib/auth";
-import { listActivity, logLogout, type ActivityEvent, type ActivityType } from "@/lib/activity";
+import { getSession, SPACE_PATH } from "@/lib/auth";
+import { listActivity, type ActivityEvent, type ActivityType } from "@/lib/activity";
+import { signOut } from "@/lib/sign-out";
 import { fetchControlState, kickStaff, restoreLogin, setProjectBlockedFor } from "@/lib/controls";
 import { createWalkInLead } from "@/lib/leads";
 import { setActiveSession } from "@/lib/session";
@@ -1551,13 +1552,10 @@ export function SessionReports({
     };
   }, [profile]);
 
-  const signOut = useCallback(() => {
+  const leave = useCallback(() => {
     setLeaving("logout");
-    logLogout();
-    clearSessionCookies();
-    router.push(LOGIN_PATH);
-    router.refresh();
-  }, [router]);
+    void signOut();
+  }, []);
 
   /** Admin/manager get a direct preview, no lead lookup, unlike the sales
    * staff flow (`/session/start`) this skips past. */
@@ -1967,7 +1965,7 @@ export function SessionReports({
         <button
           type="button"
           className={`${styles.dockBtn} ${styles.dockBtnDanger}`}
-          onClick={signOut}
+          onClick={leave}
           disabled={leaving !== null}
           aria-busy={leaving === "logout"}
         >

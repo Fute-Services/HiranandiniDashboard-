@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { clearSessionCookies, getSession, getSessionId, LOGIN_PATH, SPACE_PATH } from "@/lib/auth";
-import { actorFields, logLogout, track } from "@/lib/activity";
+import { getSession, getSessionId, SPACE_PATH } from "@/lib/auth";
+import { actorFields, track } from "@/lib/activity";
 import { createWalkInLead, findLead, type Lead } from "@/lib/leads";
 import { setActiveSession } from "@/lib/session";
+import { signOut } from "@/lib/sign-out";
 import { Spinner } from "./Spinner";
 import styles from "./SessionStart.module.css";
 
@@ -23,7 +24,8 @@ export function SessionStart() {
   /** Which navigation is under way. Starting a presentation and signing out
    * both leave this screen, and that route change isn't instant — without a
    * marker the button just sits there looking unclicked. Never cleared: the
-   * component unmounts when the navigation lands. */
+   * component goes away with the navigation (sign-out reloads the page
+   * outright, see lib/sign-out.ts). */
   const [leaving, setLeaving] = useState<"start" | "walkin" | "logout" | null>(null);
 
   function logActivity(type: "search" | "customer_profile", label: string, lead: Lead | null) {
@@ -62,13 +64,10 @@ export function SessionStart() {
     router.push(SPACE_PATH);
   }
 
-  function signOut() {
+  function leave() {
     if (leaving) return;
     setLeaving("logout");
-    logLogout();
-    clearSessionCookies();
-    router.push(LOGIN_PATH);
-    router.refresh();
+    void signOut();
   }
 
   return (
@@ -76,7 +75,7 @@ export function SessionStart() {
       <button
         type="button"
         className={styles.logout}
-        onClick={signOut}
+        onClick={leave}
         disabled={leaving !== null}
         aria-busy={leaving === "logout"}
       >

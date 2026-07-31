@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { clearSessionCookies, getSession, LOGIN_PATH } from "@/lib/auth";
-import { logLogout } from "@/lib/activity";
+import { useEffect, useRef, useState } from "react";
+import { getSession, LOGIN_PATH } from "@/lib/auth";
 import { ackKick, fetchControlState } from "@/lib/controls";
-import { clearActiveSession } from "@/lib/session";
+import { signOut } from "@/lib/sign-out";
 import { FullScreenLoader } from "./Spinner";
 
 /**
@@ -18,19 +16,14 @@ import { FullScreenLoader } from "./Spinner";
  * from both, not in either one's own browser storage).
  */
 export function KickWatcher() {
-  const router = useRouter();
-  const pathname = usePathname();
   /** A force-logout tears the session down and navigates, all without the
    * staff member having touched anything — an overlay makes it clear the app
-   * is doing something deliberate rather than freezing mid-presentation. */
+   * is doing something deliberate rather than freezing mid-presentation. It
+   * ends when the page itself reloads (see lib/sign-out.ts). */
   const [signingOut, setSigningOut] = useState(false);
-
-  // This component lives in the root layout, so it survives the redirect it
-  // just triggered — without this the overlay would sit on top of the login
-  // page it handed the staff member to.
-  useEffect(() => {
-    setSigningOut(false);
-  }, [pathname]);
+  /** The poll keeps ticking while the sign-out request is in flight, and
+   * would otherwise start a second one on top of the first. */
+  const ejectingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,21 +31,19 @@ export function KickWatcher() {
       // Runs for every signed-in session on every page, so a hidden-tab skip
       // matters here more than almost anywhere else in the app — this is the
       // single biggest multiplier across many concurrent staff.
-      if (document.hidden) return;
+      if (document.hidden || ejectingRef.current) return;
       const email = getSession()?.email;
       if (!email) return;
       const state = await fetchControlState(email);
-      if (cancelled) return;
+      if (cancelled || ejectingRef.current) return;
       if (state.kicked) {
+        ejectingRef.current = true;
         setSigningOut(true);
         ackKick(email);
-        logLogout();
-        clearActiveSession();
-        clearSessionCookies();
-        // Tells the login page why it's showing this staff member the
-        // login form again, instead of a silent, unexplained redirect.
-        router.push(`${LOGIN_PATH}?kicked=1`);
-        router.refresh();
+        // The query flag tells the login page why it's showing this staff
+        // member the login form again, instead of a silent, unexplained
+        // redirect.
+        void signOut(`${LOGIN_PATH}?kicked=1`);
       }
     };
     check();
@@ -69,7 +60,7 @@ export function KickWatcher() {
       window.removeEventListener("focus", check);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [router]);
+  }, []);
 
   if (!signingOut) return null;
   return <FullScreenLoader message="Signing you out…" />;

@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { clearSessionCookies, getSession, LOGIN_PATH } from "@/lib/auth";
-import { logLogout } from "@/lib/activity";
-import { clearActiveSession } from "@/lib/session";
+import { getSession } from "@/lib/auth";
+import { signOut } from "@/lib/sign-out";
 import { FullScreenLoader } from "./Spinner";
 import styles from "./IdleLogoutWatcher.module.css";
 
@@ -21,29 +19,22 @@ const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "whe
  * whichever page the staff member is currently on.
  */
 export function IdleLogoutWatcher() {
-  const router = useRouter();
-  const pathname = usePathname();
   const lastActivityRef = useRef(Date.now());
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   /** Replaces the countdown card once the timer actually runs out, so the
    * last thing on screen isn't a frozen "0s" while the sign-out and the
-   * redirect that follows it are still running. */
+   * reload that follows it are still running. */
   const [signingOut, setSigningOut] = useState(false);
+  /** The countdown ticks every second and would otherwise fire a fresh
+   * sign-out on each tick while the first one's request is still going. */
+  const signingOutRef = useRef(false);
 
-  const signOut = useCallback(() => {
+  const startSignOut = useCallback(() => {
+    if (signingOutRef.current) return;
+    signingOutRef.current = true;
     setSigningOut(true);
-    logLogout();
-    clearActiveSession();
-    clearSessionCookies();
-    router.push(LOGIN_PATH);
-    router.refresh();
-  }, [router]);
-
-  // Mounted in the root layout, so it outlives the redirect it just fired —
-  // clear the overlay once the login page is up, or it would cover it.
-  useEffect(() => {
-    setSigningOut(false);
-  }, [pathname]);
+    void signOut();
+  }, []);
 
   const stayActive = useCallback(() => {
     lastActivityRef.current = Date.now();
@@ -62,7 +53,7 @@ export function IdleLogoutWatcher() {
     const id = window.setInterval(() => {
       const remaining = IDLE_LIMIT_MS - (Date.now() - lastActivityRef.current);
       if (remaining <= 0) {
-        signOut();
+        startSignOut();
       } else if (remaining <= WARNING_MS) {
         setSecondsLeft(Math.ceil(remaining / 1000));
       }
@@ -72,7 +63,7 @@ export function IdleLogoutWatcher() {
       ACTIVITY_EVENTS.forEach((evt) => window.removeEventListener(evt, markActive));
       window.clearInterval(id);
     };
-  }, [signOut]);
+  }, [startSignOut]);
 
   if (signingOut) return <FullScreenLoader message="Signing you out…" />;
   if (secondsLeft === null) return null;

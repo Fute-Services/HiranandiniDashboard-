@@ -3,17 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Property } from "@/data/properties";
-import { clearSessionCookies, getSession, LOGIN_PATH, SESSION_START_PATH } from "@/lib/auth";
-import { logLogout } from "@/lib/activity";
+import { getSession, SESSION_START_PATH } from "@/lib/auth";
 import { getBlockedProjectsFor } from "@/lib/controls";
 import {
-  clearActiveSession,
   finalizeSession,
   getActiveSession,
   logSessionEvent,
   recordStepEnter,
   type ActiveSession,
 } from "@/lib/session";
+import { signOut } from "@/lib/sign-out";
 import { ImageSlot } from "./ImageSlot";
 import { Spinner } from "./Spinner";
 import styles from "./PropertyShowcase.module.css";
@@ -141,14 +140,10 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
     router.push(SESSION_START_PATH);
   }, [router]);
 
-  const signOut = useCallback(() => {
+  const leave = useCallback(() => {
     setLeaving("logout");
-    logLogout();
-    clearActiveSession();
-    clearSessionCookies();
-    router.push(LOGIN_PATH);
-    router.refresh();
-  }, [router]);
+    void signOut();
+  }, []);
 
   const scrollCards = useCallback((dir: 1 | -1) => {
     cardsRef.current?.scrollBy({ left: dir * 300, behavior: "smooth" });
@@ -240,7 +235,7 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
           <button
             type="button"
             className={styles.signout}
-            onClick={signOut}
+            onClick={leave}
             disabled={leaving !== null}
             aria-busy={leaving === "logout"}
           >

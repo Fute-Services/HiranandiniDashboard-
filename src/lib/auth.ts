@@ -92,15 +92,25 @@ export async function login(email: string, opts: { password: string } | { demo: 
 
 /** Clears every session cookie, both the plain ones (directly) and the
  * httpOnly auth cookie (via /api/logout — client JS can't touch an httpOnly
- * cookie itself). `keepalive` lets this survive the navigation that usually
- * follows immediately after. Client-side only. */
-export function clearSessionCookies() {
+ * cookie itself). Client-side only.
+ *
+ * Awaits that request rather than firing it off and moving on. Only the
+ * server can expire the auth cookie, and `proxy.ts` reads exactly that cookie
+ * to decide who's signed in — so a /login navigation that overtakes this
+ * response gets bounced straight back to the dashboard, leaving the user
+ * still signed in on a page that never navigated. Bounded by a timeout so a
+ * slow or unreachable API delays sign-out instead of blocking it forever;
+ * `keepalive` still covers the tab being closed mid-flight. */
+export async function clearSessionCookies(): Promise<void> {
   const expire = "path=/; max-age=0; samesite=lax";
   document.cookie = `${ROLE_COOKIE}=; ${expire}`;
   document.cookie = `${NAME_COOKIE}=; ${expire}`;
   document.cookie = `${EMAIL_COOKIE}=; ${expire}`;
   document.cookie = `${SESSION_ID_COOKIE}=; ${expire}`;
-  fetch("/api/logout", { method: "POST", keepalive: true }).catch(() => {});
+  await Promise.race([
+    fetch("/api/logout", { method: "POST", keepalive: true }).catch(() => {}),
+    new Promise((resolve) => window.setTimeout(resolve, 1200)),
+  ]);
 }
 
 /** The current login session's activity-log id (see SESSION_ID_COOKIE), or
