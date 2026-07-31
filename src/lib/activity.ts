@@ -11,6 +11,7 @@
  * exists) can guarantee sales staff can't edit or erase their own history.
  */
 import { getSession, getSessionId } from "./auth";
+import { readJsonSafe } from "./http";
 import { findUserByEmail } from "./users";
 
 export type ActivityType =
@@ -80,14 +81,23 @@ export type ActivityFilters = {
   to?: number;
 };
 
+/** Never throws: the dashboards call this on mount, on every filter change
+ * and on a poll timer, so a failed read has to degrade to "no rows" (which
+ * the UI already renders) rather than take the whole page down with an
+ * unhandled rejection. */
 export async function listActivity(filters: ActivityFilters = {}): Promise<ActivityEvent[]> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
     if (value !== undefined && value !== "") params.set(key, String(value));
   }
-  const res = await fetch(`/api/activity?${params.toString()}`, { cache: "no-store" });
-  if (!res.ok) return [];
-  return (await res.json()) as ActivityEvent[];
+  try {
+    const res = await fetch(`/api/activity?${params.toString()}`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = await readJsonSafe<ActivityEvent[]>(res);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Resolves the staff/manager fields every tracked event needs from just the

@@ -8,6 +8,17 @@ import { neon } from "@neondatabase/serverless";
 let _sql: ReturnType<typeof neon> | null = null;
 
 export function getSql() {
-  if (!_sql) _sql = neon(process.env.DATABASE_URL!);
+  if (!_sql) {
+    const url = process.env.DATABASE_URL;
+    // neon()'s own message for a missing string ("Perhaps an environment
+    // variable has not been set?") doesn't name the variable or the file, so
+    // say both — this is the first thing that breaks on a fresh checkout.
+    if (!url) {
+      throw new Error(
+        "DATABASE_URL is not set. Add it to .env.local (see README) and restart the dev server.",
+      );
+    }
+    _sql = neon(url);
+  }
   return _sql;
 }

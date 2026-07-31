@@ -1,3 +1,4 @@
+import { readJsonSafe } from "./http";
 import type { Role } from "./users";
 
 /**
@@ -43,6 +44,18 @@ export type LoginResult =
   | { ok: true; role: Role; name: string; email: string; sessionId: string }
   | { ok: false; error: string };
 
+/** What /api/login's body may contain — every field optional, because a
+ * failing or crashed route is exactly the case this type exists to survive.
+ * Written out rather than derived from LoginResult: that's a union, and
+ * `Partial<>` over a union keeps only the fields both members share. */
+type LoginResponse = Partial<{
+  role: Role;
+  name: string;
+  email: string;
+  sessionId: string;
+  error: string;
+}>;
+
 /** Calls the real login endpoint, which verifies the password (or, for the
  * demo buttons, just that the account exists) server-side and sets the
  * signed session cookie — see src/app/api/login/route.ts. Client-side only.
@@ -50,14 +63,31 @@ export type LoginResult =
  * been suspended...") rather than collapsing every failure into one
  * generic string. */
 export async function login(email: string, opts: { password: string } | { demo: true }): Promise<LoginResult> {
-  const res = await fetch("/api/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, ...opts }),
-  });
-  const data = await res.json();
-  if (!res.ok) return { ok: false, error: data.error ?? "Incorrect email or password." };
-  return { ok: true, ...data };
+  // Never throws. A failed sign-in is an ordinary outcome the form already
+  // knows how to show, so every way this can go wrong — the server down, a
+  // crashed route answering with an empty body, a body that isn't the shape
+  // we expect — comes back as `ok: false` with something readable, rather
+  // than as a rejected promise the login page would surface as a crash.
+  try {
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, ...opts }),
+    });
+    const data = await readJsonSafe<LoginResponse>(res);
+    if (!res.ok) {
+      return { ok: false, error: data?.error ?? "Incorrect email or password." };
+    }
+    // A 200 with a body we can't use is still a failed sign-in: letting it
+    // through would hand the app a session with no role and break the
+    // redirect that comes next instead of failing here, where we can say so.
+    if (!data?.role || !data.name || !data.email || !data.sessionId) {
+      return { ok: false, error: "Sign-in didn't complete. Please try again." };
+    }
+    return { ok: true, role: data.role, name: data.name, email: data.email, sessionId: data.sessionId };
+  } catch {
+    return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
+  }
 }
 
 /** Clears every session cookie, both the plain ones (directly) and the

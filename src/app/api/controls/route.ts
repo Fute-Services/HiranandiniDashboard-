@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getSql } from "@/lib/db";
+import { withJsonErrors } from "@/lib/api";
 import { isSameOrigin } from "@/lib/csrf";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 
@@ -18,7 +19,7 @@ import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 
 type Row = { kicked: boolean; blocked_projects: string[]; login_suspended: boolean };
 
-export async function GET(req: NextRequest) {
+export const GET = withJsonErrors(async (req: NextRequest) => {
   const email = req.nextUrl.searchParams.get("email");
   if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
 
@@ -33,9 +34,9 @@ export async function GET(req: NextRequest) {
     blockedProjects: row?.blocked_projects ?? [],
     loginSuspended: row?.login_suspended ?? false,
   });
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withJsonErrors(async (req: NextRequest) => {
   if (!isSameOrigin(req)) {
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   }
@@ -90,4 +91,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
-}
+});

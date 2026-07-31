@@ -11,6 +11,7 @@ import {
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/csrf";
 import { getSql } from "@/lib/db";
+import { withJsonErrors } from "@/lib/api";
 import { signSessionToken } from "@/lib/session-token";
 import { findUser, findUserByEmail } from "@/lib/users";
 
@@ -25,7 +26,7 @@ import { findUser, findUserByEmail } from "@/lib/users";
  * (there's no real credential to check for a demo click) without shipping
  * password hashes to the browser to make that decision.
  */
-export async function POST(req: NextRequest) {
+export const POST = withJsonErrors(async (req: NextRequest) => {
   if (!isSameOrigin(req)) {
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   }
@@ -78,4 +79,4 @@ export async function POST(req: NextRequest) {
   res.cookies.set(SESSION_ID_COOKIE, sessionId, common);
 
   return res;
-}
+});

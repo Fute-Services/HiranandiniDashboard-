@@ -10,6 +10,8 @@
 /** Resolves true only if the server actually applied the change, so callers
  * that optimistically updated their own UI can roll back on failure rather
  * than showing a control state the server never accepted. */
+import { readJsonSafe } from "./http";
+
 async function post(action: string, email: string, slug?: string): Promise<boolean> {
   try {
     const res = await fetch("/api/controls", {
@@ -58,7 +60,15 @@ export async function fetchControlState(email: string): Promise<StaffControlStat
   try {
     const res = await fetch(`/api/controls?email=${encodeURIComponent(email)}`);
     if (!res.ok) return EMPTY_STATE;
-    return (await res.json()) as StaffControlState;
+    const data = await readJsonSafe<Partial<StaffControlState>>(res);
+    // Field-by-field rather than trusting the body wholesale: callers spread
+    // `blockedProjects` straight into a .includes() check, so a missing or
+    // malformed field has to land as the empty default, not as undefined.
+    return {
+      kicked: data?.kicked === true,
+      blockedProjects: Array.isArray(data?.blockedProjects) ? data.blockedProjects : [],
+      loginSuspended: data?.loginSuspended === true,
+    };
   } catch {
     return EMPTY_STATE;
   }

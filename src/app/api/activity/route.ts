@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getSql } from "@/lib/db";
+import { withJsonErrors } from "@/lib/api";
 import { isSameOrigin } from "@/lib/csrf";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 import type { ActivityEvent, ActivityType } from "@/lib/activity";
@@ -62,7 +63,7 @@ function locationFromHeaders(req: NextRequest): string | null {
   return [city, country].filter(Boolean).join(", ");
 }
 
-export async function POST(req: NextRequest) {
+export const POST = withJsonErrors(async (req: NextRequest) => {
   if (!isSameOrigin(req)) {
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   }
@@ -105,9 +106,9 @@ export async function POST(req: NextRequest) {
   `;
 
   return NextResponse.json({ ok: true, id: event.id });
-}
+});
 
-export async function GET(req: NextRequest) {
+export const GET = withJsonErrors(async (req: NextRequest) => {
   const params = req.nextUrl.searchParams;
   const managerEmail = params.get("managerEmail");
   const staffEmail = params.get("staffEmail");
@@ -144,4 +145,4 @@ export async function GET(req: NextRequest) {
   )) as Row[];
 
   return NextResponse.json(rows.map(toEvent));
-}
+});
