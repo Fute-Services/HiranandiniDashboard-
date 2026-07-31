@@ -1107,12 +1107,20 @@ function StaffControlPanel({
   // didn't accept the change — otherwise the panel would keep showing a
   // permission or logout signal that was never actually applied.
   const forceLogout = async () => {
+    if (!window.confirm(`Force logout ${staffName}? They'll be signed out immediately, mid-session if active.`)) {
+      return;
+    }
     setKicked(true);
     if (!(await kickStaff(staffEmail))) setKicked(false);
   };
 
-  const toggleBlocked = async (slug: string) => {
+  const toggleBlocked = async (slug: string, projectName: string) => {
     const next = !blocked.includes(slug);
+    // Only confirm when blocking — reverting a block back to active is the
+    // safe direction and doesn't need a gate.
+    if (next && !window.confirm(`Block ${projectName} for ${staffName}? They won't be able to open it.`)) {
+      return;
+    }
     setBlocked((prev) => (next ? [...prev, slug] : prev.filter((s) => s !== slug)));
     if (!(await setProjectBlockedFor(staffEmail, slug, next))) {
       setBlocked((prev) => (next ? prev.filter((s) => s !== slug) : [...prev, slug]));
@@ -1207,7 +1215,7 @@ function StaffControlPanel({
                 <button
                   type="button"
                   className={`${styles.blockBtn} ${isBlocked ? styles.blockBtnBlocked : ""}`}
-                  onClick={() => toggleBlocked(p.slug)}
+                  onClick={() => toggleBlocked(p.slug, p.name)}
                 >
                   {isBlocked ? "Blocked" : "Active"}
                 </button>
@@ -1468,6 +1476,17 @@ export function SessionReports({
                 setProfile(staff ? { email: staff.email, name: staff.name } : null);
               }}
             />
+          </div>
+        </>
+      )}
+
+      {/* Just the date range — logins have no customer/project to search by,
+          but "which staff logged in on which day" is still a real question. */}
+      {view === "logins" && (
+        <>
+          <div className={styles.sectionTitle}>Filter by Date</div>
+          <div className={styles.filterBar}>
+            <DateRangePicker range={range} onChange={setRange} />
           </div>
         </>
       )}
