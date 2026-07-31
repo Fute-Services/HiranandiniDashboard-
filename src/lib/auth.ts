@@ -1,10 +1,11 @@
 import type { Role } from "./users";
 
 /**
- * Client-side session flags. There's no auth backend yet, so "signed in" is
- * just cookies the login page sets and the middleware/pages check, which is
- * enough to gate the UI and branch on role. Replace with a real, server-verified
- * session when a backend (Sperto or otherwise) lands.
+ * Session cookie names. The auth cookie itself is a signed, httpOnly token
+ * issued by `/api/login` and verified by `middleware.ts` on every request
+ * (see `src/lib/session-token.ts`) — the other four are plain, client-
+ * readable cookies used only for display/attribution (which name to show,
+ * which manager a staff member reports to), not for gating access.
  */
 export const AUTH_COOKIE = "hiranandani_auth";
 /** Which mock account signed in, see src/lib/users.ts. */
@@ -38,28 +39,33 @@ export function landingPathForRole(role: Role): string {
   return SESSION_START_PATH;
 }
 
-/** Sets every session cookie a fresh sign-in needs, including a fresh
- * activity-log session id. Client-side only. Returns that session id so the
- * caller can log the "login" activity event against it immediately. */
-export function setSessionCookies(role: Role, name: string, email: string): string {
-  const opts = `path=/; max-age=${AUTH_MAX_AGE}; samesite=lax`;
-  const sessionId = crypto.randomUUID();
-  document.cookie = `${AUTH_COOKIE}=1; ${opts}`;
-  document.cookie = `${ROLE_COOKIE}=${role}; ${opts}`;
-  document.cookie = `${NAME_COOKIE}=${encodeURIComponent(name)}; ${opts}`;
-  document.cookie = `${EMAIL_COOKIE}=${encodeURIComponent(email)}; ${opts}`;
-  document.cookie = `${SESSION_ID_COOKIE}=${sessionId}; ${opts}`;
-  return sessionId;
+/** Calls the real login endpoint, which verifies the password (or, for the
+ * demo buttons, just that the account exists) server-side and sets the
+ * signed session cookie — see src/app/api/login/route.ts. Client-side only. */
+export async function login(
+  email: string,
+  opts: { password: string } | { demo: true },
+): Promise<{ role: Role; name: string; email: string; sessionId: string } | null> {
+  const res = await fetch("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, ...opts }),
+  });
+  if (!res.ok) return null;
+  return res.json();
 }
 
-/** Clears every session cookie. Client-side only. */
+/** Clears every session cookie, both the plain ones (directly) and the
+ * httpOnly auth cookie (via /api/logout — client JS can't touch an httpOnly
+ * cookie itself). `keepalive` lets this survive the navigation that usually
+ * follows immediately after. Client-side only. */
 export function clearSessionCookies() {
   const expire = "path=/; max-age=0; samesite=lax";
-  document.cookie = `${AUTH_COOKIE}=; ${expire}`;
   document.cookie = `${ROLE_COOKIE}=; ${expire}`;
   document.cookie = `${NAME_COOKIE}=; ${expire}`;
   document.cookie = `${EMAIL_COOKIE}=; ${expire}`;
   document.cookie = `${SESSION_ID_COOKIE}=; ${expire}`;
+  fetch("/api/logout", { method: "POST", keepalive: true }).catch(() => {});
 }
 
 /** The current login session's activity-log id (see SESSION_ID_COOKIE), or

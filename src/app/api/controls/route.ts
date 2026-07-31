@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getSql } from "@/lib/db";
+import { isSameOrigin } from "@/lib/csrf";
+import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 
 /**
  * Admin/sales-manager controls over sales staff and projects, backed by
@@ -33,6 +35,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  }
+  if (!checkRateLimit(`controls:${clientKey(req)}`, 60, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const body = await req.json();
   const { action, email, slug } = body as { action: string; email: string; slug?: string };
   if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });

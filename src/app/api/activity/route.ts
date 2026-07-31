@@ -2,7 +2,15 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getSql } from "@/lib/db";
+import { isSameOrigin } from "@/lib/csrf";
+import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 import type { ActivityEvent, ActivityType } from "@/lib/activity";
+
+/** Hard cap so a single response can never grow unbounded as history piles
+ * up over weeks/months — applied regardless of which filters are set,
+ * including "All Time". Ordered by most-recent-first before the cap so a
+ * truncated result is still the most useful slice. */
+const MAX_ROWS = 5000;
 
 /**
  * Append-only activity log: every login, search, and project/property
@@ -55,6 +63,13 @@ function locationFromHeaders(req: NextRequest): string | null {
 }
 
 export async function POST(req: NextRequest) {
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  }
+  if (!checkRateLimit(`activity:${clientKey(req)}`, 120, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const body = (await req.json()) as Partial<ActivityEvent> & { type: ActivityType };
   if (!body.sessionId || !body.staffEmail || !body.type) {
     return NextResponse.json({ error: "sessionId, staffEmail, type required" }, { status: 400 });
@@ -119,7 +134,9 @@ export async function GET(req: NextRequest) {
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const sql = getSql();
   const rows = (await sql.query(
-    `SELECT * FROM activity_events ${where} ORDER BY at ASC`,
+    `SELECT * FROM (
+       SELECT * FROM activity_events ${where} ORDER BY at DESC LIMIT ${MAX_ROWS}
+     ) capped ORDER BY at ASC`,
     values,
   )) as Row[];
 

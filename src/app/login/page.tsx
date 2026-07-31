@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { JetBrains_Mono } from "next/font/google";
-import { landingPathForRole, setSessionCookies } from "@/lib/auth";
+import { landingPathForRole, login } from "@/lib/auth";
 import { actorFields, track } from "@/lib/activity";
-import { findUser, USERS, type User } from "@/lib/users";
+import { USERS, type User } from "@/lib/users";
 import styles from "./login.module.css";
 
 // The design sets its mono labels in JetBrains Mono; the rest of the site uses
@@ -72,36 +72,38 @@ export default function LoginPage() {
     };
   }, []);
 
-  // No auth backend yet: match against the mock user directory, and on
-  // success mark the session with cookies the middleware/pages check to gate
-  // routes and branch on role. Swap findUser for a real sign-in call (Sperto
-  // or otherwise) when a backend lands; nothing else here should need to change.
-  function onSubmit(e: React.FormEvent) {
+  // Password verification happens server-side (src/app/api/login/route.ts) —
+  // this just relays the form and reacts to the result.
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const user = findUser(email, password);
-    if (!user) {
+    const session = await login(email, { password });
+    if (!session) {
       setError("Incorrect email or password.");
       return;
     }
-    signInAs(user);
+    afterSignIn(session);
   }
 
   // Demo mode: one click into any of the three roles, no credentials to
-  // remember while showing this around. Uses the same session-cookie path a
-  // real sign-in does, so there's nothing role-specific screens need to
-  // handle differently.
-  function signInAs(user: User) {
-    const sessionId = setSessionCookies(user.role, user.name, user.email);
+  // remember while showing this around. Goes through the same server-side
+  // /api/login endpoint (with `demo: true`, skipping the password check),
+  // so there's nothing role-specific screens need to handle differently.
+  async function signInAs(user: User) {
+    const session = await login(user.email, { demo: true });
+    if (session) afterSignIn(session);
+  }
+
+  function afterSignIn(session: { role: User["role"]; name: string; email: string; sessionId: string }) {
     track({
-      sessionId,
+      sessionId: session.sessionId,
       type: "login",
-      label: `${user.name} signed in`,
+      label: `${session.name} signed in`,
       leadId: null,
       leadName: null,
       durationMs: null,
-      ...actorFields(user.email, user.name),
+      ...actorFields(session.email, session.name),
     });
-    router.push(landingPathForRole(user.role));
+    router.push(landingPathForRole(session.role));
     router.refresh();
   }
 

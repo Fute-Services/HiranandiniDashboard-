@@ -8,11 +8,10 @@ import {
   landingPathForRole,
   LOGIN_PATH,
   MANAGER_PATH,
-  ROLE_COOKIE,
   SESSION_START_PATH,
   SPACE_PATH,
 } from "@/lib/auth";
-import type { Role } from "@/lib/users";
+import { verifySessionToken } from "@/lib/session-token";
 
 /**
  * Gate every page behind the login, except the intro splash and the login
@@ -33,13 +32,23 @@ import type { Role } from "@/lib/users";
  *
  * The matcher below already spares Next internals and static assets, so this
  * only ever runs for real page navigations.
+ *
+ * Role comes from the verified token, not the separate (client-writable)
+ * role cookie — that cookie is display-only now; it can't grant access on
+ * its own even if someone edits it by hand.
  */
-export function middleware(req: NextRequest) {
-  const isAuthed = req.cookies.get(AUTH_COOKIE)?.value === "1";
-  const role = req.cookies.get(ROLE_COOKIE)?.value as Role | undefined;
+export async function middleware(req: NextRequest) {
+  const token = req.cookies.get(AUTH_COOKIE)?.value;
+  const secret = process.env.SESSION_SECRET;
+  const payload = token && secret ? await verifySessionToken(token, secret) : null;
+  const isAuthed = payload !== null;
+  const role = payload?.role;
   const { pathname } = req.nextUrl;
   const isLoginPage = pathname === LOGIN_PATH;
-  const isPublicPage = isLoginPage || pathname === INTRO_PATH;
+  // /api/login and /api/logout must be reachable while signed out — that's
+  // the whole point of them (you can't be authed yet to call /api/login).
+  const isPublicPage =
+    isLoginPage || pathname === INTRO_PATH || pathname === "/api/login" || pathname === "/api/logout";
 
   if (!isAuthed && !isPublicPage) {
     const url = req.nextUrl.clone();
