@@ -550,6 +550,62 @@ function ContentBreakdownChart({ data }: { data: { label: string; count: number 
   );
 }
 
+/** Warm-toned, evenly-spaced palette for pie/donut slices — distinct enough
+ * to tell apart at a glance without straying into unrelated hues. */
+const PIE_COLORS = ["#ff6b00", "#ffb35c", "#c94f1f", "#7a4a2b", "#ffdca8", "#a63d1f"];
+
+/** Same "what gets shown" data as ContentBreakdownChart's ranked bars, as a
+ * proportion-of-whole view instead — a pie answers "what share of the mix"
+ * more directly than a bar's "which is biggest" ranking does. Built with a
+ * CSS conic-gradient rather than an SVG/chart library, consistent with
+ * every other hand-rolled chart in this file. */
+function ContentMixPieChart({ data }: { data: { label: string; count: number }[] }) {
+  const total = data.reduce((sum, d) => sum + d.count, 0);
+
+  if (data.length === 0 || total === 0) {
+    return (
+      <div className={styles.chartCard}>
+        <div className={styles.chartTitle}>Content Mix</div>
+        <p className={styles.chartEmpty}>Nothing shown to customers yet.</p>
+      </div>
+    );
+  }
+
+  const cumulative = data.reduce<number[]>((acc, d) => [...acc, (acc.at(-1) ?? 0) + d.count], []);
+  const stops = data.map((d, i) => {
+    const start = ((cumulative[i] - d.count) / total) * 360;
+    const end = (cumulative[i] / total) * 360;
+    const color = PIE_COLORS[i % PIE_COLORS.length];
+    return `${color} ${start}deg ${end}deg`;
+  });
+
+  return (
+    <div className={styles.chartCard}>
+      <div className={styles.chartTitle}>Content Mix</div>
+      <div className={styles.pieRow}>
+        <div className={styles.pieChart} style={{ background: `conic-gradient(${stops.join(", ")})` }}>
+          <div className={styles.pieHole}>
+            <span className={styles.pieTotal}>{total}</span>
+            <span className={styles.pieTotalLabel}>shown</span>
+          </div>
+        </div>
+        <ul className={styles.pieLegend}>
+          {data.map((d, i) => (
+            <li key={d.label} className={styles.pieLegendItem}>
+              <span
+                className={styles.pieDot}
+                style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
+              />
+              <span className={styles.pieLegendLabel}>{d.label}</span>
+              <span className={styles.pieLegendValue}>{Math.round((d.count / total) * 100)}%</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 /** Presentation starts by hour of day — a column chart, same as the daily
  * trend, because it's also a distribution across ordered time buckets. */
 function BusyHoursChart({ data }: { data: { label: string; count: number }[] }) {
@@ -1498,6 +1554,7 @@ export function SessionReports({
               <TopPropertiesChart data={topProperties} />
               <ContentBreakdownChart data={contentBreakdown} />
               <BusyHoursChart data={busyHours} />
+              <ContentMixPieChart data={contentBreakdown} />
               <div className={styles.reportWide}>
                 <StaffLeaderboard rows={staffLeaderboard} />
               </div>

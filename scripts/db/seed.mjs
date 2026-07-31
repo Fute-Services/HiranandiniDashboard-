@@ -60,6 +60,25 @@ const sessionPlan = [
   { staffIdx: 2, leadIdx: 5, daysAgo: 0, startHour: 17 },
 ];
 
+/** Random int in [min, max], inclusive — every seeded duration/gap uses
+ * this instead of a fixed constant so demo numbers vary session to
+ * session instead of all landing on the same value. */
+function randRange(min, max) {
+  return Math.floor(min + Math.random() * (max - min + 1));
+}
+
+// Every session always opens the project and views floor plans (the
+// "core" walkthrough); the rest are each independently a coin flip, so
+// different sessions show a different mix of content — otherwise every
+// session shows exactly the same 5 content types and the Reports charts
+// end up all-equal, uninteresting slices.
+const OPTIONAL_STEPS = [
+  { type: "gallery", label: (p) => `Browsed gallery, ${p}`, chance: 0.75 },
+  { type: "amenities", label: (p) => `Viewed amenities, ${p}`, chance: 0.6 },
+  { type: "tour_view", label: (p) => `Viewed 360° tour, ${p}`, chance: 0.45 },
+  { type: "brochure_download", label: (p) => `Downloaded brochure, ${p}`, chance: 0.55 },
+];
+
 for (const { staffIdx, leadIdx, daysAgo, startHour } of sessionPlan) {
   const lead = leads[leadIdx];
   let t = now - daysAgo * day - (24 - startHour) * 60 * 60 * 1000;
@@ -70,16 +89,20 @@ for (const { staffIdx, leadIdx, daysAgo, startHour } of sessionPlan) {
   const sessionId = `seed-session-${staffIdx}-${leadIdx}-${t}`;
   const step = (ms) => (t += ms);
   push(sessionId, t, staffIdx, null, "login", `${staff[staffIdx].name} signed in`, null);
-  push(sessionId, step(20_000), staffIdx, null, "search", `Searched lead ${lead.leadId}`, null);
-  push(sessionId, step(15_000), staffIdx, leadIdx, "customer_profile", `Opened profile for ${lead.leadName}`, null);
-  push(sessionId, step(90_000), staffIdx, leadIdx, "project_open", `Opened ${lead.project}`, 90_000);
-  push(sessionId, step(120_000), staffIdx, leadIdx, "floor_plan", `Viewed floor plans, ${lead.project}`, 120_000);
-  push(sessionId, step(75_000), staffIdx, leadIdx, "gallery", `Browsed gallery, ${lead.project}`, 75_000);
-  push(sessionId, step(45_000), staffIdx, leadIdx, "amenities", `Viewed amenities, ${lead.project}`, 45_000);
-  push(sessionId, step(30_000), staffIdx, leadIdx, "brochure_download", `Downloaded brochure, ${lead.project}`, null);
-  push(sessionId, step(10_000), staffIdx, leadIdx, "notes", `Added notes for ${lead.leadName}`, null);
-  push(sessionId, step(5_000), staffIdx, leadIdx, "status", `Marked ${lead.leadName} as Follow-up`, null);
-  push(sessionId, step(8_000), staffIdx, null, "logout", `${staff[staffIdx].name} signed out`, null);
+  push(sessionId, step(randRange(10_000, 30_000)), staffIdx, null, "search", `Searched lead ${lead.leadId}`, null);
+  push(sessionId, step(randRange(8_000, 25_000)), staffIdx, leadIdx, "customer_profile", `Opened profile for ${lead.leadName}`, null);
+  push(sessionId, step(randRange(50_000, 150_000)), staffIdx, leadIdx, "project_open", `Opened ${lead.project}`, randRange(50_000, 150_000));
+  push(sessionId, step(randRange(45_000, 160_000)), staffIdx, leadIdx, "floor_plan", `Viewed floor plans, ${lead.project}`, randRange(45_000, 160_000));
+
+  for (const optional of OPTIONAL_STEPS) {
+    if (Math.random() > optional.chance) continue;
+    const durationMs = randRange(20_000, 100_000);
+    push(sessionId, step(durationMs), staffIdx, leadIdx, optional.type, optional.label(lead.project), durationMs);
+  }
+
+  push(sessionId, step(randRange(5_000, 20_000)), staffIdx, leadIdx, "notes", `Added notes for ${lead.leadName}`, null);
+  push(sessionId, step(randRange(3_000, 10_000)), staffIdx, leadIdx, "status", `Marked ${lead.leadName} as Follow-up`, null);
+  push(sessionId, step(randRange(4_000, 15_000)), staffIdx, null, "logout", `${staff[staffIdx].name} signed out`, null);
 }
 
 for (const e of events) {
