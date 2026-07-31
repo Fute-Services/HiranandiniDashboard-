@@ -42,10 +42,10 @@ export function KickWatcher() {
       }
     };
     check();
-    // 8s background poll, same fallback role as PropertyShowcase's blocked-
-    // projects poll below — focus/visibilitychange below still catches a
-    // kick within moments of switching back to this tab regardless.
-    const id = window.setInterval(check, 8000);
+    // 2s, not the old 8s — a force-logout should land on the login page
+    // right away, not after a several-second lag. focus/visibilitychange
+    // below still catches a kick instantly on switching back to this tab.
+    const id = window.setInterval(check, 2000);
     const onVisible = () => document.visibilityState === "visible" && check();
     window.addEventListener("focus", check);
     document.addEventListener("visibilitychange", onVisible);

@@ -29,16 +29,27 @@ export function EarthPortal() {
    * enforce the same block or a blocked project is still fully reachable
    * from here. Same poll pattern as PropertyShowcase. */
   const [blockedSlugs, setBlockedSlugs] = useState<string[]>([]);
+  // Starts false so the single-project-portfolio auto-open shortcut below
+  // can't fire on the very first render, before the initial poll has come
+  // back — otherwise a blocked project briefly still looks unblocked
+  // (default empty array) and opens anyway.
+  const [blockedLoaded, setBlockedLoaded] = useState(false);
   useEffect(() => {
     let cancelled = false;
     const poll = async () => {
       if (document.hidden) return;
       const email = getSession()?.email;
       const slugs = email ? await getBlockedProjectsFor(email) : [];
-      if (!cancelled) setBlockedSlugs(slugs);
+      if (!cancelled) {
+        setBlockedSlugs(slugs);
+        setBlockedLoaded(true);
+      }
     };
     poll();
-    const id = window.setInterval(poll, 8000);
+    // 2s, not the usual 8s background poll: a block landing while a staff
+    // member is mid-session needs to shut the project down right away, not
+    // after a several-second lag.
+    const id = window.setInterval(poll, 2000);
     const onVisible = () => document.visibilityState === "visible" && poll();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", poll);
@@ -50,11 +61,25 @@ export function EarthPortal() {
     };
   }, []);
 
+  const [blockedNotice, setBlockedNotice] = useState(false);
+  useEffect(() => {
+    if (!blockedNotice) return;
+    const id = window.setTimeout(() => setBlockedNotice(false), 4000);
+    return () => window.clearTimeout(id);
+  }, [blockedNotice]);
+
   // A block landing while the blocked project's panel is already open
   // wouldn't otherwise do anything — close it immediately, same as
-  // PropertyShowcase does for its details modal.
+  // PropertyShowcase does for its details modal, and say why instead of
+  // just silently vanishing.
   useEffect(() => {
-    setOpenProperty((current) => (current && blockedSlugs.includes(current.slug) ? null : current));
+    setOpenProperty((current) => {
+      if (current && blockedSlugs.includes(current.slug)) {
+        setBlockedNotice(true);
+        return null;
+      }
+      return current;
+    });
   }, [blockedSlugs]);
 
   // Crossfades the featured slot instead of hard-cutting to the new card:
@@ -94,6 +119,12 @@ export function EarthPortal() {
 
   return (
     <div className={styles.page}>
+      {blockedNotice && (
+        <div className={styles.blockedNotice} role="alert">
+          This project is blocked. Contact your admin.
+        </div>
+      )}
+
       {!group && !openProperty && <BackButton />}
 
       {!group && (
@@ -112,7 +143,7 @@ export function EarthPortal() {
                     // it, so the showroom screen would just be a detour.
                     // Skipped if that one project is blocked, though — fall
                     // through to the group view instead of opening it anyway.
-                    if (g.projects.length === 1 && !blockedSlugs.includes(g.projects[0].slug)) {
+                    if (g.projects.length === 1 && blockedLoaded && !blockedSlugs.includes(g.projects[0].slug)) {
                       openProject(g.projects[0]);
                     } else {
                       setGroup(g);

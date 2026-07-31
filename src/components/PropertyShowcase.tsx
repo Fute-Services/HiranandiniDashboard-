@@ -74,7 +74,9 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
       if (!cancelled) setBlockedSlugs(slugs);
     };
     poll();
-    const id = window.setInterval(poll, 8000);
+    // 2s, not the usual 8s background poll: a block landing mid-session
+    // needs to shut the project down right away, not after a lag.
+    const id = window.setInterval(poll, 2000);
     const onVisible = () => document.visibilityState === "visible" && poll();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", poll);
@@ -86,16 +88,28 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
     };
   }, []);
 
+  const [blockedNotice, setBlockedNotice] = useState(false);
+  useEffect(() => {
+    if (!blockedNotice) return;
+    const id = window.setTimeout(() => setBlockedNotice(false), 4000);
+    return () => window.clearTimeout(id);
+  }, [blockedNotice]);
+
   // A block that lands while that exact project's details modal is already
   // open wouldn't otherwise do anything — blockedSlugs only filters the
   // card/button lists a staff member picks from, not a modal already
   // rendered from a click made before the block. Force it shut the moment
   // its slug shows up blocked, so mid-session blocking is actually
-  // immediate, not just "can't open it again."
+  // immediate, not just "can't open it again" — and say why instead of
+  // letting the modal just vanish.
   useEffect(() => {
-    setDetailsProperty((current) =>
-      current && blockedSlugs.includes(current.slug) ? null : current,
-    );
+    setDetailsProperty((current) => {
+      if (current && blockedSlugs.includes(current.slug)) {
+        setBlockedNotice(true);
+        return null;
+      }
+      return current;
+    });
   }, [blockedSlugs]);
 
   useEffect(() => {
@@ -148,6 +162,11 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
 
   return (
     <div className={styles.page}>
+      {blockedNotice && (
+        <div className={styles.blockedNotice} role="alert">
+          This project is blocked. Contact your admin.
+        </div>
+      )}
       <div className={styles.vrBackdrop}>
         <iframe
           className={styles.vrFrame}
