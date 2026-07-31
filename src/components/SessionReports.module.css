@@ -1481,13 +1481,7 @@
 
 /* ---------- bottom quick-action dock ---------- */
 
-/* Frosted-glass pill. A normal flex child (not position:fixed), so
-   .viewArea's flex:1 shrinks to make room for it — it never floats over the
-   scrollable content, keeping the "whole dashboard fits one screen" layout
-   intact. Glassmorphism here = heavy backdrop blur + saturation lift, a
-   translucent gradient fill (lighter at the top edge), a hairline border,
-   and an inset top highlight to fake a lit glass rim. No outer drop shadow:
-   its soft spread read as a rectangular band behind the rounded bar. */
+/* Solid white pill, floating above the dark page on its own drop shadow. */
 .bottomDock {
   /* Pinned to the viewport, not the document: it stays put at the bottom of
      the screen while the page scrolls behind it, so the section switcher is
@@ -1506,52 +1500,49 @@
   max-width: 1180px;
   padding: 8px 16px;
   border-radius: 999px;
-  /* Not pure black: the page itself is #000, so an opaque bar needs a
-     shade of its own to read as a distinct panel rather than vanishing
-     into the page behind it. Still solid, not frosted glass — it sits over
-     scrolling content and stays legible no matter what passes behind it. */
-  background: #0d0a06;
-  border: 1px solid rgba(255, 122, 16, 0.4);
-  box-shadow: 0 0 0 1px rgba(255, 122, 16, 0.12), 0 0 24px -6px rgba(255, 107, 0, 0.35),
-    0 20px 45px -10px rgba(0, 0, 0, 0.9);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
-/* Each button keeps its own pill boundary. The orange lives on that
-   boundary — a lit border plus a glow bleeding outward from it — while the
-   face stays transparent glass, so nothing is filled in solid orange. */
+/* Each button is a flat neutral pill at rest; selection/hover is carried
+   entirely by a solid orange fill (not a border glow — that read as muddy
+   on a white bar), so the active tab is unmistakable at a glance. */
 .dockBtn {
   font-family: var(--font-mono), monospace;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(244, 242, 236, 0.72);
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #2a2620;
+  background: #f3f1ec;
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: 8px 17px;
   cursor: pointer;
-  transition: color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
 .dockBtn:hover {
-  color: #fff;
-  border-color: rgba(255, 107, 0, 0.55);
-  box-shadow: 0 0 10px -1px rgba(255, 107, 0, 0.45);
+  color: #ff6b00;
+  background: #fff1e6;
 }
 
-/* Selected section: the same edge light, held on and brighter — an outer
-   bloom off the boundary plus a faint inner rim. */
+/* Selected section: solid orange fill, white text — the one unambiguous
+   "you are here" signal on the bar. */
 .dockBtnActive {
   color: #fff;
-  border-color: #ff6b00;
-  box-shadow: 0 0 16px -1px rgba(255, 107, 0, 0.85),
-    0 0 4px rgba(255, 107, 0, 0.6),
-    inset 0 0 10px -4px rgba(255, 107, 0, 0.7);
+  background: #ff6b00;
+  box-shadow: 0 4px 12px -2px rgba(255, 107, 0, 0.55);
+}
+
+.dockBtnActive:hover {
+  color: #fff;
+  background: #ff6b00;
 }
 
 .dockBtnDanger:hover {
-  background: rgba(209, 59, 50, 0.3);
-  color: #ffe4e1;
+  background: #fdeceb;
+  color: #c0392b;
 }
 
 /* Pushes the action buttons to the right end of the wider bar, so the
@@ -1560,7 +1551,7 @@
 .dockDivider {
   width: 1px;
   height: 18px;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.14);
   flex-shrink: 0;
   margin: 0 4px 0 auto;
 }

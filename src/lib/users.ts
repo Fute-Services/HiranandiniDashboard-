@@ -16,9 +16,12 @@
  */
 export type Role = "admin" | "sales_manager" | "sales_staff";
 
+import { verifyPassword } from "./password";
+
 export type User = {
   email: string;
-  password: string;
+  /** `salt:hash` (scrypt) — never a plaintext password, see src/lib/password.ts. */
+  passwordHash: string;
   name: string;
   role: Role;
   /** Only meaningful for sales_staff: which manager's team they're on. */
@@ -28,33 +31,43 @@ export type User = {
 export const USERS: User[] = [
   {
     email: "admin@hiranandani.com",
-    password: "admin123",
+    // admin123
+    passwordHash:
+      "0c14dfb30c222d222a0e78f2daa8af18:0979c78b3b6a713bdf09022b14f1b82c4fbc3770261c1b8611f84f4365e68e427e88ccd55351e6cc42ba4e11b4712843b6d03b348f43cea9194efc4abad132d2",
     name: "Admin",
     role: "admin",
   },
   {
     email: "manager@hiranandani.com",
-    password: "manager123",
+    // manager123
+    passwordHash:
+      "ab9eedd6498fa9df1da2df9630f29740:3b8fb6b30d5d5d1c5d2fd1e4b1930efae54ac018bc925dab2f6bda338ed60444e98323256f13d262e5a420a7633251a3dd16e9152ca33cb23faeb73cc203b58f",
     name: "Priya Kulkarni",
     role: "sales_manager",
   },
   {
     email: "staff@hiranandani.com",
-    password: "staff123",
+    // staff123
+    passwordHash:
+      "4644e62880d7921d78bf033a87f2da01:c4305fd8233a9961753343754031a441d878e4bc8986020c10a97ce884bf3f25e705eff26805f676a3b1cc910e69f2f6397f1d18ace7b260c048294100bd7da3",
     name: "Sales Staff",
     role: "sales_staff",
     managerEmail: "manager@hiranandani.com",
   },
   {
     email: "aditya@hiranandani.com",
-    password: "staff123",
+    // staff123
+    passwordHash:
+      "4644e62880d7921d78bf033a87f2da01:c4305fd8233a9961753343754031a441d878e4bc8986020c10a97ce884bf3f25e705eff26805f676a3b1cc910e69f2f6397f1d18ace7b260c048294100bd7da3",
     name: "Aditya Rane",
     role: "sales_staff",
     managerEmail: "manager@hiranandani.com",
   },
   {
     email: "sneha@hiranandani.com",
-    password: "staff123",
+    // staff123
+    passwordHash:
+      "4644e62880d7921d78bf033a87f2da01:c4305fd8233a9961753343754031a441d878e4bc8986020c10a97ce884bf3f25e705eff26805f676a3b1cc910e69f2f6397f1d18ace7b260c048294100bd7da3",
     name: "Sneha Iyer",
     role: "sales_staff",
     managerEmail: "manager@hiranandani.com",
@@ -63,11 +76,9 @@ export const USERS: User[] = [
 
 export function findUser(email: string, password: string): User | null {
   const normalized = email.trim().toLowerCase();
-  return (
-    USERS.find(
-      (u) => u.email === normalized && u.password === password,
-    ) ?? null
-  );
+  const user = USERS.find((u) => u.email === normalized);
+  if (!user || !verifyPassword(password, user.passwordHash)) return null;
+  return user;
 }
 
 export function findUserByEmail(email: string): User | null {

@@ -1,108 +1,51 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getSql } from "@/lib/db";
 import type { ActivityEvent, ActivityType } from "@/lib/activity";
 
 /**
  * Append-only activity log: every login, search, and project/property
  * interaction a sales staff member generates (the "Admin & Sales Manager
- * Activity Tracking" goal). In-memory on the dev server, same pattern as
- * `/api/controls` (no DB yet, see that route's comment). This route only
- * ever GETs or POSTs a new entry — there is deliberately no PATCH/DELETE
- * handler, so sales staff have no path to edit or erase their own history;
- * only server restarts clear it.
+ * Activity Tracking" goal). Backed by Postgres (see scripts/db/schema.sql —
+ * `activity_events`, seeded via scripts/db/seed.mjs). This route only ever
+ * GETs or POSTs a new entry — there is deliberately no PATCH/DELETE handler,
+ * so sales staff have no path to edit or erase their own history.
  */
-declare global {
-  // eslint-disable-next-line no-var
-  var __hiranandaniActivity: ActivityEvent[] | undefined;
-}
 
-/**
- * Seed data so the admin/manager Session Reports dashboard has something to
- * show on a fresh server start instead of a blank screen — this is a demo
- * app with no DB, so "empty until real staff log in" would otherwise be the
- * default. Only ever generated once, when the in-memory store is first
- * created; real events append on top of it exactly like any other event.
- */
-function seedActivity(): ActivityEvent[] {
-  const now = Date.now();
-  const day = 24 * 60 * 60 * 1000;
-  const staff = [
-    { email: "staff@hiranandani.com", name: "Sales Staff", managerEmail: "manager@hiranandani.com" },
-    { email: "aditya@hiranandani.com", name: "Aditya Rane", managerEmail: "manager@hiranandani.com" },
-    { email: "sneha@hiranandani.com", name: "Sneha Iyer", managerEmail: "manager@hiranandani.com" },
-  ];
-  const leads = [
-    { leadId: "LEAD-1001", leadName: "Rohan Mehta", project: "The Arena" },
-    { leadId: "LEAD-1002", leadName: "Priya Nair", project: "Elena" },
-    { leadId: "LEAD-1003", leadName: "Arjun & Kavita Shah", project: "Golden Willows" },
-    { leadId: "LEAD-1004", leadName: "Sameer Deshpande", project: "Ebony" },
-    { leadId: "LEAD-1005", leadName: "Fatima Sheikh", project: "Club House" },
-  ];
+type Row = {
+  id: string;
+  session_id: string;
+  staff_email: string;
+  staff_name: string;
+  manager_email: string | null;
+  lead_id: string | null;
+  lead_name: string | null;
+  type: ActivityType;
+  label: string;
+  at: string | number;
+  duration_ms: string | number | null;
+  device: string | null;
+  location: string | null;
+};
 
-  const events: ActivityEvent[] = [];
-  let idCounter = 0;
-  const push = (
-    at: number,
-    staffIdx: number,
-    leadIdx: number | null,
-    type: ActivityType,
-    label: string,
-    durationMs: number | null,
-  ) => {
-    const s = staff[staffIdx];
-    const lead = leadIdx === null ? null : leads[leadIdx];
-    events.push({
-      id: `seed-${idCounter++}`,
-      sessionId: `seed-session-${staffIdx}-${leadIdx ?? "x"}-${at}`,
-      staffEmail: s.email,
-      staffName: s.name,
-      managerEmail: s.managerEmail,
-      leadId: lead?.leadId ?? null,
-      leadName: lead?.leadName ?? null,
-      type,
-      label,
-      at,
-      durationMs,
-      device: "Seed Data",
-      location: "Mumbai, IN",
-    });
+function toEvent(r: Row): ActivityEvent {
+  return {
+    id: r.id,
+    sessionId: r.session_id,
+    staffEmail: r.staff_email,
+    staffName: r.staff_name,
+    managerEmail: r.manager_email,
+    leadId: r.lead_id,
+    leadName: r.lead_name,
+    type: r.type,
+    label: r.label,
+    at: Number(r.at),
+    durationMs: r.duration_ms === null ? null : Number(r.duration_ms),
+    device: r.device,
+    location: r.location,
   };
-
-  // Three staff x two presentations each, spread over the last five days.
-  const sessionPlan: Array<{ staffIdx: number; leadIdx: number; daysAgo: number; startHour: number }> = [
-    { staffIdx: 0, leadIdx: 0, daysAgo: 4, startHour: 11 },
-    { staffIdx: 0, leadIdx: 2, daysAgo: 1, startHour: 16 },
-    { staffIdx: 1, leadIdx: 1, daysAgo: 3, startHour: 10 },
-    { staffIdx: 1, leadIdx: 4, daysAgo: 0, startHour: 14 },
-    { staffIdx: 2, leadIdx: 3, daysAgo: 2, startHour: 12 },
-    { staffIdx: 2, leadIdx: 1, daysAgo: 0, startHour: 17 },
-  ];
-
-  for (const { staffIdx, leadIdx, daysAgo, startHour } of sessionPlan) {
-    const lead = leads[leadIdx];
-    let t = now - daysAgo * day - (24 - startHour) * 60 * 60 * 1000;
-    const step = (ms: number) => {
-      t += ms;
-      return t;
-    };
-    push(t, staffIdx, null, "login", `${staff[staffIdx].name} signed in`, null);
-    push(step(20_000), staffIdx, null, "search", `Searched lead ${lead.leadId}`, null);
-    push(step(15_000), staffIdx, leadIdx, "customer_profile", `Opened profile for ${lead.leadName}`, null);
-    push(step(90_000), staffIdx, leadIdx, "project_open", `Opened ${lead.project}`, 90_000);
-    push(step(120_000), staffIdx, leadIdx, "floor_plan", `Viewed floor plans, ${lead.project}`, 120_000);
-    push(step(75_000), staffIdx, leadIdx, "gallery", `Browsed gallery, ${lead.project}`, 75_000);
-    push(step(45_000), staffIdx, leadIdx, "amenities", `Viewed amenities, ${lead.project}`, 45_000);
-    push(step(30_000), staffIdx, leadIdx, "brochure_download", `Downloaded brochure, ${lead.project}`, null);
-    push(step(10_000), staffIdx, leadIdx, "notes", `Added notes for ${lead.leadName}`, null);
-    push(step(5_000), staffIdx, leadIdx, "status", `Marked ${lead.leadName} as Follow-up`, null);
-    push(step(8_000), staffIdx, null, "logout", `${staff[staffIdx].name} signed out`, null);
-  }
-
-  return events.sort((a, b) => a.at - b.at);
 }
-
-const store = globalThis.__hiranandaniActivity ?? (globalThis.__hiranandaniActivity = seedActivity());
 
 function locationFromHeaders(req: NextRequest): string | null {
   const city = req.headers.get("x-vercel-ip-city");
@@ -132,7 +75,16 @@ export async function POST(req: NextRequest) {
     device: body.device ?? null,
     location: locationFromHeaders(req),
   };
-  store.push(event);
+
+  const sql = getSql();
+  await sql`
+    INSERT INTO activity_events
+      (id, session_id, staff_email, staff_name, manager_email, lead_id, lead_name, type, label, at, duration_ms, device, location)
+    VALUES
+      (${event.id}, ${event.sessionId}, ${event.staffEmail}, ${event.staffName}, ${event.managerEmail},
+       ${event.leadId}, ${event.leadName}, ${event.type}, ${event.label}, ${event.at}, ${event.durationMs},
+       ${event.device}, ${event.location})
+  `;
 
   return NextResponse.json({ ok: true, id: event.id });
 }
@@ -146,16 +98,30 @@ export async function GET(req: NextRequest) {
   const from = params.get("from") ? Number(params.get("from")) : null;
   const to = params.get("to") ? Number(params.get("to")) : null;
 
-  const filtered = store.filter((e) => {
-    if (managerEmail && e.managerEmail !== managerEmail) return false;
-    if (staffEmail && e.staffEmail !== staffEmail) return false;
-    if (leadId && e.leadId !== leadId) return false;
-    if (project && !e.label.toLowerCase().includes(project) && !(e.leadName ?? "").toLowerCase().includes(project))
-      return false;
-    if (from !== null && e.at < from) return false;
-    if (to !== null && e.at > to) return false;
-    return true;
-  });
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+  const add = (clause: string, value: unknown) => {
+    values.push(value);
+    conditions.push(clause.replace("?", `$${values.length}`));
+  };
 
-  return NextResponse.json([...filtered].sort((a, b) => a.at - b.at));
+  if (managerEmail) add("manager_email = ?", managerEmail);
+  if (staffEmail) add("staff_email = ?", staffEmail);
+  if (leadId) add("lead_id = ?", leadId);
+  if (project) {
+    values.push(`%${project}%`);
+    const i = values.length;
+    conditions.push(`(lower(label) LIKE $${i} OR lower(coalesce(lead_name, '')) LIKE $${i})`);
+  }
+  if (from !== null) add("at >= ?", from);
+  if (to !== null) add("at <= ?", to);
+
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const sql = getSql();
+  const rows = (await sql.query(
+    `SELECT * FROM activity_events ${where} ORDER BY at ASC`,
+    values,
+  )) as Row[];
+
+  return NextResponse.json(rows.map(toEvent));
 }

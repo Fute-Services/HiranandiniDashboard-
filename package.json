@@ -7,9 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "node --env-file=.env.local scripts/db/migrate.mjs",
+    "db:seed": "node --env-file=.env.local scripts/db/seed.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "next": "15.5.20",
     "react": "19.1.1",
     "react-dom": "19.1.1"
