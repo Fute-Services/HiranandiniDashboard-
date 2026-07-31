@@ -1668,10 +1668,10 @@ export function SessionReports({
             {t.label}
           </button>
         ))}
-        <span className={styles.dockDivider} />
         <button type="button" className={styles.dockBtn} onClick={openDashboard}>
           Open Showcase&nbsp;&#8599;
         </button>
+        <span className={styles.dockDivider} />
         <button type="button" className={`${styles.dockBtn} ${styles.dockBtnDanger}`} onClick={signOut}>
           Log out
         </button>
