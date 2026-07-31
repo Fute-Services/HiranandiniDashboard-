@@ -54,6 +54,29 @@
   border: none;
 }
 
+/* Covers the panorama until the tour's own iframe reports loaded. Sits
+   inside .vrBackdrop (not fixed over the whole app) so the header, notes bar
+   and shelf above it stay usable while the tour is still coming down. */
+.vrLoading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: radial-gradient(120% 90% at 50% 45%, #131627 0%, #06070e 100%);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.vrLoadingLabel {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
 /* A soft gradient at the very top only, just enough for the header text to
    sit on, without a full-screen tint hiding the rest of the scene. */
 .topFade {
@@ -157,9 +180,24 @@
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
 }
 
-.endSession:hover {
+.endSession:hover:not(:disabled) {
   background: rgba(75, 99, 214, 0.48);
   border-color: rgba(150, 168, 245, 0.75);
+}
+
+/* Both leave-the-screen buttons show a spinner beside their label while the
+   navigation runs, so they need to lay out as a row. */
+.endSession,
+.signout {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.endSession:disabled,
+.signout:disabled {
+  cursor: wait;
+  opacity: 0.75;
 }
 
 .signout {
@@ -179,7 +217,7 @@
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.2s ease;
 }
 
-.signout:hover {
+.signout:hover:not(:disabled) {
   background: rgba(220, 60, 50, 0.38);
   border-color: rgba(255, 150, 140, 0.65);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 10px 26px -10px rgba(209, 59, 50, 0.75);
@@ -532,6 +570,26 @@
   border-radius: 999px;
   padding: 6px 12px;
   cursor: pointer;
+}
+
+/* Stands in for the Details row while the blocked-projects check is still
+   out — these buttons appear immediately on mount, unlike the shelf cards
+   above, so an empty row here really would read as "there's nothing". */
+.detailsLoading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(10, 12, 24, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 6px 14px;
 }
 
 .detailsBtn:hover {

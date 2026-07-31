@@ -417,10 +417,20 @@
   transition: background 0.15s, box-shadow 0.2s, transform 0.15s;
 }
 
-.submit:hover {
+.submit:hover:not(:disabled) {
   background: #3a4fb8;
   box-shadow: 0 0 30px -2px rgba(75, 99, 214, 0.9);
   transform: translateY(-1px);
+}
+
+/* Sign-in in flight (or a demo sign-in holding the card): keep the button
+   readable rather than greying it out to nothing, and use a wait cursor so
+   the state reads as "working", not "unavailable". */
+.submit:disabled,
+.demoButton:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
 }
 
 .arrow {
@@ -475,9 +485,15 @@
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.demoButton:hover {
+.demoButton:hover:not(:disabled) {
   background: rgba(125, 148, 240, 0.14);
   border-color: rgba(125, 148, 240, 0.45);
+}
+
+.demoPending {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .demoRole {

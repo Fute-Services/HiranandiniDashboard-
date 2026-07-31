@@ -15,6 +15,7 @@ import {
   type ActiveSession,
 } from "@/lib/session";
 import { ImageSlot } from "./ImageSlot";
+import { Spinner } from "./Spinner";
 import styles from "./PropertyShowcase.module.css";
 
 const VR_TOUR_URL = "https://futeservices.com/25-26/V2/VR_10/index.html";
@@ -46,6 +47,17 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   const [noteSaved, setNoteSaved] = useState(false);
   const [detailsProperty, setDetailsProperty] = useState<Property | null>(null);
   const [busy, setBusy] = useState(false);
+  /** The 360° panorama is a whole third-party site in an iframe and easily
+   * the slowest thing on this screen — without a marker the customer just
+   * stares at an empty black backdrop wondering if it's broken. */
+  const [tourLoaded, setTourLoaded] = useState(false);
+  /** False until the first blocked-projects poll answers. The shelf renders
+   * a skeleton until then rather than showing every card and yanking the
+   * blocked ones back out a moment later. */
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  /** Which of the two leave-this-screen actions is under way (both navigate,
+   * and sign-out also writes the logout event first). */
+  const [leaving, setLeaving] = useState<"end" | "logout" | null>(null);
 
   useEffect(() => {
     const active = getActiveSession();
@@ -71,7 +83,9 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
       if (document.hidden) return;
       const email = getSession()?.email;
       const slugs = email ? await getBlockedProjectsFor(email) : [];
-      if (!cancelled) setBlockedSlugs(slugs);
+      if (cancelled) return;
+      setBlockedSlugs(slugs);
+      setPermissionsLoaded(true);
     };
     poll();
     // 2s, not the usual 8s background poll: a block landing mid-session
@@ -122,11 +136,13 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   }, [session]);
 
   const endSession = useCallback(() => {
+    setLeaving("end");
     finalizeSession();
     router.push(SESSION_START_PATH);
   }, [router]);
 
   const signOut = useCallback(() => {
+    setLeaving("logout");
     logLogout();
     clearActiveSession();
     clearSessionCookies();
@@ -173,7 +189,14 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
           src={VR_TOUR_URL}
           title="360° property tour"
           allow="gyroscope; accelerometer; xr-spatial-tracking"
+          onLoad={() => setTourLoaded(true)}
         />
+        {!tourLoaded && (
+          <div className={styles.vrLoading} role="status">
+            <Spinner size={26} />
+            <span className={styles.vrLoadingLabel}>Loading 360&deg; tour…</span>
+          </div>
+        )}
       </div>
       <div className={styles.topFade} />
 
@@ -197,12 +220,38 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
             </button>
           )}
           {!isAdmin && (
-            <button type="button" className={styles.endSession} onClick={endSession}>
-              End Session
+            <button
+              type="button"
+              className={styles.endSession}
+              onClick={endSession}
+              disabled={leaving !== null}
+              aria-busy={leaving === "end"}
+            >
+              {leaving === "end" ? (
+                <>
+                  <Spinner size={12} />
+                  Ending…
+                </>
+              ) : (
+                "End Session"
+              )}
             </button>
           )}
-          <button type="button" className={styles.signout} onClick={signOut}>
-            Log out
+          <button
+            type="button"
+            className={styles.signout}
+            onClick={signOut}
+            disabled={leaving !== null}
+            aria-busy={leaving === "logout"}
+          >
+            {leaving === "logout" ? (
+              <>
+                <Spinner size={12} />
+                Signing out…
+              </>
+            ) : (
+              "Log out"
+            )}
           </button>
         </div>
       </header>
@@ -236,6 +285,11 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
         <div className={styles.shelf}>
           <div className={styles.shelfLabel}>Hiranandani Portfolio &middot; 2026</div>
           <div className={styles.cards} ref={cardsRef}>
+            {/* No loading placeholder here on purpose: these cards are
+                choreographed to fly in several seconds after mount anyway
+                (see .card's animation-delay), which is long past when the
+                blocked-projects poll answers — a skeleton would only ever
+                flash before the reveal it's meant to stand in for. */}
             {properties
               .filter((property) => !blockedSlugs.includes(property.slug))
               .map((property, i) => (
@@ -280,7 +334,14 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
           above (an <a> can't nest a <button>) so opening floor plan/gallery/
           amenities/brochure doesn't also navigate off-site. */}
       <div className={styles.detailsDock}>
-        {properties
+        {!permissionsLoaded && (
+          <span className={styles.detailsLoading} role="status">
+            <Spinner size={12} />
+            Loading projects…
+          </span>
+        )}
+        {permissionsLoaded &&
+          properties
           .filter((property) => !blockedSlugs.includes(property.slug))
           .map((property) => (
             <button
@@ -320,6 +381,10 @@ const DETAIL_TAB_LABEL: Record<DetailTab, string> = {
  * just claiming one happened. */
 function PropertyDetailsModal({ property, onClose }: { property: Property; onClose: () => void }) {
   const [tab, setTab] = useState<DetailTab>("floor_plan");
+  /** The file itself is built locally and lands instantly, so this is a
+   * confirmation rather than a spinner — a browser download that opens no
+   * window otherwise gives no sign the click registered at all. */
+  const [downloaded, setDownloaded] = useState(false);
 
   useEffect(() => {
     logSessionEvent(`Viewed ${DETAIL_TAB_LABEL[tab]} · ${property.name}`, tab);
@@ -342,6 +407,8 @@ function PropertyDetailsModal({ property, onClose }: { property: Property; onClo
     a.click();
     URL.revokeObjectURL(url);
     logSessionEvent(`Downloaded Brochure · ${property.name}`, "brochure_download");
+    setDownloaded(true);
+    window.setTimeout(() => setDownloaded(false), 2000);
   }, [property]);
 
   return (
@@ -396,7 +463,7 @@ function PropertyDetailsModal({ property, onClose }: { property: Property; onClo
                 amenities.
               </p>
               <button type="button" className={styles.notesBtn} onClick={downloadBrochure}>
-                Download Brochure
+                {downloaded ? "Downloaded ✓" : "Download Brochure"}
               </button>
             </div>
           )}

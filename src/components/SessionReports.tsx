@@ -9,6 +9,7 @@ import { createWalkInLead } from "@/lib/leads";
 import { setActiveSession } from "@/lib/session";
 import { USERS } from "@/lib/users";
 import { portfolioGroups } from "@/data/properties";
+import { LoadingBlock, Spinner } from "./Spinner";
 
 /** Every project across every portfolio (Alibaug + Fortune City), not just
  * Fortune City's six — the block/active grid should cover everything a
@@ -1082,11 +1083,16 @@ function StaffControlPanel({
   staffEmail,
   staffName,
   events,
+  eventsLoading,
   onClose,
 }: {
   staffEmail: string;
   staffName: string;
   events: ActivityEvent[];
+  /** True until this staff member's activity has actually come back, so the
+   * walkthrough list can say "loading" instead of "nothing recorded yet" —
+   * which is a very different, and wrong, thing to tell a manager. */
+  eventsLoading: boolean;
   onClose: () => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
@@ -1098,40 +1104,65 @@ function StaffControlPanel({
   const [kicked, setKicked] = useState(false);
   const [blocked, setBlocked] = useState<string[]>([]);
   const [loginSuspended, setLoginSuspended] = useState(false);
+  /** The block/active grid is only meaningful once the server has said which
+   * projects are actually blocked — until then every project would read
+   * "Active", which is a claim, not a placeholder. */
+  const [controlsLoading, setControlsLoading] = useState(true);
   useEffect(() => {
     setKicked(false);
+    setControlsLoading(true);
     let cancelled = false;
     fetchControlState(staffEmail).then((state) => {
       if (cancelled) return;
       setBlocked(state.blockedProjects);
       setLoginSuspended(state.loginSuspended);
+      setControlsLoading(false);
     });
     return () => {
       cancelled = true;
     };
   }, [staffEmail]);
 
-  // Both controls update optimistically, then roll back if the server
-  // didn't accept the change — otherwise the panel would keep showing a
-  // permission or logout signal that was never actually applied.
+  /** Which control is mid-request. Each of these is a real round trip to
+   * /api/controls, and each one is disruptive enough (signing someone out,
+   * pulling a project off their screen) that "did that land?" needs an
+   * answer on the button itself. */
+  const [kickPending, setKickPending] = useState(false);
+  const [restorePending, setRestorePending] = useState(false);
+  const [pendingSlugs, setPendingSlugs] = useState<string[]>([]);
+
+  // Force-logout and restore both wait for the server before they claim
+  // anything: each is a one-shot, consequential action, and "Signal Sent" or
+  // a lifted suspension shown before the request landed is a claim the panel
+  // can't back up. The spinner covers the gap.
   const forceLogout = async () => {
-    setKicked(true);
-    setLoginSuspended(true);
-    if (!(await kickStaff(staffEmail))) {
-      setKicked(false);
-      setLoginSuspended(false);
+    setKickPending(true);
+    const ok = await kickStaff(staffEmail);
+    setKickPending(false);
+    if (ok) {
+      setKicked(true);
+      setLoginSuspended(true);
     }
   };
 
   const restoreAccess = async () => {
-    setLoginSuspended(false);
-    if (!(await restoreLogin(staffEmail))) setLoginSuspended(true);
+    setRestorePending(true);
+    const ok = await restoreLogin(staffEmail);
+    setRestorePending(false);
+    if (ok) setLoginSuspended(false);
   };
+
+  // The block toggles are the exception: they're flipped back and forth
+  // freely, so they still update optimistically (with a pending marker on
+  // the button being synced) and roll back if the server refuses.
 
   const toggleBlocked = async (slug: string) => {
     const next = !blocked.includes(slug);
     setBlocked((prev) => (next ? [...prev, slug] : prev.filter((s) => s !== slug)));
-    if (!(await setProjectBlockedFor(staffEmail, slug, next))) {
+    setPendingSlugs((prev) => [...prev, slug]);
+    const ok = await setProjectBlockedFor(staffEmail, slug, next);
+    setPendingSlugs((prev) => prev.filter((s) => s !== slug));
+    if (!ok) {
       setBlocked((prev) => (next ? prev.filter((s) => s !== slug) : [...prev, slug]));
     }
   };
@@ -1214,6 +1245,8 @@ function StaffControlPanel({
           <button
             type="button"
             className={styles.kickBtn}
+            disabled={kickPending}
+            aria-busy={kickPending}
             onClick={() =>
               requestConfirm(
                 `Force logout ${staffName}? They'll be signed out immediately, mid-session if active.`,
@@ -1221,13 +1254,35 @@ function StaffControlPanel({
               )
             }
           >
-            {kicked ? "Signal Sent" : "Force Logout"}
+            {kickPending ? (
+              <>
+                <Spinner size={11} />
+                Sending…
+              </>
+            ) : kicked ? (
+              "Signal Sent"
+            ) : (
+              "Force Logout"
+            )}
           </button>
           {loginSuspended && (
             <>
               <span className={styles.suspendedPill}>&#9679; Login Suspended</span>
-              <button type="button" className={styles.restoreBtn} onClick={restoreAccess}>
-                Restore Access
+              <button
+                type="button"
+                className={styles.restoreBtn}
+                onClick={restoreAccess}
+                disabled={restorePending}
+                aria-busy={restorePending}
+              >
+                {restorePending ? (
+                  <>
+                    <Spinner size={11} />
+                    Restoring…
+                  </>
+                ) : (
+                  "Restore Access"
+                )}
               </button>
             </>
           )}
@@ -1241,18 +1296,30 @@ function StaffControlPanel({
         <div className={styles.staffSectionHead}>
           <span className={styles.snapshotLabel}>Projects This Staff Can Show</span>
           <span className={styles.staffSectionMeta}>
-            {ALL_PROJECTS.length - blockedCount} active &middot; {blockedCount} blocked
+            {controlsLoading ? (
+              <span className={styles.inlineLoading}>
+                <Spinner size={11} />
+                Loading permissions…
+              </span>
+            ) : (
+              <>
+                {ALL_PROJECTS.length - blockedCount} active &middot; {blockedCount} blocked
+              </>
+            )}
           </span>
         </div>
         <div className={styles.permissionsGrid}>
           {ALL_PROJECTS.map((p) => {
             const isBlocked = blocked.includes(p.slug);
+            const isPending = pendingSlugs.includes(p.slug);
             return (
               <div key={p.slug} className={styles.permCard}>
                 <span className={styles.permCardName}>{p.name}</span>
                 <button
                   type="button"
                   className={`${styles.blockBtn} ${isBlocked ? styles.blockBtnBlocked : ""}`}
+                  disabled={controlsLoading || isPending}
+                  aria-busy={isPending}
                   onClick={() => {
                     // Only confirm when blocking — reverting a block back to
                     // active is the safe direction and doesn't need a gate.
@@ -1265,7 +1332,18 @@ function StaffControlPanel({
                     }
                   }}
                 >
-                  {isBlocked ? "Blocked" : "Active"}
+                  {controlsLoading ? (
+                    <Spinner size={11} />
+                  ) : isPending ? (
+                    <>
+                      <Spinner size={11} />
+                      {isBlocked ? "Blocking…" : "Unblocking…"}
+                    </>
+                  ) : isBlocked ? (
+                    "Blocked"
+                  ) : (
+                    "Active"
+                  )}
                 </button>
               </div>
             );
@@ -1273,7 +1351,9 @@ function StaffControlPanel({
         </div>
       </section>
 
-      {chips.length === 0 ? (
+      {eventsLoading && chips.length === 0 ? (
+        <LoadingBlock message="Loading activity…" />
+      ) : chips.length === 0 ? (
         <p className={styles.chartEmpty}>No activity recorded for this staff member yet.</p>
       ) : (
         <section className={styles.staffSection}>
@@ -1367,8 +1447,15 @@ export function SessionReports({
 }) {
   const router = useRouter();
   const [events, setEvents] = useState<ActivityEvent[] | null>(null);
+  /** True whenever an activity request is in flight, including refetches
+   * triggered by a changed filter — a table that already has last query's
+   * rows in it otherwise looks like the new filter simply did nothing. */
+  const [refreshing, setRefreshing] = useState(true);
   const [viewer, setViewer] = useState<ReturnType<typeof getSession>>(null);
   const [openKey, setOpenKey] = useState<string | null>(null);
+  /** Set while one of the two dock actions that leave this dashboard is
+   * navigating (sign-out also writes its logout event first). */
+  const [leaving, setLeaving] = useState<"showcase" | "logout" | null>(null);
 
   const [staffFilter, setStaffFilter] = useState("");
   const [customerFilter, setCustomerFilter] = useState("");
@@ -1414,6 +1501,7 @@ export function SessionReports({
   const reload = useCallback(() => {
     const v = getSession();
     if (!v) return;
+    setRefreshing(true);
     listActivity({
       managerEmail: v.role === "sales_manager" ? v.email : undefined,
       staffEmail: staffFilter || undefined,
@@ -1422,7 +1510,10 @@ export function SessionReports({
       // `to` is the start of the end day, so add a day (minus 1ms) to make
       // the range inclusive of everything that happened on it.
       to: range.to === undefined ? undefined : range.to + DAY_MS - 1,
-    }).then(setEvents);
+    }).then((evts) => {
+      setEvents(evts);
+      setRefreshing(false);
+    });
   }, [staffFilter, customerFilter, range]);
 
   useEffect(() => {
@@ -1461,6 +1552,7 @@ export function SessionReports({
   }, [profile]);
 
   const signOut = useCallback(() => {
+    setLeaving("logout");
     logLogout();
     clearSessionCookies();
     router.push(LOGIN_PATH);
@@ -1470,6 +1562,7 @@ export function SessionReports({
   /** Admin/manager get a direct preview, no lead lookup, unlike the sales
    * staff flow (`/session/start`) this skips past. */
   const openDashboard = useCallback(() => {
+    setLeaving("showcase");
     setActiveSession(createWalkInLead());
     router.push(SPACE_PATH);
   }, [router]);
@@ -1636,14 +1729,30 @@ export function SessionReports({
         </div>
       </div>
 
+      {/* A refetch keeps the previous results on screen (they're still the
+          best answer available), so the only signal that a new filter is
+          being applied is this marker. */}
+      {refreshing && events !== null && (
+        <div className={styles.refreshing} role="status">
+          <Spinner size={11} />
+          Updating…
+        </div>
+      )}
+
       {/* One section at a time, chosen from the fixed navbar below. */}
       <div className={styles.viewArea}>
-        {view === "staff" &&
+        {/* Nothing has come back from /api/activity yet: every section below
+            reads off `events`, and each of their empty states would claim
+            "nothing logged" while the request is still in flight. */}
+        {events === null && <LoadingBlock message="Loading activity…" size={22} />}
+
+        {events !== null && view === "staff" &&
           (profile ? (
             <StaffControlPanel
               staffEmail={profile.email}
               staffName={profile.name}
               events={profileEvents ?? []}
+              eventsLoading={profileEvents === null}
               onClose={() => {
                 setProfile(null);
                 setStaffFilter("");
@@ -1656,7 +1765,7 @@ export function SessionReports({
             </div>
           ))}
 
-        {view === "analytics" &&
+        {events !== null && view === "analytics" &&
           (presentations.length > 0 ? (
             <div className={styles.reportGrid}>
               <div className={styles.reportWide}>
@@ -1676,8 +1785,8 @@ export function SessionReports({
             </div>
           ))}
 
-        {view === "customers" &&
-          (events === null ? null : presentations.length === 0 ? (
+        {events !== null && view === "customers" &&
+          (presentations.length === 0 ? (
             <div className={styles.empty}>
               <div className={styles.emptyIcon}>{EmptyIcon}</div>
               <p>
@@ -1789,7 +1898,7 @@ export function SessionReports({
             </div>
           ))}
 
-        {view === "logins" &&
+        {events !== null && view === "logins" &&
           (logins.length === 0 ? (
             <div className={styles.empty}>
               <div className={styles.emptyIcon}>{EmptyIcon}</div>
@@ -1838,12 +1947,38 @@ export function SessionReports({
             {t.label}
           </button>
         ))}
-        <button type="button" className={styles.dockBtn} onClick={openDashboard}>
-          Open Showcase&nbsp;&#8599;
+        <button
+          type="button"
+          className={styles.dockBtn}
+          onClick={openDashboard}
+          disabled={leaving !== null}
+          aria-busy={leaving === "showcase"}
+        >
+          {leaving === "showcase" ? (
+            <>
+              <Spinner size={12} />
+              Opening…
+            </>
+          ) : (
+            <>Open Showcase&nbsp;&#8599;</>
+          )}
         </button>
         <span className={styles.dockDivider} />
-        <button type="button" className={`${styles.dockBtn} ${styles.dockBtnDanger}`} onClick={signOut}>
-          Log out
+        <button
+          type="button"
+          className={`${styles.dockBtn} ${styles.dockBtnDanger}`}
+          onClick={signOut}
+          disabled={leaving !== null}
+          aria-busy={leaving === "logout"}
+        >
+          {leaving === "logout" ? (
+            <>
+              <Spinner size={12} />
+              Signing out…
+            </>
+          ) : (
+            "Log out"
+          )}
         </button>
       </nav>
     </div>

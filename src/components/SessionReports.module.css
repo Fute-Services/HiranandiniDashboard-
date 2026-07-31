@@ -570,6 +570,65 @@
   white-space: nowrap;
 }
 
+/* Any of these can carry a spinner beside its label mid-request, so they all
+   lay their content out in a row and centre it. */
+.kickBtn,
+.blockBtn,
+.restoreBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Same reason, but the dock's labels are left-aligned by design — keep them
+   there rather than centring them the moment a spinner appears. */
+.dockBtn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+/* Mid-request: readable and clearly busy, rather than greyed out as if the
+   control had gone away. */
+.kickBtn:disabled,
+.blockBtn:disabled,
+.restoreBtn:disabled,
+.dockBtn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+/* Small "…is loading" caption that sits inline in a section header. */
+.inlineLoading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* A refetch (new filter, new date range) with results already on screen —
+   pinned bottom-right so it doesn't shift the layout it's reporting on, and
+   clear of both the header clock and the side dock. */
+.refreshing {
+  position: fixed;
+  bottom: 18px;
+  right: 20px;
+  z-index: 25;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.65);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
 .kickBtn,
 .blockBtn {
   flex-shrink: 0;

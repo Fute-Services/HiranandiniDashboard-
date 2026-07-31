@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { clearSessionCookies, getSession, LOGIN_PATH } from "@/lib/auth";
 import { logLogout } from "@/lib/activity";
 import { ackKick, fetchControlState } from "@/lib/controls";
 import { clearActiveSession } from "@/lib/session";
+import { FullScreenLoader } from "./Spinner";
 
 /**
  * Mounted once at the root layout so a force-logout (see SessionReports's
@@ -18,6 +19,18 @@ import { clearActiveSession } from "@/lib/session";
  */
 export function KickWatcher() {
   const router = useRouter();
+  const pathname = usePathname();
+  /** A force-logout tears the session down and navigates, all without the
+   * staff member having touched anything — an overlay makes it clear the app
+   * is doing something deliberate rather than freezing mid-presentation. */
+  const [signingOut, setSigningOut] = useState(false);
+
+  // This component lives in the root layout, so it survives the redirect it
+  // just triggered — without this the overlay would sit on top of the login
+  // page it handed the staff member to.
+  useEffect(() => {
+    setSigningOut(false);
+  }, [pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,6 +44,7 @@ export function KickWatcher() {
       const state = await fetchControlState(email);
       if (cancelled) return;
       if (state.kicked) {
+        setSigningOut(true);
         ackKick(email);
         logLogout();
         clearActiveSession();
@@ -57,5 +71,6 @@ export function KickWatcher() {
     };
   }, [router]);
 
-  return null;
+  if (!signingOut) return null;
+  return <FullScreenLoader message="Signing you out…" />;
 }

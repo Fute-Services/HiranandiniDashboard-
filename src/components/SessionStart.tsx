@@ -6,6 +6,7 @@ import { clearSessionCookies, getSession, getSessionId, LOGIN_PATH, SPACE_PATH }
 import { actorFields, logLogout, track } from "@/lib/activity";
 import { createWalkInLead, findLead, type Lead } from "@/lib/leads";
 import { setActiveSession } from "@/lib/session";
+import { Spinner } from "./Spinner";
 import styles from "./SessionStart.module.css";
 
 /**
@@ -19,6 +20,11 @@ export function SessionStart() {
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [match, setMatch] = useState<Lead | null>(null);
+  /** Which navigation is under way. Starting a presentation and signing out
+   * both leave this screen, and that route change isn't instant — without a
+   * marker the button just sits there looking unclicked. Never cleared: the
+   * component unmounts when the navigation lands. */
+  const [leaving, setLeaving] = useState<"start" | "walkin" | "logout" | null>(null);
 
   function logActivity(type: "search" | "customer_profile", label: string, lead: Lead | null) {
     const staff = getSession();
@@ -49,12 +55,16 @@ export function SessionStart() {
     logActivity("customer_profile", `Opened profile for ${lead.name}`, lead);
   }
 
-  function start(lead: Lead) {
+  function start(lead: Lead, from: "start" | "walkin") {
+    if (leaving) return;
+    setLeaving(from);
     setActiveSession(lead);
     router.push(SPACE_PATH);
   }
 
   function signOut() {
+    if (leaving) return;
+    setLeaving("logout");
     logLogout();
     clearSessionCookies();
     router.push(LOGIN_PATH);
@@ -63,8 +73,21 @@ export function SessionStart() {
 
   return (
     <div className={styles.page}>
-      <button type="button" className={styles.logout} onClick={signOut}>
-        Log out
+      <button
+        type="button"
+        className={styles.logout}
+        onClick={signOut}
+        disabled={leaving !== null}
+        aria-busy={leaving === "logout"}
+      >
+        {leaving === "logout" ? (
+          <>
+            <Spinner size={12} />
+            Signing out…
+          </>
+        ) : (
+          "Log out"
+        )}
       </button>
       <div className={styles.card}>
         {!match ? (
@@ -106,9 +129,18 @@ export function SessionStart() {
             <button
               type="button"
               className={styles.walkin}
-              onClick={() => start(createWalkInLead())}
+              onClick={() => start(createWalkInLead(), "walkin")}
+              disabled={leaving !== null}
+              aria-busy={leaving === "walkin"}
             >
-              Continue without a Lead ID
+              {leaving === "walkin" ? (
+                <>
+                  <Spinner size={12} />
+                  Starting session…
+                </>
+              ) : (
+                "Continue without a Lead ID"
+              )}
             </button>
           </>
         ) : (
@@ -152,8 +184,21 @@ export function SessionStart() {
               </div>
             </div>
 
-            <button type="button" className={styles.submit} onClick={() => start(match)}>
-              Start Session&nbsp;&#8599;
+            <button
+              type="button"
+              className={styles.submit}
+              onClick={() => start(match, "start")}
+              disabled={leaving !== null}
+              aria-busy={leaving === "start"}
+            >
+              {leaving === "start" ? (
+                <>
+                  <Spinner size={14} />
+                  Starting session…
+                </>
+              ) : (
+                <>Start Session&nbsp;&#8599;</>
+              )}
             </button>
 
             <button type="button" className={styles.back} onClick={() => setMatch(null)}>

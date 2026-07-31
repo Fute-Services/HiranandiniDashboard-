@@ -595,6 +595,23 @@
   background: #14141f;
 }
 
+/* Sits on top of the shimmer so the panel says what it's waiting for — and
+   still says it when the shimmer is switched off for reduced motion. */
+.panelLoadingLabel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+}
+
 .panelShimmer {
   position: absolute;
   inset: 0;

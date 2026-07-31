@@ -6,6 +6,7 @@ import { JetBrains_Mono } from "next/font/google";
 import { landingPathForRole, login } from "@/lib/auth";
 import { actorFields, track } from "@/lib/activity";
 import { USERS, type User } from "@/lib/users";
+import { Spinner } from "@/components/Spinner";
 import styles from "./login.module.css";
 
 // The design sets its mono labels in JetBrains Mono; the rest of the site uses
@@ -59,6 +60,10 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [kickedNotice, setKickedNotice] = useState(false);
+  /** Which sign-in is in flight: the form itself, or one of the demo
+   * buttons (by email). Everything on the card is disabled while it's set,
+   * so a slow network can't turn into three parallel logins. */
+  const [pending, setPending] = useState<"form" | string | null>(null);
 
   // Plain browser API rather than useSearchParams(), which would force this
   // client component into a <Suspense> boundary just to read one flag.
@@ -88,12 +93,26 @@ export default function LoginPage() {
   // "wrong password").
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const result = await login(email, { password });
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    if (pending) return;
+    setPending("form");
+    // login() already reports every failure as `ok: false`; the try is for
+    // anything after it (tracking, the redirect) so a throw there can't
+    // strand the button in "SIGNING IN…" with no way back.
+    try {
+      const result = await login(email, { password });
+      if (!result.ok) {
+        setError(result.error);
+        setPending(null);
+        return;
+      }
+      // Deliberately stays pending on success: the redirect that follows
+      // takes its own moment, and dropping the spinner first would leave the
+      // button looking idle while the app is still navigating.
+      afterSignIn(result);
+    } catch {
+      setError("Something went wrong signing in. Please try again.");
+      setPending(null);
     }
-    afterSignIn(result);
   }
 
   // Demo mode: one click into any of the three roles, no credentials to
@@ -101,11 +120,19 @@ export default function LoginPage() {
   // /api/login endpoint (with `demo: true`, skipping the password check),
   // so there's nothing role-specific screens need to handle differently.
   async function signInAs(user: User) {
-    const result = await login(user.email, { demo: true });
-    if (result.ok) {
-      afterSignIn(result);
-    } else {
-      setError(result.error);
+    if (pending) return;
+    setPending(user.email);
+    try {
+      const result = await login(user.email, { demo: true });
+      if (result.ok) {
+        afterSignIn(result);
+      } else {
+        setError(result.error);
+        setPending(null);
+      }
+    } catch {
+      setError("Something went wrong signing in. Please try again.");
+      setPending(null);
     }
   }
 
@@ -218,8 +245,22 @@ export default function LoginPage() {
                 </p>
               )}
 
-              <button type="submit" className={`${styles.mono} ${styles.submit}`}>
-                SIGN&nbsp;IN&nbsp;<span className={styles.arrow}>↗</span>
+              <button
+                type="submit"
+                className={`${styles.mono} ${styles.submit}`}
+                disabled={pending !== null}
+                aria-busy={pending === "form"}
+              >
+                {pending === "form" ? (
+                  <>
+                    <Spinner size={14} />
+                    SIGNING&nbsp;IN…
+                  </>
+                ) : (
+                  <>
+                    SIGN&nbsp;IN&nbsp;<span className={styles.arrow}>↗</span>
+                  </>
+                )}
               </button>
             </form>
 
@@ -233,9 +274,20 @@ export default function LoginPage() {
                   type="button"
                   className={styles.demoButton}
                   onClick={() => signInAs(user)}
+                  disabled={pending !== null}
+                  aria-busy={pending === user.email}
                 >
                   <span>{user.name}</span>
-                  <span className={styles.demoRole}>{user.role.replace("_", " ")}</span>
+                  <span className={styles.demoRole}>
+                    {pending === user.email ? (
+                      <span className={styles.demoPending}>
+                        <Spinner size={11} />
+                        SIGNING IN…
+                      </span>
+                    ) : (
+                      user.role.replace("_", " ")
+                    )}
+                  </span>
                 </button>
               ))}
             </div>

@@ -30,9 +30,16 @@
   pointer-events: none;
 }
 
-/* Once a real image is set, kill the sheen since it only belongs on empty slots. */
-.slot:has(.image)::after {
+/* Once a real image has actually arrived, kill the sheen — it belongs on
+   empty slots and on slots still waiting for their image, nothing else. */
+.slot:has(.imageLoaded)::after {
   display: none;
+}
+
+/* Still fetching: keep the sheen running as a loading shimmer, and don't let
+   a half-painted image show through underneath it. */
+.slotLoading .image {
+  opacity: 0;
 }
 
 @keyframes sheen {
@@ -59,6 +66,20 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+/* Fades in when the image is decoded, so the handover from shimmer to photo
+   is a transition rather than a pop. */
+.imageLoaded {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image {
+    transition: none;
+  }
 }
 
 .placeholder {

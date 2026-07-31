@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth";
 import { getBlockedProjectsFor } from "@/lib/controls";
 import { BackButton } from "./BackButton";
 import { ImageSlot } from "./ImageSlot";
+import { LoadingBlock, Spinner } from "./Spinner";
 import styles from "./EarthPortal.module.css";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -32,7 +33,10 @@ export function EarthPortal() {
   // Starts false so the single-project-portfolio auto-open shortcut below
   // can't fire on the very first render, before the initial poll has come
   // back — otherwise a blocked project briefly still looks unblocked
-  // (default empty array) and opens anyway.
+  // (default empty array) and opens anyway. It's also what holds the
+  // portfolio grid back behind a loading state: this screen's whole job is
+  // offering projects to open, so it waits rather than offering a list it
+  // might have to take options back out of a moment later.
   const [blockedLoaded, setBlockedLoaded] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +135,8 @@ export function EarthPortal() {
         <div className={styles.welcome}>
           <div>
             <div className={styles.eyebrow}>Hiranandani Portfolio</div>
+            {!blockedLoaded && <LoadingBlock message="Loading portfolios…" />}
+            {blockedLoaded && (
             <div className={styles.groupGrid}>
               {portfolioGroups.map((g) => (
                 <button
@@ -163,6 +169,7 @@ export function EarthPortal() {
                 </button>
               ))}
             </div>
+            )}
           </div>
         </div>
       )}
@@ -304,8 +311,15 @@ export function EarthPortal() {
               ) : (
                 <>
                   {!frameLoaded && (
-                    <div className={styles.panelSkeleton}>
+                    <div className={styles.panelSkeleton} role="status">
                       <div className={styles.panelShimmer} />
+                      {/* The shimmer alone goes silent under reduced motion,
+                          and a project site can take a while — spell out
+                          what's happening rather than leaving a grey box. */}
+                      <div className={styles.panelLoadingLabel}>
+                        <Spinner size={16} />
+                        Loading {openProperty.name}…
+                      </div>
                     </div>
                   )}
                   <iframe

@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { clearSessionCookies, getSession, LOGIN_PATH } from "@/lib/auth";
 import { logLogout } from "@/lib/activity";
 import { clearActiveSession } from "@/lib/session";
+import { FullScreenLoader } from "./Spinner";
 import styles from "./IdleLogoutWatcher.module.css";
 
 const IDLE_LIMIT_MS = 30 * 60 * 1000; // 30 minutes
@@ -21,16 +22,28 @@ const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "whe
  */
 export function IdleLogoutWatcher() {
   const router = useRouter();
+  const pathname = usePathname();
   const lastActivityRef = useRef(Date.now());
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  /** Replaces the countdown card once the timer actually runs out, so the
+   * last thing on screen isn't a frozen "0s" while the sign-out and the
+   * redirect that follows it are still running. */
+  const [signingOut, setSigningOut] = useState(false);
 
   const signOut = useCallback(() => {
+    setSigningOut(true);
     logLogout();
     clearActiveSession();
     clearSessionCookies();
     router.push(LOGIN_PATH);
     router.refresh();
   }, [router]);
+
+  // Mounted in the root layout, so it outlives the redirect it just fired —
+  // clear the overlay once the login page is up, or it would cover it.
+  useEffect(() => {
+    setSigningOut(false);
+  }, [pathname]);
 
   const stayActive = useCallback(() => {
     lastActivityRef.current = Date.now();
@@ -61,6 +74,7 @@ export function IdleLogoutWatcher() {
     };
   }, [signOut]);
 
+  if (signingOut) return <FullScreenLoader message="Signing you out…" />;
   if (secondsLeft === null) return null;
 
   return (

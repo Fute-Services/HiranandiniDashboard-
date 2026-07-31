@@ -32,8 +32,16 @@
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.logout:hover {
+.logout:hover:not(:disabled) {
   background: rgba(220, 60, 50, 0.38);
+}
+
+/* The logout pill grows a spinner while the sign-out is in flight, so it has
+   to lay its content out in a row rather than as a bare label. */
+.logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .logout:focus-visible {
@@ -135,9 +143,18 @@
   transition: background 0.15s ease, box-shadow 0.2s ease, transform 0.15s ease;
 }
 
-.submit:hover {
+.submit:hover:not(:disabled) {
   background: #3a4fb8;
   box-shadow: 0 0 30px -2px rgba(75, 99, 214, 0.9);
+}
+
+/* "Working", not "unavailable": keep the button legible and use a wait
+   cursor, rather than the usual dimmed-out disabled look. */
+.submit:disabled,
+.walkin:disabled,
+.logout:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .walkin {
@@ -155,8 +172,15 @@
   width: 100%;
 }
 
-.walkin:hover {
+.walkin:hover:not(:disabled) {
   color: rgba(255, 255, 255, 0.75);
+}
+
+.walkin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 
 /* ---------- matched lead ---------- */
