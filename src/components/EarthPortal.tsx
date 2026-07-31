@@ -238,6 +238,25 @@ export function EarthPortal() {
               </div>
             </a>
 
+            <div className={styles.lightGrid}>
+              {visibleProjects.map((p, i) => (
+                <button
+                  key={p.slug}
+                  type="button"
+                  className={`${styles.lightGridItem} ${i === featuredIndex ? styles.lightGridItemActive : ""}`}
+                  onClick={() => selectFeatured(() => i)}
+                >
+                  <div className={styles.lightGridMedia}>
+                    <ImageSlot src={p.image} placeholder={p.name} alt={p.name} />
+                  </div>
+                  <div className={styles.lightGridFoot}>
+                    <span className={styles.lightGridIndex}>{pad2(i + 1)}</span>
+                    <span className={styles.lightGridName}>{p.name}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
             <div className={styles.lightNav}>
               <button
                 type="button"
@@ -258,27 +277,8 @@ export function EarthPortal() {
                 &#8594;
               </button>
               <span className={styles.lightHint}>
-                {count > 1 ? <>Use arrows &middot; or pick below</> : "Only project in this portfolio"}
+                {count > 1 ? <>Use arrows &middot; or pick above</> : "Only project in this portfolio"}
               </span>
-            </div>
-
-            <div className={styles.lightGrid}>
-              {visibleProjects.map((p, i) => (
-                <button
-                  key={p.slug}
-                  type="button"
-                  className={`${styles.lightGridItem} ${i === featuredIndex ? styles.lightGridItemActive : ""}`}
-                  onClick={() => selectFeatured(() => i)}
-                >
-                  <div className={styles.lightGridMedia}>
-                    <ImageSlot src={p.image} placeholder={p.name} alt={p.name} />
-                  </div>
-                  <div className={styles.lightGridFoot}>
-                    <span className={styles.lightGridIndex}>{pad2(i + 1)}</span>
-                    <span className={styles.lightGridName}>{p.name}</span>
-                  </div>
-                </button>
-              ))}
             </div>
           </div>
         </div>

@@ -169,11 +169,14 @@
   z-index: 3;
   overflow: hidden;
   /* Faint dot grid, like a print layout guide — the reference card's own
-     background treatment, kept subtle enough to stay out of the way. */
-  background-color: #f4f1ea;
-  background-image: radial-gradient(circle, rgba(20, 18, 14, 0.14) 1px, transparent 1px);
-  background-size: 22px 22px;
-  color: #14120e;
+     background treatment, kept subtle enough to stay out of the way, over
+     the same dark backdrop as the portfolio picker rather than a separate
+     light/cream theme. */
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px) 0 0 / 22px 22px,
+    radial-gradient(circle at 50% 0%, rgba(75, 99, 214, 0.14), transparent 55%),
+    #000;
+  color: #f4f2ec;
   display: flex;
   flex-direction: column;
   padding: 20px clamp(20px, 5vw, 64px) 16px;
@@ -190,14 +193,14 @@
   border-radius: 999px;
   padding: 9px 16px;
   cursor: pointer;
-  color: rgba(20, 18, 14, 0.65);
-  background: transparent;
-  border: 1px solid rgba(20, 18, 14, 0.18);
+  color: rgba(244, 242, 236, 0.75);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .lightBack:hover {
-  background: rgba(20, 18, 14, 0.06);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .lightHeader {
@@ -232,7 +235,7 @@
 .lightDiamond {
   width: 11px;
   height: 11px;
-  background: #14120e;
+  background: #ff7a10;
   transform: rotate(45deg);
 }
 
@@ -241,13 +244,14 @@
   font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(20, 18, 14, 0.6);
+  color: rgba(244, 242, 236, 0.6);
 }
 
 .lightTitle {
   font-size: clamp(22px, 3.2vw, 30px);
   font-weight: 700;
   margin: 0 0 4px;
+  color: #f4f2ec;
 }
 
 .lightSubtitle {
@@ -255,7 +259,7 @@
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(20, 18, 14, 0.5);
+  color: rgba(244, 242, 236, 0.5);
 }
 
 .lightCounter {
@@ -268,15 +272,16 @@
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  color: #f4f2ec;
 }
 
 .lightCounterSlash {
-  color: rgba(20, 18, 14, 0.3);
+  color: rgba(244, 242, 236, 0.3);
   margin: 0 2px;
 }
 
 .lightCounterTotal {
-  color: rgba(20, 18, 14, 0.35);
+  color: rgba(244, 242, 236, 0.35);
   font-weight: 400;
 }
 
@@ -286,12 +291,12 @@
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(20, 18, 14, 0.45);
+  color: rgba(244, 242, 236, 0.45);
 }
 
-/* Ambient bloom behind the card, in the app's own orange accent rather than
-   the reference's literal red — same "hero card glowing on a light page"
-   idea, brand-consistent color. */
+/* Ambient bloom behind the card, in the app's own orange accent — same
+   glass-card treatment used across the rest of the app (chartCard,
+   permCard) rather than a standalone light/cream card. */
 .lightCard {
   display: flex;
   flex-direction: column;
@@ -302,14 +307,14 @@
   margin: 0 auto;
   border-radius: 22px;
   overflow: hidden;
-  background: #fff;
-  border: 1px solid rgba(20, 18, 14, 0.1);
-  box-shadow: 0 0 90px -20px rgba(255, 107, 0, 0.35), 0 28px 70px -24px rgba(20, 18, 14, 0.4);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 0 90px -20px rgba(255, 122, 16, 0.3), 0 28px 70px -24px rgba(0, 0, 0, 0.6);
   transition: opacity 0.3s ease, transform 0.3s ease, box-shadow 0.2s ease;
 }
 
 .lightCard:hover {
-  box-shadow: 0 32px 80px -20px rgba(20, 18, 14, 0.48);
+  box-shadow: 0 32px 80px -20px rgba(0, 0, 0, 0.7);
 }
 
 .lightCardFading {
@@ -326,7 +331,7 @@
   flex-shrink: 1;
   min-height: 140px;
   height: min(34vh, 320px);
-  background: #f4f1ea;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .lightCardFoot {
@@ -335,18 +340,20 @@
   align-items: center;
   gap: 14px;
   padding: 14px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .lightCardIndex {
   font-family: var(--font-mono), monospace;
   font-size: 12px;
-  color: rgba(20, 18, 14, 0.4);
+  color: rgba(244, 242, 236, 0.4);
 }
 
 .lightCardName {
   flex: 1;
   font-size: 19px;
   font-weight: 700;
+  color: #f4f2ec;
 }
 
 .lightVisit {
@@ -354,7 +361,7 @@
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #2b5fd9;
+  color: #ff9330;
 }
 
 .lightCard:hover .lightVisit {
@@ -368,7 +375,7 @@
   justify-content: center;
   gap: 12px;
   max-width: 900px;
-  margin: 14px auto 0;
+  margin: 16px auto 0;
 }
 
 .lightNavBtn {
@@ -378,16 +385,17 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #fff;
-  border: 1px solid rgba(20, 18, 14, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #f4f2ec;
   font-size: 16px;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .lightNavBtn:hover:not(:disabled) {
-  background: rgba(20, 18, 14, 0.05);
-  border-color: rgba(20, 18, 14, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .lightNavBtn:disabled {
@@ -400,22 +408,24 @@
   font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(20, 18, 14, 0.4);
+  color: rgba(244, 242, 236, 0.4);
   margin-left: 6px;
 }
 
 /* One box per project, not a thin text list — the list read as a cramped,
-   scroll-clipped column floating off to one side; a grid of boxes uses the
-   same width as the card above it and every project gets equal visual
-   weight. Last-resort scroll if a short window can't fit every row even
-   after wrapping (the header/card/nav above have already claimed their
-   space, so this is what gives, not the page). */
+   scroll-clipped column floating off to one side. A centered row (not a
+   full-width auto-fill grid) so a portfolio with only one or two projects
+   reads as a small, centered group instead of stretching to fill the whole
+   width. Last-resort scroll if a short window can't fit every row even
+   after wrapping (the header/card above have already claimed their space,
+   so this is what gives, not the page). */
 .lightGrid {
   flex-shrink: 1;
   min-height: 0;
   overflow-y: auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
   max-width: 1040px;
   width: 100%;
@@ -426,10 +436,11 @@
 .lightGridItem {
   display: flex;
   flex-direction: column;
+  flex: 0 1 160px;
   border-radius: 12px;
   overflow: hidden;
-  background: #fff;
-  border: 1px solid rgba(20, 18, 14, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   cursor: pointer;
   padding: 0;
   font: inherit;
@@ -439,19 +450,19 @@
 
 .lightGridItem:hover {
   transform: translateY(-2px);
-  border-color: rgba(20, 18, 14, 0.28);
-  box-shadow: 0 10px 22px -12px rgba(20, 18, 14, 0.35);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 10px 22px -12px rgba(0, 0, 0, 0.5);
 }
 
 .lightGridItemActive {
-  border-color: #2b5fd9;
-  box-shadow: 0 0 0 1px #2b5fd9;
+  border-color: #ff9330;
+  box-shadow: 0 0 0 1px #ff9330;
 }
 
 .lightGridMedia {
   position: relative;
   aspect-ratio: 4 / 3;
-  background: #f4f1ea;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .lightGridFoot {
@@ -464,13 +475,13 @@
 .lightGridIndex {
   font-family: var(--font-mono), monospace;
   font-size: 10px;
-  color: rgba(20, 18, 14, 0.4);
+  color: rgba(244, 242, 236, 0.4);
 }
 
 .lightGridName {
   font-size: 12.5px;
   font-weight: 600;
-  color: #14120e;
+  color: #f4f2ec;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
