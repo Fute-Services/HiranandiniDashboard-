@@ -1,0 +1,318 @@
+/* Dark-themed twin of PropertyCarousel's coverflow: same arc geometry and
+   card language, drawn on the portal's black backdrop instead of the cream
+   one. Colours live here only — the layout is deliberately identical. */
+
+.wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- 3D stage ---------- */
+
+.stage {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  max-width: 1300px; /* room for the arc's full spread before it scales down */
+  margin: 0 auto;
+  min-height: 0; /* absorb short viewports here rather than forcing page scroll */
+  perspective: 1600px;
+  perspective-origin: 50% 46%;
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+.stage[data-dragging="true"] {
+  cursor: grabbing;
+}
+
+.scaler {
+  position: absolute;
+  inset: 0;
+  transform-origin: center center;
+}
+
+.prism {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+}
+
+/* Cards carry the snap transition; the container itself never moves. */
+.prism[data-animated="true"] .face {
+  transition: transform 0.8s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Keep the hover transitions (transform / box-shadow / border) in this rule too,
+   otherwise the shorthand replaces them while animating and hover snaps abruptly. */
+.prism[data-animated="true"] .card {
+  transition:
+    opacity 0.8s cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter 0.8s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 0.45s cubic-bezier(0.22, 0.61, 0.36, 1),
+    border-color 0.45s ease;
+}
+
+.face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 420px;
+  height: 330px;
+  margin: -165px 0 0 -210px;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  box-shadow: 0 28px 60px -30px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition:
+    transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 0.45s cubic-bezier(0.22, 0.61, 0.36, 1),
+    border-color 0.45s ease;
+}
+
+/* Only the front card is interactive (pointer-events set inline), so hover here
+   always lands on the active card: lift it and wrap it in the app's orange. */
+.card:hover {
+  transform: translateY(-8px);
+  border-color: #ff9330;
+  box-shadow:
+    0 44px 70px -34px rgba(0, 0, 0, 0.85),
+    0 0 0 1.5px rgba(255, 147, 48, 0.5),
+    0 0 26px -2px rgba(255, 147, 48, 0.45),
+    0 0 90px -10px rgba(255, 122, 16, 0.4);
+}
+
+/* Cream well behind the media, deliberately: site plans and elevation renders
+   read better on a light ground than on the page's near-black. */
+.cardMedia {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background: #f2f1ee;
+}
+
+.cardFoot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 10, 16, 0.75);
+}
+
+.cardLabel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cardIndex {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: rgba(244, 242, 236, 0.4);
+}
+
+.cardName {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #f4f2ec;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardLink {
+  flex: none;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #ff9330;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: gap 0.3s ease, filter 0.2s ease;
+}
+
+.card:hover .cardLink {
+  gap: 10px;
+  filter: brightness(1.15);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- controls ---------- */
+
+/* 3 columns so the buttons sit dead-centre regardless of the hint's width. */
+.controls {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.buttons {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.navButton {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f4f2ec;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+}
+
+.navButton:hover:not(:disabled) {
+  border-color: #ff9330;
+  background: #ff7a10;
+  color: #100a04;
+  box-shadow: 0 10px 24px -10px rgba(255, 122, 16, 0.8);
+}
+
+.navButton:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+.navButton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.hint {
+  grid-column: 3;
+  justify-self: start;
+  margin-left: 24px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.4);
+  white-space: nowrap;
+}
+
+/* ---------- name list ---------- */
+
+.list {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+.listItem {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: rgba(244, 242, 236, 0.55);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.listItem:hover {
+  color: #f4f2ec;
+  transform: translateX(3px);
+}
+
+.listItem[aria-current="true"] {
+  color: #ff9330;
+  font-weight: 600;
+}
+
+.listItem[aria-current="true"] .listIndex {
+  color: #ff9330;
+  opacity: 1;
+}
+
+.listIndex {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  opacity: 0.7;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.navButton:focus-visible,
+.listItem:focus-visible,
+.cardLink:focus-visible {
+  outline: 2px solid #ff9330;
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  /* No room for the hint beside the buttons, so drop it. */
+  .controls {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .buttons {
+    grid-column: 1;
+  }
+
+  .hint {
+    display: none;
+  }
+
+  .list {
+    gap: 6px 18px;
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prism[data-animated="true"] .face,
+  .prism[data-animated="true"] .card {
+    transition: none;
+  }
+}
