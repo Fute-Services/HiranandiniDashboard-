@@ -28,25 +28,16 @@ export function EarthPortal() {
    * enforce the same block or a blocked project is still fully reachable
    * from here. Same poll pattern as PropertyShowcase. */
   const [blockedSlugs, setBlockedSlugs] = useState<string[]>([]);
-  // Starts false so the single-project-portfolio auto-open shortcut below
-  // can't fire on the very first render, before the initial poll has come
-  // back — otherwise a blocked project briefly still looks unblocked
-  // (default empty array) and opens anyway. It only gates that shortcut: the
-  // portfolio grid renders straight away rather than waiting on the poll.
-  const [blockedLoaded, setBlockedLoaded] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    // The first poll always runs, even in a background tab: it's the one that
-    // flips `blockedLoaded`, which the single-project shortcut below waits on.
-    // Repeats keep the hidden-tab skip.
+    // The first poll always runs, even in a background tab, so a screen that
+    // mounts in the background still knows what's blocked. Repeats keep the
+    // hidden-tab skip.
     const poll = async (force = false) => {
       if (!force && document.hidden) return;
       const email = getSession()?.email;
       const slugs = email ? await getBlockedProjectsFor(email) : [];
-      if (!cancelled) {
-        setBlockedSlugs(slugs);
-        setBlockedLoaded(true);
-      }
+      if (!cancelled) setBlockedSlugs(slugs);
     };
     poll(true);
     // 2s, not the usual 8s background poll: a block landing while a staff
@@ -144,13 +135,26 @@ export function EarthPortal() {
                   onClick={() => {
                     // A single-project portfolio's card opens that project
                     // directly — there's nothing to browse once you're past
-                    // it, so the showroom screen would just be a detour.
-                    // Skipped if that one project is blocked, though — fall
-                    // through to the group view instead of opening it anyway.
-                    if (g.projects.length === 1 && blockedLoaded && !blockedSlugs.includes(g.projects[0].slug)) {
-                      openProject(g.projects[0]);
-                    } else {
+                    // it, so the showroom screen would just be a detour, and
+                    // a "01/01 · only project in this portfolio" page is a
+                    // dead end nobody asked for.
+                    //
+                    // This deliberately doesn't wait on the blocked-projects
+                    // poll. Waiting is what made the shortcut miss and drop
+                    // into the showroom instead, and there's nothing to gain:
+                    // if the project does turn out blocked, the effect above
+                    // shuts the panel the moment the poll says so and
+                    // explains why — the same handling a block landing
+                    // mid-session already gets.
+                    const only = g.projects.length === 1 ? g.projects[0] : null;
+                    if (!only) {
                       setGroup(g);
+                    } else if (blockedSlugs.includes(only.slug)) {
+                      // Already known blocked: say so rather than opening it
+                      // just to close it again a moment later.
+                      setBlockedNotice(true);
+                    } else {
+                      openProject(only);
                     }
                   }}
                 >
