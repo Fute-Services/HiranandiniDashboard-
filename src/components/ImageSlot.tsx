@@ -14,6 +14,10 @@ type ImageSlotProps = {
    * elevation or site-plan render would cut off labels/edges that actually
    * matter. */
   fit?: "cover" | "contain";
+  /** Skips the shimmer-then-fade handover and paints the image as soon as the
+   * browser has it. For screens that would rather show a picture arriving in
+   * pieces than sit behind a loading tile. */
+  instant?: boolean;
 };
 
 /**
@@ -25,8 +29,9 @@ type ImageSlotProps = {
  * has actually decoded — otherwise a card reads as broken/empty rather than
  * loading, and then pops in with no warning.
  */
-export function ImageSlot({ placeholder, src, alt, fit = "cover" }: ImageSlotProps) {
+export function ImageSlot({ placeholder, src, alt, fit = "cover", instant = false }: ImageSlotProps) {
   const [loaded, setLoaded] = useState(false);
+  const revealed = instant || loaded;
 
   // A new src means a new load: drop back to the shimmer instead of showing
   // the previous project's image while this one is still on the wire.
@@ -35,11 +40,11 @@ export function ImageSlot({ placeholder, src, alt, fit = "cover" }: ImageSlotPro
   }, [src]);
 
   return (
-    <div className={`${styles.slot} ${src && !loaded ? styles.slotLoading : ""}`}>
+    <div className={`${styles.slot} ${src && !revealed ? styles.slotLoading : ""}`}>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element -- src is arbitrary/remote until media storage lands (TRD §2)
         <img
-          className={`${styles.image} ${loaded ? styles.imageLoaded : ""}`}
+          className={`${styles.image} ${revealed ? styles.imageLoaded : ""}`}
           style={{ objectFit: fit }}
           src={src}
           alt={alt ?? placeholder}
