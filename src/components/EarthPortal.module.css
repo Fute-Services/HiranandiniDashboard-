@@ -157,47 +157,32 @@
   }
 }
 
-/* ---------- level 2: the showroom ---------- */
+/* ---------- level 2: light-themed project showroom ---------- */
 
-/* Lifts the showroom clear of .page's own layout. .page is a centred flex
-   box with 72px of vertical padding and overflow-y: auto — fine for the
-   portfolio picker it was built for, fatal for a screen whose whole premise
-   is "exactly 100dvh, nothing scrolls": the padding pushes it past the
-   viewport and .page's own scrollbar appears. Showcase stays a plain
-   in-flow 100dvh component (which is what makes it reusable); the host is
-   what takes it out of flow. Same z-index the previous showroom used, so
-   the in-page project panel (4) still sits above it. */
-.showroomLayer {
+/* Fits one screen, no scroll: every dimension below is viewport-relative
+   (vh clamps on the card, tighter vertical rhythm) rather than fixed pixel
+   sizes, so the whole showroom — header, card, nav, list — always resolves
+   to less than 100dvh instead of running long and forcing a scrollbar. */
+.lightPage {
   position: fixed;
   inset: 0;
   z-index: 3;
   overflow: hidden;
-}
-
-/* ---------- level 2: every project blocked ---------- */
-
-/* The showroom itself lives in Showcase.tsx now, with its own token block.
-   All that's left here is the case it can't render: a portfolio where every
-   project is blocked for this staff member, so there's nothing to show. */
-.emptyPage {
-  position: fixed;
-  inset: 0;
-  z-index: 3;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
+  /* Faint dot grid, like a print layout guide — the reference card's own
+     background treatment, kept subtle enough to stay out of the way, over
+     the same dark backdrop as the portfolio picker rather than a separate
+     light/cream theme. */
   background:
     radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px) 0 0 / 22px 22px,
     radial-gradient(circle at 50% 0%, rgba(75, 99, 214, 0.14), transparent 55%),
     #000;
   color: #f4f2ec;
-  padding: 20px clamp(20px, 5vw, 64px);
+  display: flex;
+  flex-direction: column;
+  padding: 20px clamp(20px, 5vw, 64px) 16px;
 }
 
-.emptyBack {
+.lightBack {
   position: absolute;
   top: 28px;
   left: clamp(20px, 5vw, 64px);
@@ -214,27 +199,310 @@
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.emptyBack:hover {
+.lightBack:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.emptyMessage {
-  margin: 0;
-  max-width: 40ch;
-  text-align: center;
+.lightHeader {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 900px;
+  margin: 44px auto 16px;
+}
+
+.lightBrandRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+/* Everything below the header, vertically centered in whatever height is
+   left — this is what keeps the showroom on one screen: shrink this, not
+   the page, when space is tight. */
+.lightBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.lightDiamond {
+  width: 11px;
+  height: 11px;
+  background: #ff7a10;
+  transform: rotate(45deg);
+}
+
+.lightBrand {
   font-family: var(--font-mono), monospace;
-  font-size: 13px;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.6);
+}
+
+.lightTitle {
+  font-size: clamp(22px, 3.2vw, 30px);
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: #f4f2ec;
+}
+
+.lightSubtitle {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(244, 242, 236, 0.55);
+  color: rgba(244, 242, 236, 0.5);
+}
+
+.lightCounter {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.lightCounterNum {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #f4f2ec;
+}
+
+.lightCounterSlash {
+  color: rgba(244, 242, 236, 0.3);
+  margin: 0 2px;
+}
+
+.lightCounterTotal {
+  color: rgba(244, 242, 236, 0.35);
+  font-weight: 400;
+}
+
+.lightCounterCaption {
+  margin-top: 6px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.45);
+}
+
+/* Ambient bloom behind the card, in the app's own orange accent — same
+   glass-card treatment used across the rest of the app (chartCard,
+   permCard) rather than a standalone light/cream card. */
+.lightCard {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 1;
+  min-height: 0;
+  max-width: 1040px;
+  width: 100%;
+  margin: 0 auto;
+  border-radius: 22px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 0 90px -20px rgba(255, 122, 16, 0.3), 0 28px 70px -24px rgba(0, 0, 0, 0.6);
+  transition: opacity 0.3s ease, transform 0.3s ease, box-shadow 0.2s ease;
+}
+
+.lightCard:hover {
+  box-shadow: 0 32px 80px -20px rgba(0, 0, 0, 0.7);
+}
+
+.lightCardFading {
+  opacity: 0;
+  transform: scale(0.985);
+}
+
+/* Height capped in vh, not a fixed aspect-ratio — that let the card demand
+   more height than a short window actually has, which is what pushed the
+   page into a scrollbar. min-height keeps it from collapsing to nothing on
+   a very short window instead. */
+.lightCardMedia {
+  position: relative;
+  flex-shrink: 1;
+  min-height: 140px;
+  height: min(34vh, 320px);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.lightCardFoot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lightCardIndex {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: rgba(244, 242, 236, 0.4);
+}
+
+.lightCardName {
+  flex: 1;
+  font-size: 19px;
+  font-weight: 700;
+  color: #f4f2ec;
+}
+
+.lightVisit {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ff9330;
+}
+
+.lightCard:hover .lightVisit {
+  text-decoration: underline;
+}
+
+.lightNav {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 900px;
+  margin: 16px auto 0;
+}
+
+.lightNavBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #f4f2ec;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.lightNavBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.lightNavBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.lightHint {
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.4);
+  margin-left: 6px;
+}
+
+/* One box per project, not a thin text list — the list read as a cramped,
+   scroll-clipped column floating off to one side. A centered row (not a
+   full-width auto-fill grid) so a portfolio with only one or two projects
+   reads as a small, centered group instead of stretching to fill the whole
+   width. Last-resort scroll if a short window can't fit every row even
+   after wrapping (the header/card above have already claimed their space,
+   so this is what gives, not the page). */
+.lightGrid {
+  flex-shrink: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  max-width: 1040px;
+  width: 100%;
+  margin: 16px auto 0;
+  padding: 2px;
+}
+
+.lightGridItem {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 160px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.lightGridItem:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 10px 22px -12px rgba(0, 0, 0, 0.5);
+}
+
+.lightGridItemActive {
+  border-color: #ff9330;
+  box-shadow: 0 0 0 1px #ff9330;
+}
+
+.lightGridMedia {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.lightGridFoot {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.lightGridIndex {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  color: rgba(244, 242, 236, 0.4);
+}
+
+.lightGridName {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #f4f2ec;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {
-  .emptyBack {
-    top: 20px;
+  .lightBack {
+    position: static;
+    display: inline-block;
+    margin-bottom: 16px;
+  }
+
+  .lightHeader {
+    flex-direction: column;
+    margin-top: 0;
+  }
+
+  .lightCounter {
+    text-align: left;
   }
 }
-
 
 /* ---------- in-page project panel ---------- */
 
