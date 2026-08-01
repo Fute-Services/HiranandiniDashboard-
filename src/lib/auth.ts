@@ -1,4 +1,4 @@
-import { readJsonSafe } from "./http";
+import { fetchWithTimeout, readJsonSafe } from "./http";
 import type { Role } from "./users";
 
 /**
@@ -63,13 +63,15 @@ type LoginResponse = Partial<{
  * been suspended...") rather than collapsing every failure into one
  * generic string. */
 export async function login(email: string, opts: { password: string } | { demo: true }): Promise<LoginResult> {
-  // Never throws. A failed sign-in is an ordinary outcome the form already
-  // knows how to show, so every way this can go wrong — the server down, a
-  // crashed route answering with an empty body, a body that isn't the shape
-  // we expect — comes back as `ok: false` with something readable, rather
-  // than as a rejected promise the login page would surface as a crash.
+  // Never throws, and never hangs. A failed sign-in is an ordinary outcome
+  // the form already knows how to show, so every way this can go wrong — the
+  // server down, a crashed route answering with an empty body, a body that
+  // isn't the shape we expect, or a request that simply never comes back —
+  // comes back as `ok: false` with something readable, rather than as a
+  // rejected promise the login page would surface as a crash or, worse, as a
+  // promise that never settles and leaves the button spinning forever.
   try {
-    const res = await fetch("/api/login", {
+    const res = await fetchWithTimeout("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, ...opts }),
@@ -108,7 +110,7 @@ export async function clearSessionCookies(): Promise<void> {
   document.cookie = `${EMAIL_COOKIE}=; ${expire}`;
   document.cookie = `${SESSION_ID_COOKIE}=; ${expire}`;
   await Promise.race([
-    fetch("/api/logout", { method: "POST", keepalive: true }).catch(() => {}),
+    fetchWithTimeout("/api/logout", { method: "POST", keepalive: true }).catch(() => {}),
     new Promise((resolve) => window.setTimeout(resolve, 1200)),
   ]);
 }

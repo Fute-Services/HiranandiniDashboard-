@@ -10,11 +10,11 @@
 /** Resolves true only if the server actually applied the change, so callers
  * that optimistically updated their own UI can roll back on failure rather
  * than showing a control state the server never accepted. */
-import { readJsonSafe } from "./http";
+import { fetchWithTimeout, readJsonSafe } from "./http";
 
 async function post(action: string, email: string, slug?: string): Promise<boolean> {
   try {
-    const res = await fetch("/api/controls", {
+    const res = await fetchWithTimeout("/api/controls", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, email, slug }),
@@ -55,10 +55,14 @@ export type StaffControlState = { kicked: boolean; blockedProjects: string[]; lo
 const EMPTY_STATE: StaffControlState = { kicked: false, blockedProjects: [], loginSuspended: false };
 
 /** Single poll covering both flags for one staff email, so callers (the
- * kick watcher, the showcase's block filter) only make one request. */
+ * kick watcher, the showcase's block filter) only make one request.
+ *
+ * Always settles: callers gate a loading state on it (the showcase's Details
+ * row, the staff panel's block grid), so a request that never came back used
+ * to mean those controls never appeared at all. */
 export async function fetchControlState(email: string): Promise<StaffControlState> {
   try {
-    const res = await fetch(`/api/controls?email=${encodeURIComponent(email)}`);
+    const res = await fetchWithTimeout(`/api/controls?email=${encodeURIComponent(email)}`);
     if (!res.ok) return EMPTY_STATE;
     const data = await readJsonSafe<Partial<StaffControlState>>(res);
     // Field-by-field rather than trusting the body wholesale: callers spread

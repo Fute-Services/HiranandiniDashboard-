@@ -1540,8 +1540,11 @@ export function SessionReports({
     }
     let cancelled = false;
     const v = getSession();
-    const load = () => {
-      if (document.hidden) return Promise.resolve();
+    // The first load always runs: it's what clears this panel's "Loading
+    // activity…" block, and skipping it for a hidden tab left the panel on
+    // that block until something brought the tab back. Repeats still skip.
+    const load = (force = false) => {
+      if (!force && document.hidden) return Promise.resolve();
       return listActivity({
         staffEmail: profile.email,
         managerEmail: v?.role === "sales_manager" ? v.email : undefined,
@@ -1549,7 +1552,7 @@ export function SessionReports({
         if (!cancelled) setProfileEvents(evts);
       });
     };
-    load();
+    load(true);
     const id = window.setInterval(load, 20000);
     const onVisible = () => document.visibilityState === "visible" && load();
     document.addEventListener("visibilitychange", onVisible);

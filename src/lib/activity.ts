@@ -11,7 +11,7 @@
  * exists) can guarantee sales staff can't edit or erase their own history.
  */
 import { getSession, getSessionId } from "./auth";
-import { readJsonSafe } from "./http";
+import { fetchWithTimeout, readJsonSafe } from "./http";
 import { findUserByEmail } from "./users";
 
 export type ActivityType =
@@ -61,7 +61,7 @@ export function newSessionId(): string {
  * shouldn't break the sales flow. */
 export function track(event: NewActivityEvent) {
   try {
-    fetch("/api/activity", {
+    fetchWithTimeout("/api/activity", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...event, device: navigator.userAgent }),
@@ -81,17 +81,18 @@ export type ActivityFilters = {
   to?: number;
 };
 
-/** Never throws: the dashboards call this on mount, on every filter change
- * and on a poll timer, so a failed read has to degrade to "no rows" (which
- * the UI already renders) rather than take the whole page down with an
- * unhandled rejection. */
+/** Never throws and never hangs: the dashboards call this on mount, on every
+ * filter change and on a poll timer, and each of those clears a "Loading
+ * activity…" state in its `.then()`. A failed read degrades to "no rows"
+ * (which the UI already renders); a read that never came back used to leave
+ * the dashboard on its loading block indefinitely. */
 export async function listActivity(filters: ActivityFilters = {}): Promise<ActivityEvent[]> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
     if (value !== undefined && value !== "") params.set(key, String(value));
   }
   try {
-    const res = await fetch(`/api/activity?${params.toString()}`, { cache: "no-store" });
+    const res = await fetchWithTimeout(`/api/activity?${params.toString()}`, { cache: "no-store" });
     if (!res.ok) return [];
     const data = await readJsonSafe<ActivityEvent[]>(res);
     return Array.isArray(data) ? data : [];

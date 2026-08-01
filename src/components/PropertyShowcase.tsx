@@ -51,6 +51,18 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
    * the slowest thing on this screen — without a marker the customer just
    * stares at an empty black backdrop wondering if it's broken. */
   const [tourLoaded, setTourLoaded] = useState(false);
+  /** An iframe's `load` is not guaranteed to ever fire: a site that stalls
+   * mid-response leaves it pending indefinitely, and this one is a third
+   * party we don't control. The overlay is opaque and covers the panorama,
+   * so "never fires" used to mean a permanent "Loading 360° tour…" with a
+   * dead screen behind it. Give up after a while and show whatever the frame
+   * managed to render instead — the tour is the one thing on this screen
+   * that's allowed to be half-there. */
+  useEffect(() => {
+    if (tourLoaded) return;
+    const id = window.setTimeout(() => setTourLoaded(true), 20000);
+    return () => window.clearTimeout(id);
+  }, [tourLoaded]);
   /** False until the first blocked-projects poll answers. The shelf renders
    * a skeleton until then rather than showing every card and yanking the
    * blocked ones back out a moment later. */
@@ -81,26 +93,36 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
    * /focus, since background tabs throttle setInterval. */
   useEffect(() => {
     let cancelled = false;
-    const poll = async () => {
-      if (document.hidden) return;
+    // `force` is for the very first poll only. The hidden-tab skip exists to
+    // stop background tabs polling, but it also used to skip the one poll
+    // that flips `permissionsLoaded` — so a showcase that mounted while the
+    // tab was in the background sat on "Loading projects…" with no Details
+    // buttons at all until something brought the tab back. Repeats still
+    // skip; the first one always runs.
+    const poll = async (force = false) => {
+      if (!force && document.hidden) return;
       const email = getSession()?.email;
       const slugs = email ? await getBlockedProjectsFor(email) : [];
       if (cancelled) return;
       setBlockedSlugs(slugs);
       setPermissionsLoaded(true);
     };
-    poll();
+    poll(true);
     // 2s, not the usual 8s background poll: a block landing mid-session
     // needs to shut the project down right away, not after a lag.
-    const id = window.setInterval(poll, 2000);
-    const onVisible = () => document.visibilityState === "visible" && poll();
+    // Wrapped rather than passed directly: as a listener, `poll` would
+    // receive the event as its `force` argument, and every focus would
+    // count as forced.
+    const tick = () => void poll();
+    const id = window.setInterval(tick, 2000);
+    const onVisible = () => document.visibilityState === "visible" && tick();
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", poll);
+    window.addEventListener("focus", tick);
     return () => {
       cancelled = true;
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", poll);
+      window.removeEventListener("focus", tick);
     };
   }, []);
 
@@ -188,6 +210,8 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
           title="360° property tour"
           allow="gyroscope; accelerometer; xr-spatial-tracking"
           onLoad={() => setTourLoaded(true)}
+          // A frame that fails outright shouldn't keep claiming it's loading.
+          onError={() => setTourLoaded(true)}
         />
         {!tourLoaded && (
           <div className={styles.vrLoading} role="status">

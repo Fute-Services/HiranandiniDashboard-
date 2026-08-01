@@ -36,8 +36,11 @@ export function EarthPortal() {
   const [blockedLoaded, setBlockedLoaded] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    const poll = async () => {
-      if (document.hidden) return;
+    // The first poll always runs, even in a background tab: it's the one that
+    // flips `blockedLoaded`, which the single-project shortcut below waits on.
+    // Repeats keep the hidden-tab skip.
+    const poll = async (force = false) => {
+      if (!force && document.hidden) return;
       const email = getSession()?.email;
       const slugs = email ? await getBlockedProjectsFor(email) : [];
       if (!cancelled) {
@@ -45,19 +48,23 @@ export function EarthPortal() {
         setBlockedLoaded(true);
       }
     };
-    poll();
+    poll(true);
     // 2s, not the usual 8s background poll: a block landing while a staff
     // member is mid-session needs to shut the project down right away, not
     // after a several-second lag.
-    const id = window.setInterval(poll, 2000);
-    const onVisible = () => document.visibilityState === "visible" && poll();
+    // Wrapped rather than passed directly: as a listener, `poll` would
+    // receive the event as its `force` argument, and every focus would
+    // count as forced.
+    const tick = () => void poll();
+    const id = window.setInterval(tick, 2000);
+    const onVisible = () => document.visibilityState === "visible" && tick();
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", poll);
+    window.addEventListener("focus", tick);
     return () => {
       cancelled = true;
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", poll);
+      window.removeEventListener("focus", tick);
     };
   }, []);
 
