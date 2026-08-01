@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { JetBrains_Mono } from "next/font/google";
 import { landingPathForRole, login } from "@/lib/auth";
 import { actorFields, track } from "@/lib/activity";
+import { useNavigationLock } from "@/lib/useNavigationLock";
 import { USERS, type User } from "@/lib/users";
 import { Spinner } from "@/components/Spinner";
 import styles from "./login.module.css";
@@ -54,7 +54,6 @@ const EyeOff = (
 );
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -62,8 +61,17 @@ export default function LoginPage() {
   const [kickedNotice, setKickedNotice] = useState(false);
   /** Which sign-in is in flight: the form itself, or one of the demo
    * buttons (by email). Everything on the card is disabled while it's set,
-   * so a slow network can't turn into three parallel logins. */
-  const [pending, setPending] = useState<"form" | string | null>(null);
+   * so a slow network can't turn into three parallel logins — and it
+   * self-releases, so a sign-in that never resolves gives the card back
+   * instead of freezing it (see lib/useNavigationLock). */
+  const [pending, setPending] = useNavigationLock<"form" | string>();
+  /** `pending` drives what the card *shows*, and it lets go on its own if a
+   * sign-in never resolves — which is what keeps a dropped request from
+   * freezing the card, but also means it can't be the thing that guarantees
+   * one request at a time. This ref is: it's only ever cleared by the request
+   * actually settling, so a second click after the visual lock has lifted
+   * still can't open a parallel login. */
+  const requestInFlight = useRef(false);
 
   // Plain browser API rather than useSearchParams(), which would force this
   // client component into a <Suspense> boundary just to read one flag.
@@ -93,7 +101,8 @@ export default function LoginPage() {
   // "wrong password").
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (pending) return;
+    if (pending || requestInFlight.current) return;
+    requestInFlight.current = true;
     setPending("form");
     // login() already reports every failure as `ok: false`; the try is for
     // anything after it (tracking, the redirect) so a throw there can't
@@ -112,6 +121,8 @@ export default function LoginPage() {
     } catch {
       setError("Something went wrong signing in. Please try again.");
       setPending(null);
+    } finally {
+      requestInFlight.current = false;
     }
   }
 
@@ -120,7 +131,8 @@ export default function LoginPage() {
   // /api/login endpoint (with `demo: true`, skipping the password check),
   // so there's nothing role-specific screens need to handle differently.
   async function signInAs(user: User) {
-    if (pending) return;
+    if (pending || requestInFlight.current) return;
+    requestInFlight.current = true;
     setPending(user.email);
     try {
       const result = await login(user.email, { demo: true });
@@ -133,6 +145,8 @@ export default function LoginPage() {
     } catch {
       setError("Something went wrong signing in. Please try again.");
       setPending(null);
+    } finally {
+      requestInFlight.current = false;
     }
   }
 
@@ -146,8 +160,18 @@ export default function LoginPage() {
       durationMs: null,
       ...actorFields(session.email, session.name),
     });
-    router.push(landingPathForRole(session.role));
-    router.refresh();
+    // A hard navigation, for the same reason sign-out uses one (see
+    // lib/sign-out.ts): /api/login has just set the httpOnly auth cookie that
+    // `proxy.ts` gates every destination on, and a client-side push races
+    // that — it was pushing and calling router.refresh() in the same tick,
+    // and a refresh of the route being navigated away from can supersede the
+    // push. When it did, the user stayed on a login card with every button
+    // disabled behind `pending`, and reloading was the only way through
+    // (which then worked, because by then the cookie was there). A full load
+    // can't race itself, and it guarantees this page unmounts, so `pending`
+    // has nothing left to strand. It also lets the root layout's watchers
+    // re-read the session they mounted too early to see.
+    window.location.replace(landingPathForRole(session.role));
   }
 
   return (

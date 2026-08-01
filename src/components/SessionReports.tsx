@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSession, SPACE_PATH } from "@/lib/auth";
 import { listActivity, type ActivityEvent, type ActivityType } from "@/lib/activity";
 import { signOut } from "@/lib/sign-out";
+import { useNavigationLock } from "@/lib/useNavigationLock";
 import { fetchControlState, kickStaff, restoreLogin, setProjectBlockedFor } from "@/lib/controls";
 import { createWalkInLead } from "@/lib/leads";
 import { setActiveSession } from "@/lib/session";
@@ -1415,8 +1416,13 @@ function StaffControlPanel({
                 type="button"
                 className={styles.confirmOk}
                 onClick={() => {
-                  pendingConfirm.onConfirm();
+                  // Dismiss first, run second. This overlay is fixed and
+                  // covers the whole dashboard, so if the action threw on the
+                  // way out the dialog stayed up over everything and nothing
+                  // underneath could be clicked again without a reload.
+                  const run = pendingConfirm.onConfirm;
                   setPendingConfirm(null);
+                  run();
                 }}
               >
                 Confirm
@@ -1455,8 +1461,10 @@ export function SessionReports({
   const [viewer, setViewer] = useState<ReturnType<typeof getSession>>(null);
   const [openKey, setOpenKey] = useState<string | null>(null);
   /** Set while one of the two dock actions that leave this dashboard is
-   * navigating (sign-out also writes its logout event first). */
-  const [leaving, setLeaving] = useState<"showcase" | "logout" | null>(null);
+   * navigating (sign-out also writes its logout event first). Self-releasing,
+   * so a navigation that never lands can't leave the whole side dock disabled
+   * until a reload (see lib/useNavigationLock). */
+  const [leaving, setLeaving] = useNavigationLock<"showcase" | "logout">();
 
   const [staffFilter, setStaffFilter] = useState("");
   const [customerFilter, setCustomerFilter] = useState("");

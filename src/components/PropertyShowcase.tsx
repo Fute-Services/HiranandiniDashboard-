@@ -13,6 +13,7 @@ import {
   type ActiveSession,
 } from "@/lib/session";
 import { signOut } from "@/lib/sign-out";
+import { useNavigationLock } from "@/lib/useNavigationLock";
 import { ImageSlot } from "./ImageSlot";
 import { Spinner } from "./Spinner";
 import styles from "./PropertyShowcase.module.css";
@@ -55,8 +56,10 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
    * blocked ones back out a moment later. */
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   /** Which of the two leave-this-screen actions is under way (both navigate,
-   * and sign-out also writes the logout event first). */
-  const [leaving, setLeaving] = useState<"end" | "logout" | null>(null);
+   * and sign-out also writes the logout event first). Self-releasing, so a
+   * navigation that never lands can't leave End Session and Log out disabled
+   * with a reload as the only way out (see lib/useNavigationLock). */
+  const [leaving, setLeaving] = useNavigationLock<"end" | "logout">();
 
   useEffect(() => {
     const active = getActiveSession();

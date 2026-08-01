@@ -23,10 +23,23 @@ import { clearActiveSession } from "./session";
  *    button spins forever. A full load can't get stuck that way: the page
  *    that owns the state is gone either way. replace() rather than assign()
  *    so Back doesn't return to a dashboard the user just left.
+ *
+ * The navigation is also the one step that must happen no matter what, so
+ * nothing before it is allowed to throw past this function. Two of the four
+ * callers (KickWatcher, IdleLogoutWatcher) put a full-screen overlay up and
+ * hand the rest to this promise; a throw on the way — sessionStorage refusing
+ * to write on a locked-down device is the realistic one — used to leave that
+ * overlay covering the whole app with nothing underneath it clickable and no
+ * way out but a reload. Clearing local state is best-effort; leaving is not.
  */
 export async function signOut(redirectTo: string = LOGIN_PATH): Promise<void> {
-  logLogout();
-  clearActiveSession();
-  await clearSessionCookies();
+  try {
+    logLogout();
+    clearActiveSession();
+    await clearSessionCookies();
+  } catch {
+    // Best-effort: the httpOnly auth cookie is what actually ends the
+    // session, and a failure here still leaves the login page ahead.
+  }
   window.location.replace(redirectTo);
 }

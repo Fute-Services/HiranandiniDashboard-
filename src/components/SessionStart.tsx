@@ -7,6 +7,7 @@ import { actorFields, track } from "@/lib/activity";
 import { createWalkInLead, findLead, type Lead } from "@/lib/leads";
 import { setActiveSession } from "@/lib/session";
 import { signOut } from "@/lib/sign-out";
+import { useNavigationLock } from "@/lib/useNavigationLock";
 import { Spinner } from "./Spinner";
 import styles from "./SessionStart.module.css";
 
@@ -23,10 +24,10 @@ export function SessionStart() {
   const [match, setMatch] = useState<Lead | null>(null);
   /** Which navigation is under way. Starting a presentation and signing out
    * both leave this screen, and that route change isn't instant — without a
-   * marker the button just sits there looking unclicked. Never cleared: the
-   * component goes away with the navigation (sign-out reloads the page
-   * outright, see lib/sign-out.ts). */
-  const [leaving, setLeaving] = useState<"start" | "walkin" | "logout" | null>(null);
+   * marker the button just sits there looking unclicked. The lock releases
+   * itself if that navigation never lands, so a dropped request can't leave
+   * this card's three buttons permanently dead (see lib/useNavigationLock). */
+  const [leaving, setLeaving] = useNavigationLock<"start" | "walkin" | "logout">();
 
   function logActivity(type: "search" | "customer_profile", label: string, lead: Lead | null) {
     const staff = getSession();

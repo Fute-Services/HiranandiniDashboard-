@@ -36,6 +36,32 @@ export type ActiveSession = {
   currentStepEnteredAt: number | null;
 };
 
+/**
+ * sessionStorage doesn't just return null when it's unavailable — it throws,
+ * on the whole access, whenever storage is blocked or full (a locked-down
+ * kiosk profile, private browsing, a quota that's filled up). Every read and
+ * write here goes through these two so that never escapes: the callers are
+ * click handlers like "Start Session" that navigate immediately afterwards,
+ * and a throw there kills the handler mid-way, leaving the button locked in
+ * its "Starting session…" state with no navigation and no way back but a
+ * reload. The session log is a nice-to-have; the flow working is not.
+ */
+function readRaw(): string | null {
+  try {
+    return sessionStorage.getItem(ACTIVE_SESSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeRaw(value: string) {
+  try {
+    sessionStorage.setItem(ACTIVE_SESSION_KEY, value);
+  } catch {
+    // Best-effort; the presentation still runs, it just isn't resumable.
+  }
+}
+
 export function setActiveSession(lead: Lead) {
   const session: ActiveSession = {
     lead,
@@ -45,11 +71,11 @@ export function setActiveSession(lead: Lead) {
     currentStep: null,
     currentStepEnteredAt: null,
   };
-  sessionStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session));
+  writeRaw(JSON.stringify(session));
 }
 
 export function getActiveSession(): ActiveSession | null {
-  const raw = sessionStorage.getItem(ACTIVE_SESSION_KEY);
+  const raw = readRaw();
   if (!raw) return null;
   try {
     return JSON.parse(raw) as ActiveSession;
@@ -59,7 +85,7 @@ export function getActiveSession(): ActiveSession | null {
 }
 
 function saveActiveSession(session: ActiveSession) {
-  sessionStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session));
+  writeRaw(JSON.stringify(session));
 }
 
 /** Streams one activity-log event tied to the lead/staff of the current
@@ -119,7 +145,11 @@ export function logSessionEvent(label: string, type: ActivityType = "project_ope
 }
 
 export function clearActiveSession() {
-  sessionStorage.removeItem(ACTIVE_SESSION_KEY);
+  try {
+    sessionStorage.removeItem(ACTIVE_SESSION_KEY);
+  } catch {
+    // Same reason as readRaw/writeRaw above: sign-out must not throw here.
+  }
 }
 
 /**
