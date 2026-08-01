@@ -1,0 +1,564 @@
+/* ============================================================
+   §2 — Design tokens. The whole theme re-skins by editing this block.
+
+   Scoped to .page rather than :root deliberately. This app's globals.css
+   already defines --bg, --ink, --ink-muted, --ink-dim, --line,
+   --line-strong, --accent, --accent-soft and --accent-glow as a *light*
+   theme, and every other screen reads them. Putting these in :root would
+   silently re-skin the entire product. Scoping keeps the single-edit-point
+   property with none of the blast radius — inheritance carries them to
+   every element below, which is all the components need.
+   ============================================================ */
+.page {
+  --bg:            #05070C;   /* page base */
+  --bg-glow:       #101A2E;   /* radial glow at top-center, fades to --bg */
+  --surface:       #0B0F17;   /* card footers, thumb captions, pills */
+  --surface-raise: #12161F;   /* hover state for surfaces */
+  --well:          #F2F1EE;   /* cream image well behind plans/renders */
+
+  --line:          rgba(255, 255, 255, 0.09);
+  --line-strong:   rgba(255, 255, 255, 0.16);
+
+  --ink:           #F5F7FA;
+  --ink-muted:     rgba(255, 255, 255, 0.55);
+  --ink-dim:       rgba(255, 255, 255, 0.34);
+
+  --accent:        #FF6A1A;
+  --accent-soft:   rgba(255, 106, 26, 0.28);
+  --accent-glow:   rgba(255, 106, 26, 0.45);
+
+  --r-card:  20px;
+  --r-thumb: 10px;
+  --r-pill:  999px;
+
+  /* §5 — one easing for the whole screen. 300ms hover, 800ms snap. */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --t-hover: 300ms;
+  --t-snap: 800ms;
+
+  --font-display: var(--font-grotesk, "Space Grotesk"), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-label: var(--font-mono, "Space Mono"), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ============================================================
+   §1 — Foundation
+   ============================================================ */
+.page {
+  position: relative;
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* Deep-navy glow bleeding down from top-center; corners fall to black. */
+  background:
+    radial-gradient(120% 78% at 50% 0%, var(--bg-glow) 0%, transparent 62%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--font-display);
+}
+
+/* Faint dot grid across the whole background. */
+.page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 26px 26px;
+  pointer-events: none;
+}
+
+/* Everything real sits above the dot grid. */
+.backPill,
+.header,
+.stage,
+.controls {
+  position: relative;
+  z-index: 1;
+}
+
+/* §6 — one visible focus treatment, on every interactive element. */
+.backPill:focus-visible,
+.visit:focus-visible,
+.thumb:focus-visible,
+.navBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ============================================================
+   §4.1 — Back pill
+   ============================================================ */
+.backPill {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: rgba(8, 11, 18, 0.72);
+  color: var(--ink);
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color var(--t-hover) var(--ease),
+    box-shadow var(--t-hover) var(--ease);
+}
+
+/* Border and shadow only — the fill stays put. */
+.backPill:hover {
+  border-color: var(--ink);
+  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.9);
+}
+
+.backArrow {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* ============================================================
+   §4.2 — Header row
+   ============================================================ */
+.header {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 32px 40px 0;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+/* Solid orange square, rotated 45°. One of the four sanctioned accents. */
+.diamond {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  background: var(--accent);
+  transform: rotate(45deg);
+}
+
+.title {
+  margin: 10px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(30px, 4vw, 46px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--ink);
+}
+
+.subLabel {
+  margin-top: 10px;
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.counter {
+  text-align: right;
+  flex: none;
+}
+
+.counterNum {
+  font-family: var(--font-label);
+  font-size: clamp(34px, 5vw, 56px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--ink);
+}
+
+/* Dimmed and raised off the baseline, so the current index leads. */
+.counterTotal {
+  font-size: 0.55em;
+  font-weight: 700;
+  opacity: 0.32;
+  vertical-align: top;
+}
+
+.counterCaption {
+  margin-top: 10px;
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* ============================================================
+   §4.3 — Hero card
+   ============================================================ */
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 26px 40px 0;
+}
+
+.card {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 1300px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  animation: card-in 400ms ease both;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Cream, deliberately: site plans and elevation renders read better on a
+   light ground than on the page's near-black. */
+.well {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--well);
+  overflow: hidden;
+}
+
+.wellImage {
+  width: 100%;
+  height: 100%;
+  /* Never crop: a cropped site plan loses the labels that make it useful. */
+  object-fit: contain;
+  display: block;
+  opacity: 1;
+  transition: opacity var(--t-hover) var(--ease);
+}
+
+.wellImageFading {
+  opacity: 0;
+}
+
+.cardFoot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.cardFootLeft {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  min-width: 0;
+}
+
+.index {
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+}
+
+.cardName {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visit {
+  flex: none;
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition:
+    filter var(--t-hover) var(--ease),
+    text-decoration-thickness var(--t-hover) var(--ease);
+}
+
+.visit:hover {
+  color: var(--accent);
+  filter: brightness(1.18);
+  text-decoration-thickness: 2px;
+}
+
+/* ============================================================
+   §4.4 — Thumbnail rail
+   ============================================================ */
+.rail {
+  flex: none;
+  display: flex;
+  gap: 14px;
+  /* `safe` keeps the first thumb reachable once the row overflows — plain
+     `center` pushes overflow into the unscrollable start edge. */
+  justify-content: center;
+  justify-content: safe center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.rail::-webkit-scrollbar {
+  height: 6px;
+}
+
+.rail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rail::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: var(--r-pill);
+}
+
+.thumb {
+  flex: none;
+  width: 185px;
+  height: 190px;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  /* Transparent 2px border with the hairline drawn as an inset shadow, so
+     going active (2px accent) costs no layout shift. */
+  border: 2px solid transparent;
+  box-shadow: inset 0 0 0 1px var(--line);
+  border-radius: var(--r-thumb);
+  overflow: hidden;
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color var(--t-hover) var(--ease),
+    box-shadow var(--t-hover) var(--ease);
+}
+
+.thumbImage {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0.72;
+  transition: opacity var(--t-hover) var(--ease);
+}
+
+.thumb:hover {
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.thumb:hover .thumbImage {
+  opacity: 1;
+}
+
+.thumbActive {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent-soft),
+    0 0 26px -4px var(--accent-glow);
+}
+
+.thumbActive .thumbImage {
+  opacity: 1;
+}
+
+.thumbCaption {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.thumbName {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   §4.5 — Footer controls
+   ============================================================ */
+.controls {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px 40px 28px;
+}
+
+.navGroup {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.navBtn {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: rgba(8, 11, 18, 0.72);
+  color: var(--ink);
+  font-family: var(--font-label);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color var(--t-hover) var(--ease);
+}
+
+.navBtn:hover {
+  border-color: var(--ink);
+}
+
+.hint {
+  margin-left: 24px;
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+/* ============================================================
+   §6 — Responsive
+   ============================================================ */
+@media (max-width: 640px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 24px 20px 0;
+  }
+
+  /* Counter drops below the title, left-aligned with it. */
+  .counter {
+    text-align: left;
+  }
+
+  .stage {
+    padding: 20px 20px 0;
+    gap: 18px;
+  }
+
+  .thumb {
+    width: 140px;
+    height: 150px;
+  }
+
+  .controls {
+    padding: 18px 20px 22px;
+  }
+
+  .hint {
+    display: none;
+  }
+}
+
+/* Short screens: tighten everything a step rather than let it scroll. */
+@media (max-height: 780px) {
+  .header {
+    padding: 20px 40px 0;
+  }
+
+  .title {
+    font-size: clamp(24px, 3.2vw, 34px);
+  }
+
+  .counterNum {
+    font-size: clamp(26px, 4vw, 40px);
+  }
+
+  .stage {
+    padding: 18px 40px 0;
+    gap: 16px;
+  }
+
+  .thumb {
+    height: 150px;
+  }
+
+  .controls {
+    padding: 16px 40px 20px;
+  }
+}
+
+/* ============================================================
+   §6 — Reduced motion. Entrances and crossfades go; the accent glow
+   stays, because it communicates which thumb is active — that's state,
+   not decoration.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+
+  .wellImage,
+  .thumbImage,
+  .thumb,
+  .navBtn,
+  .backPill,
+  .visit {
+    transition: none;
+  }
+}
