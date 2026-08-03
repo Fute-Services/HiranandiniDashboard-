@@ -646,6 +646,28 @@
   color: #fff;
 }
 
+.interestOptions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.interestOption {
+  font-size: 14px;
+  color: #f4f2ec;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  padding: 14px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.interestOption:hover {
+  background: rgba(75, 99, 214, 0.28);
+  border-color: rgba(125, 148, 240, 0.5);
+}
+
 .modalTabs {
   display: flex;
   gap: 6px;

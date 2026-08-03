@@ -82,6 +82,31 @@ for (const { staffIdx, leadIdx, daysAgo, startHour } of sessionPlan) {
   push(sessionId, step(8_000), staffIdx, null, "logout", `${staff[staffIdx].name} signed out`, null);
 }
 
+// The real leads directory (src/lib/leads.ts used to hardcode these
+// in-memory; now they live here so `assigned_staff_email` and lead_status
+// changes actually persist). Left unassigned — the first staff member to
+// start a session with one claims it, which is also when the ownership
+// audit trail (lead_reassigned) starts mattering.
+const leadRows = [
+  { leadId: "LEAD-1001", phone: "9876543210", name: "Rohan Mehta", budget: "₹1.8 Cr – ₹2.2 Cr", preferredProject: "The Arena", leadStatus: "Hot", previousVisits: 2, interestedTower: "Arcadia", familySize: 4, loanRequirement: true },
+  { leadId: "LEAD-1002", phone: "9822011223", name: "Priya Nair", budget: "₹2.5 Cr – ₹3 Cr", preferredProject: "Elena", leadStatus: "Follow-up", previousVisits: 1, interestedTower: "Elena", familySize: 3, loanRequirement: true },
+  { leadId: "LEAD-1003", phone: "9900112233", name: "Arjun & Kavita Shah", budget: "₹3.2 Cr+", preferredProject: "Golden Willows", leadStatus: "Negotiation", previousVisits: 3, interestedTower: "Golden Willows", familySize: 5, loanRequirement: false },
+  { leadId: "LEAD-1004", phone: "9765004321", name: "Sameer Deshpande", budget: "₹1.4 Cr – ₹1.7 Cr", preferredProject: "Ebony", leadStatus: "New", previousVisits: 0, interestedTower: "Ebony", familySize: 2, loanRequirement: true },
+  { leadId: "LEAD-1005", phone: "9820556677", name: "Fatima Sheikh", budget: "₹2.0 Cr – ₹2.4 Cr", preferredProject: "Club House", leadStatus: "Hot", previousVisits: 2, interestedTower: "Elena", familySize: 4, loanRequirement: false },
+  { leadId: "LEAD-1006", phone: "9930778899", name: "Vikram Joshi", budget: "₹2.8 Cr – ₹3.1 Cr", preferredProject: "Golden Willows", leadStatus: "Follow-up", previousVisits: 1, interestedTower: "Golden Willows", familySize: 3, loanRequirement: true },
+];
+
+for (const l of leadRows) {
+  await sql.query(
+    `INSERT INTO leads
+      (lead_id, phone, name, budget, preferred_project, lead_status, previous_visits, interested_tower, family_size, loan_requirement, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+     ON CONFLICT (lead_id) DO NOTHING`,
+    [l.leadId, l.phone, l.name, l.budget, l.preferredProject, l.leadStatus, l.previousVisits, l.interestedTower, l.familySize, l.loanRequirement, now],
+  );
+}
+console.log(`Seeded ${leadRows.length} leads.`);
+
 for (const e of events) {
   await sql.query(
     `INSERT INTO activity_events

@@ -30,7 +30,12 @@ export type ActivityType =
   | "filter"
   | "notes"
   | "status"
-  | "step";
+  | "step"
+  | "lead_merged"
+  | "interest_level"
+  | "lead_reassigned"
+  | "phone_revealed"
+  | "vr_load_failed";
 
 export type ActivityEvent = {
   id: string;

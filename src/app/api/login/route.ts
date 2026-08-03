@@ -63,6 +63,15 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
   const secret = process.env.SESSION_SECRET;
   if (!secret) throw new Error("SESSION_SECRET is not set");
 
+  // Records this login as the one true active session for the account, so a
+  // second concurrent login elsewhere (see /api/controls's sessionInvalid
+  // check) can eject this one instead of both silently coexisting.
+  await sql`
+    INSERT INTO staff_controls (email, kicked, blocked_projects, current_session_id)
+    VALUES (${user.email}, false, '{}', ${sessionId})
+    ON CONFLICT (email) DO UPDATE SET current_session_id = ${sessionId}
+  `;
+
   const token = await signSessionToken(
     { email: user.email, role: user.role, name: user.name, exp: Date.now() + AUTH_MAX_AGE * 1000 },
     secret,

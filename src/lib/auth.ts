@@ -32,6 +32,9 @@ export const DASHBOARD_PATH = "/dashboard";
 export const ADMIN_PATH = "/admin/dashboard";
 /** Sales-manager-only reporting dashboard, scoped to their own team's sessions. */
 export const MANAGER_PATH = "/manager/dashboard";
+/** A sales staff member's own activity, self-viewable so tracking doesn't
+ * read as a one-way mirror only admins/managers can see through. Staff-only. */
+export const MY_ACTIVITY_PATH = "/my-activity";
 
 /** Where a freshly signed-in (or already-authed) user of this role lands. */
 export function landingPathForRole(role: Role): string {

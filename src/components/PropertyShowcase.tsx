@@ -46,6 +46,10 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   const [noteText, setNoteText] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
   const [detailsProperty, setDetailsProperty] = useState<Property | null>(null);
+  /** "End Session" doesn't close out immediately — it gates on recording how
+   * interested the customer seemed, so that signal exists for every session
+   * instead of depending on staff remembering to type a free-text note. */
+  const [showInterestGate, setShowInterestGate] = useState(false);
   const [busy, setBusy] = useState(false);
   /** The 360° panorama is a whole third-party site in an iframe and easily
    * the slowest thing on this screen — without a marker the customer just
@@ -57,10 +61,15 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
    * so "never fires" used to mean a permanent "Loading 360° tour…" with a
    * dead screen behind it. Give up after a while and show whatever the frame
    * managed to render instead — the tour is the one thing on this screen
-   * that's allowed to be half-there. */
+   * that's allowed to be half-there. Logged as its own event (distinct from a
+   * normal successful load) so a staff member blaming "the system" for a
+   * blank tour is verifiable against the activity log, not just their word. */
   useEffect(() => {
     if (tourLoaded) return;
-    const id = window.setTimeout(() => setTourLoaded(true), 20000);
+    const id = window.setTimeout(() => {
+      setTourLoaded(true);
+      logSessionEvent("360° VR tour never finished loading (20s timeout)", "vr_load_failed");
+    }, 20000);
     return () => window.clearTimeout(id);
   }, [tourLoaded]);
   /** False until the first blocked-projects poll answers. The shelf renders
@@ -160,10 +169,19 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   }, [session]);
 
   const endSession = useCallback(() => {
-    setLeaving("end");
-    finalizeSession();
-    router.push(SESSION_START_PATH);
-  }, [router]);
+    setShowInterestGate(true);
+  }, []);
+
+  const confirmEndSession = useCallback(
+    (interest: "Highly Interested" | "Neutral" | "Not Interested" | "Follow-up Later") => {
+      logSessionEvent(interest, "interest_level");
+      setShowInterestGate(false);
+      setLeaving("end");
+      finalizeSession();
+      router.push(SESSION_START_PATH);
+    },
+    [router],
+  );
 
   const leave = useCallback(() => {
     setLeaving("logout");
@@ -211,7 +229,10 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
           allow="gyroscope; accelerometer; xr-spatial-tracking"
           onLoad={() => setTourLoaded(true)}
           // A frame that fails outright shouldn't keep claiming it's loading.
-          onError={() => setTourLoaded(true)}
+          onError={() => {
+            setTourLoaded(true);
+            logSessionEvent("360° VR tour failed to load (error)", "vr_load_failed");
+          }}
         />
         {!tourLoaded && (
           <div className={styles.vrLoading} role="status">
@@ -382,6 +403,36 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
           property={detailsProperty}
           onClose={() => setDetailsProperty(null)}
         />
+      )}
+
+      {showInterestGate && (
+        <div className={styles.modalBackdrop} onClick={() => setShowInterestGate(false)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>How interested did the customer seem?</h3>
+              <button
+                type="button"
+                className={styles.modalClose}
+                onClick={() => setShowInterestGate(false)}
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
+            <div className={styles.interestOptions}>
+              {(["Highly Interested", "Neutral", "Not Interested", "Follow-up Later"] as const).map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  className={styles.interestOption}
+                  onClick={() => confirmEndSession(level)}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

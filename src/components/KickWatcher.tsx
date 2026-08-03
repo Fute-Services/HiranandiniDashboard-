@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getSession, LOGIN_PATH } from "@/lib/auth";
+import { getSession, getSessionId, LOGIN_PATH } from "@/lib/auth";
 import { ackKick, fetchControlState } from "@/lib/controls";
 import { signOut } from "@/lib/sign-out";
 import { FullScreenLoader } from "./Spinner";
@@ -34,7 +34,7 @@ export function KickWatcher() {
       if (document.hidden || ejectingRef.current) return;
       const email = getSession()?.email;
       if (!email) return;
-      const state = await fetchControlState(email);
+      const state = await fetchControlState(email, getSessionId() ?? undefined);
       if (cancelled || ejectingRef.current) return;
       if (state.kicked) {
         ejectingRef.current = true;
@@ -44,6 +44,13 @@ export function KickWatcher() {
         // member the login form again, instead of a silent, unexplained
         // redirect.
         void signOut(`${LOGIN_PATH}?kicked=1`);
+      } else if (state.sessionInvalid) {
+        // A newer login for this account has taken over elsewhere — this tab
+        // is stale, not force-logged-out, so it gets its own message rather
+        // than the "an admin signed you out" one.
+        ejectingRef.current = true;
+        setSigningOut(true);
+        void signOut(`${LOGIN_PATH}?replaced=1`);
       }
     };
     check();

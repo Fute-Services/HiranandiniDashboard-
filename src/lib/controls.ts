@@ -50,19 +50,35 @@ export function setProjectBlockedFor(
   return post(blocked ? "block" : "unblock", staffEmail, slug);
 }
 
-export type StaffControlState = { kicked: boolean; blockedProjects: string[]; loginSuspended: boolean };
+export type StaffControlState = {
+  kicked: boolean;
+  blockedProjects: string[];
+  loginSuspended: boolean;
+  sessionInvalid: boolean;
+};
 
-const EMPTY_STATE: StaffControlState = { kicked: false, blockedProjects: [], loginSuspended: false };
+const EMPTY_STATE: StaffControlState = {
+  kicked: false,
+  blockedProjects: [],
+  loginSuspended: false,
+  sessionInvalid: false,
+};
 
 /** Single poll covering both flags for one staff email, so callers (the
  * kick watcher, the showcase's block filter) only make one request.
  *
+ * `sessionId` is optional — only the kick watcher needs it (to detect a
+ * newer login elsewhere superseding this one); callers that just need the
+ * block list can omit it and `sessionInvalid` simply always comes back false.
+ *
  * Always settles: callers gate a loading state on it (the showcase's Details
  * row, the staff panel's block grid), so a request that never came back used
  * to mean those controls never appeared at all. */
-export async function fetchControlState(email: string): Promise<StaffControlState> {
+export async function fetchControlState(email: string, sessionId?: string): Promise<StaffControlState> {
   try {
-    const res = await fetchWithTimeout(`/api/controls?email=${encodeURIComponent(email)}`);
+    const params = new URLSearchParams({ email });
+    if (sessionId) params.set("sessionId", sessionId);
+    const res = await fetchWithTimeout(`/api/controls?${params}`);
     if (!res.ok) return EMPTY_STATE;
     const data = await readJsonSafe<Partial<StaffControlState>>(res);
     // Field-by-field rather than trusting the body wholesale: callers spread
@@ -72,6 +88,7 @@ export async function fetchControlState(email: string): Promise<StaffControlStat
       kicked: data?.kicked === true,
       blockedProjects: Array.isArray(data?.blockedProjects) ? data.blockedProjects : [],
       loginSuspended: data?.loginSuspended === true,
+      sessionInvalid: data?.sessionInvalid === true,
     };
   } catch {
     return EMPTY_STATE;

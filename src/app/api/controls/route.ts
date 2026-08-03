@@ -17,15 +17,21 @@ import { checkRateLimit, clientKey } from "@/lib/rate-limit";
  * tied to a single browser's storage — this route is that channel.
  */
 
-type Row = { kicked: boolean; blocked_projects: string[]; login_suspended: boolean };
+type Row = {
+  kicked: boolean;
+  blocked_projects: string[];
+  login_suspended: boolean;
+  current_session_id: string | null;
+};
 
 export const GET = withJsonErrors(async (req: NextRequest) => {
   const email = req.nextUrl.searchParams.get("email");
   if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
+  const sessionId = req.nextUrl.searchParams.get("sessionId");
 
   const sql = getSql();
   const rows = (await sql`
-    SELECT kicked, blocked_projects, login_suspended FROM staff_controls WHERE email = ${email}
+    SELECT kicked, blocked_projects, login_suspended, current_session_id FROM staff_controls WHERE email = ${email}
   `) as Row[];
   const row = rows[0];
 
@@ -33,6 +39,10 @@ export const GET = withJsonErrors(async (req: NextRequest) => {
     kicked: row?.kicked ?? false,
     blockedProjects: row?.blocked_projects ?? [],
     loginSuspended: row?.login_suspended ?? false,
+    // Only meaningful once a session has actually been recorded (a fresh
+    // account with no `current_session_id` yet shouldn't eject anyone), and
+    // only when the caller sent one to compare against.
+    sessionInvalid: Boolean(sessionId && row?.current_session_id && row.current_session_id !== sessionId),
   });
 });
 

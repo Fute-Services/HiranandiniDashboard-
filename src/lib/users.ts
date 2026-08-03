@@ -26,7 +26,23 @@ export type User = {
   role: Role;
   /** Only meaningful for sales_staff: which manager's team they're on. */
   managerEmail?: string;
+  /** ISO date they joined, if known — drives the "New Joiner" tag (first 30
+   * days) so a manager doesn't unfairly benchmark a brand-new hire against
+   * staff who've been running presentations for months. Left unset for
+   * existing staff below since their actual join dates aren't on file here;
+   * set it when adding a real new hire. */
+  joiningDate?: string;
 };
+
+/** True for the first 30 days after `joiningDate` — unset means "not known
+ * to be new," not "definitely not new," since existing mock staff don't have
+ * a real join date on file. */
+export function isNewJoiner(user: Pick<User, "joiningDate">, now: number): boolean {
+  if (!user.joiningDate) return false;
+  const joinedAt = new Date(user.joiningDate).getTime();
+  if (Number.isNaN(joinedAt)) return false;
+  return now - joinedAt < 30 * 24 * 60 * 60 * 1000;
+}
 
 export const USERS: User[] = [
   {

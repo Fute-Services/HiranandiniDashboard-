@@ -58,7 +58,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [kickedNotice, setKickedNotice] = useState(false);
+  const [signedOutNotice, setSignedOutNotice] = useState<"kicked" | "replaced" | null>(null);
   /** Which sign-in is in flight: the form itself, or one of the demo
    * buttons (by email). Everything on the card is disabled while it's set,
    * so a slow network can't turn into three parallel logins — and it
@@ -76,8 +76,12 @@ export default function LoginPage() {
   // Plain browser API rather than useSearchParams(), which would force this
   // client component into a <Suspense> boundary just to read one flag.
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("kicked") === "1") {
-      setKickedNotice(true);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("kicked") === "1") {
+      setSignedOutNotice("kicked");
+      window.history.replaceState(null, "", window.location.pathname);
+    } else if (params.get("replaced") === "1") {
+      setSignedOutNotice("replaced");
       window.history.replaceState(null, "", window.location.pathname);
     }
   }, []);
@@ -209,9 +213,14 @@ export default function LoginPage() {
             </div>
             <h2 className={styles.formTitle}>Log in to your account</h2>
 
-            {kickedNotice && (
+            {signedOutNotice === "kicked" && (
               <p className={styles.notice} role="status">
                 You&apos;ve been signed out by your admin or sales manager. Sign in again to continue.
+              </p>
+            )}
+            {signedOutNotice === "replaced" && (
+              <p className={styles.notice} role="status">
+                You were signed out because your account was logged in on another device.
               </p>
             )}
 

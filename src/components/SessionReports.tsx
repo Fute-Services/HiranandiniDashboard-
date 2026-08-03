@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSession, SPACE_PATH } from "@/lib/auth";
-import { listActivity, type ActivityEvent, type ActivityType } from "@/lib/activity";
+import { getSession, getSessionId, SPACE_PATH } from "@/lib/auth";
+import { actorFields, listActivity, track, type ActivityEvent, type ActivityType } from "@/lib/activity";
 import { signOut } from "@/lib/sign-out";
 import { useNavigationLock } from "@/lib/useNavigationLock";
 import { fetchControlState, kickStaff, restoreLogin, setProjectBlockedFor } from "@/lib/controls";
-import { createWalkInLead } from "@/lib/leads";
+import { createWalkInLead, listLeads, setLeadStatus, type Lead, type LeadStatus } from "@/lib/leads";
 import { setActiveSession } from "@/lib/session";
-import { USERS } from "@/lib/users";
+import { findUserByEmail, isNewJoiner, USERS } from "@/lib/users";
 import { portfolioGroups } from "@/data/properties";
 import { LoadingBlock, Spinner } from "./Spinner";
 
@@ -19,7 +19,7 @@ import { LoadingBlock, Spinner } from "./Spinner";
 const ALL_PROJECTS = portfolioGroups.flatMap((g) => g.projects);
 import styles from "./SessionReports.module.css";
 
-function formatDuration(ms: number) {
+export function formatDuration(ms: number) {
   const mins = Math.round(ms / 60000);
   if (mins < 1) return "<1 min";
   if (mins < 60) return `${mins} min`;
@@ -44,7 +44,7 @@ function isToday(ts: number) {
   );
 }
 
-function initials(name: string) {
+export function initials(name: string) {
   const parts = name.trim().split(/\s+/);
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
@@ -118,7 +118,7 @@ function Pagination({
   );
 }
 
-const TYPE_LABEL: Record<ActivityType, string> = {
+export const TYPE_LABEL: Record<ActivityType, string> = {
   login: "Login",
   logout: "Logout",
   search: "Search",
@@ -135,6 +135,11 @@ const TYPE_LABEL: Record<ActivityType, string> = {
   notes: "Note",
   status: "Status",
   step: "Page",
+  lead_merged: "Merged Lead",
+  interest_level: "Interest",
+  lead_reassigned: "Reassigned",
+  phone_revealed: "Viewed Phone",
+  vr_load_failed: "VR Load Failed",
 };
 
 /**
@@ -146,7 +151,7 @@ const TYPE_LABEL: Record<ActivityType, string> = {
  * since the log is the single source of truth admins/managers can't have
  * edited out from under them.
  */
-type Presentation = {
+export type Presentation = {
   key: string;
   sessionId: string;
   leadId: string;
@@ -182,10 +187,16 @@ const SHOWN_TYPES = new Set<ActivityType>([
   "amenities",
 ]);
 
-function groupPresentations(events: ActivityEvent[]): Presentation[] {
+export function groupPresentations(events: ActivityEvent[]): Presentation[] {
   const groups = new Map<string, ActivityEvent[]>();
   for (const e of events) {
     if (!e.leadId) continue;
+    // Reassignment events (see /api/leads) carry a leadId for filtering but
+    // aren't part of any actual customer walkthrough — a synthetic
+    // "leads-<id>" session id, not a real login session, keeps them out of
+    // the Customer Visits table instead of showing up as a phantom
+    // zero-duration presentation.
+    if (e.sessionId.startsWith("leads-")) continue;
     const key = `${e.sessionId}::${e.leadId}`;
     const arr = groups.get(key);
     if (arr) arr.push(e);
@@ -290,11 +301,13 @@ function buildDayCounts(list: Presentation[]) {
 }
 
 /** Top projects opened across every presentation's "what was shown" log,
- * most-shown first. */
+ * most-shown first. Deduplicated per presentation (see `distinctShown`) so
+ * a project opened/closed repeatedly in one sitting counts once, not once
+ * per click. */
 function buildTopProperties(list: Presentation[], max = 6) {
   const counts = new Map<string, number>();
   for (const s of list) {
-    for (const e of s.shown) {
+    for (const e of distinctShown(s.shown)) {
       const label = e.label.replace(/^(Opened|Visited) /, "");
       counts.set(label, (counts.get(label) ?? 0) + 1);
     }
@@ -305,10 +318,25 @@ function buildTopProperties(list: Presentation[], max = 6) {
     .slice(0, max);
 }
 
+/** Distinct (type, label) events only, one per presentation — repeatedly
+ * opening and closing the same tab/property doesn't add new information, so
+ * it shouldn't inflate a number a manager reads as "how much did they show."
+ * Used everywhere a "shown" count is aggregated across presentations. */
+function distinctShown(shown: ActivityEvent[]): ActivityEvent[] {
+  const seen = new Set<string>();
+  return shown.filter((e) => {
+    const key = `${e.type}::${e.label}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /** Per-staff performance summary: how many walkthroughs each ran, how many
  * distinct customers they reached, and their average session length —
  * the "performance analysis" the reporting goal asks for, ranked so the
- * busiest staff member reads first. */
+ * busiest staff member reads first. `shown` is deduplicated (see
+ * `distinctShownCount`) so repeatedly toggling the same tab can't inflate it. */
 function buildStaffLeaderboard(list: Presentation[]) {
   const byStaff = new Map<
     string,
@@ -321,7 +349,7 @@ function buildStaffLeaderboard(list: Presentation[]) {
     row.sessions += 1;
     row.totalMs += p.totalTimeMs;
     row.customers.add(p.leadId);
-    row.shown += p.shown.length;
+    row.shown += distinctShown(p.shown).length;
     byStaff.set(p.staffEmail, row);
   }
   return [...byStaff.entries()]
@@ -343,12 +371,128 @@ function buildStaffLeaderboard(list: Presentation[]) {
 function buildContentBreakdown(list: Presentation[], max = 6) {
   const counts = new Map<ActivityType, number>();
   for (const p of list) {
-    for (const e of p.shown) counts.set(e.type, (counts.get(e.type) ?? 0) + 1);
+    for (const e of distinctShown(p.shown)) counts.set(e.type, (counts.get(e.type) ?? 0) + 1);
   }
   return [...counts.entries()]
     .map(([type, count]) => ({ label: TYPE_LABEL[type], count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, max);
+}
+
+/** How customers came across as leaving each presentation — one tag per
+ * session, logged when staff end it (see PropertyShowcase's interest gate).
+ * Read straight off `timeline` rather than `shown`: it's a housekeeping
+ * signal about the customer, not a "what was shown" content type. */
+function buildInterestBreakdown(list: Presentation[]) {
+  const counts = new Map<string, number>();
+  for (const p of list) {
+    for (const e of p.timeline) {
+      if (e.type === "interest_level") counts.set(e.label, (counts.get(e.label) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/** How often each team's projects get blocked — reads the raw event log
+ * (not grouped presentations: a block has no leadId, so `groupPresentations`
+ * would drop it) to flag a manager whose team gets blocked disproportionately
+ * more than others, without needing a manual audit. */
+function buildBlockFrequency(events: ActivityEvent[]) {
+  const counts = new Map<string, number>();
+  for (const e of events) {
+    if (e.type !== "status" || !e.label.includes(" blocked by ")) continue;
+    const key = e.managerEmail ?? "Unassigned";
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/** How often the VR tour actually failed to load per staff member — reads
+ * the raw event log (a failed tour has no leadId requirement either way, but
+ * this stays independent of presentation grouping for the same reason
+ * `buildBlockFrequency` does). Lets a manager tell "the system was slow" apart
+ * from "this one person avoids opening the tour," instead of just taking
+ * either claim on faith. */
+function buildTechnicalIssues(events: ActivityEvent[]) {
+  const counts = new Map<string, number>();
+  for (const e of events) {
+    if (e.type !== "vr_load_failed") continue;
+    counts.set(e.staffName, (counts.get(e.staffName) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Admin-only cross-team comparison: each manager's average session time and
+ * session count, with a statistical outlier flagged automatically (more than
+ * 2x the median of every other manager's average) — the "is one team's
+ * numbers being inflated" check that used to require manually eyeballing
+ * every team's stats side by side.
+ */
+function buildManagerComparison(list: Presentation[]) {
+  const byManager = new Map<string, { totalMs: number; sessions: number }>();
+  for (const p of list) {
+    const key = p.managerEmail ?? "Unassigned";
+    const row = byManager.get(key) ?? { totalMs: 0, sessions: 0 };
+    row.totalMs += p.totalTimeMs;
+    row.sessions += 1;
+    byManager.set(key, row);
+  }
+  const rows = [...byManager.entries()].map(([managerEmail, r]) => ({
+    managerEmail,
+    sessions: r.sessions,
+    avgMs: r.totalMs / r.sessions,
+  }));
+  const sortedAvgs = [...rows.map((r) => r.avgMs)].sort((a, b) => a - b);
+  const median = sortedAvgs.length ? sortedAvgs[Math.floor(sortedAvgs.length / 2)] : 0;
+  return rows
+    .map((r) => ({ ...r, isOutlier: rows.length > 1 && median > 0 && r.avgMs > median * 2 }))
+    .sort((a, b) => b.avgMs - a.avgMs);
+}
+
+/**
+ * A manager doesn't run presentations themselves, so their own numbers can't
+ * come from session/customer counts — this measures something they actually
+ * do: how quickly they restore a staff member's access after force-logging
+ * them out. Pairs each "Force-logged-out by X" event with the next "Access
+ * restored by X" for the same staff member (see StaffControlPanel's
+ * `logControlAction`), grouped by that staff member's manager. Empty until
+ * kicks/restores actually happen — there's no historical data to backfill.
+ */
+function buildManagerAccountability(events: ActivityEvent[]) {
+  const byStaff = new Map<string, ActivityEvent[]>();
+  for (const e of events) {
+    if (e.type !== "status") continue;
+    if (!e.label.startsWith("Force-logged-out by") && !e.label.startsWith("Access restored by")) continue;
+    const arr = byStaff.get(e.staffEmail) ?? [];
+    arr.push(e);
+    byStaff.set(e.staffEmail, arr);
+  }
+  const byManager = new Map<string, number[]>();
+  for (const evs of byStaff.values()) {
+    const sorted = [...evs].sort((a, b) => a.at - b.at);
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (sorted[i].label.startsWith("Force-logged-out") && sorted[i + 1].label.startsWith("Access restored")) {
+        const manager = sorted[i].managerEmail ?? "Unassigned";
+        const arr = byManager.get(manager) ?? [];
+        arr.push(sorted[i + 1].at - sorted[i].at);
+        byManager.set(manager, arr);
+      }
+    }
+  }
+  return [...byManager.entries()]
+    .map(([managerEmail, times]) => ({
+      managerEmail,
+      restores: times.length,
+      avgMs: times.reduce((sum, t) => sum + t, 0) / times.length,
+    }))
+    .sort((a, b) => a.avgMs - b.avgMs);
 }
 
 /** Which hours of the day presentations start in, so a manager can see when
@@ -509,12 +653,18 @@ function StaffLeaderboard({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {rows.map((r) => {
+              const user = findUserByEmail(r.email);
+              const isNew = user ? isNewJoiner(user, Date.now()) : false;
+              return (
               <tr key={r.email}>
                 <td>
                   <div className={styles.customer}>
                     <span className={styles.avatar}>{initials(r.staffName)}</span>
-                    <span>{r.staffName}</span>
+                    <span>
+                      {r.staffName}
+                      {isNew && <span className={styles.newJoinerBadge}>New</span>}
+                    </span>
                   </div>
                 </td>
                 <td className={styles.numCell}>{r.sessions}</td>
@@ -522,7 +672,8 @@ function StaffLeaderboard({
                 <td className={styles.numCell}>{r.shown}</td>
                 <td className={styles.numCell}>{formatDuration(r.avgMs)}</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       )}
@@ -533,14 +684,22 @@ function StaffLeaderboard({
 /** What kinds of content get shown — same ranked-bar form as
  * TopPropertiesChart, since it answers the same "which is used most"
  * question, just about content type instead of project. */
-function ContentBreakdownChart({ data }: { data: { label: string; count: number }[] }) {
+function ContentBreakdownChart({
+  data,
+  title = "What Gets Shown",
+  emptyLabel = "Nothing shown to customers yet.",
+}: {
+  data: { label: string; count: number }[];
+  title?: string;
+  emptyLabel?: string;
+}) {
   const max = Math.max(1, ...data.map((d) => d.count));
 
   return (
     <div className={styles.chartCard}>
-      <div className={styles.chartTitle}>What Gets Shown</div>
+      <div className={styles.chartTitle}>{title}</div>
       {data.length === 0 ? (
-        <p className={styles.chartEmpty}>Nothing shown to customers yet.</p>
+        <p className={styles.chartEmpty}>{emptyLabel}</p>
       ) : (
         <div className={styles.propBars}>
           {data.map((d) => (
@@ -681,6 +840,7 @@ const VIEW_TABS = [
   { key: "customers" as const, label: "Customer Visits" },
   { key: "staff" as const, label: "Staff Activity" },
   { key: "analytics" as const, label: "Reports" },
+  { key: "leads" as const, label: "Leads" },
   { key: "logins" as const, label: "Login History" },
 ];
 
@@ -1004,21 +1164,30 @@ function TimelinePanel({
 }
 
 const STATUS_IDLE_MS = 5 * 60 * 1000;
+/** Beyond this with no logout event, a dangling "still logged in" state is
+ * almost certainly a tab that was just closed rather than someone genuinely
+ * idle at their desk — treated as Offline instead of Idle forever. */
+const STATUS_STALE_MS = 60 * 60 * 1000;
 
-type StaffStatus = "Online" | "In Meeting" | "Busy" | "Offline";
+type StaffStatus = "Online" | "In Meeting" | "Busy" | "Idle" | "Offline";
 
 /** Live status, inferred from the most recent activity event rather than a
- * heartbeat: logged out → Offline; nothing in the last 5 minutes → Offline
- * (covers a tab closed without hitting Log out); most recent event is an
- * explicit "Busy" toggle (PropertyShowcase's header button — the only
- * honest source for that state, since nothing else in the app implies it)
- * → Busy, until the next login/logout/Available toggle supersedes it;
- * still attached to a customer → In Meeting; otherwise Online. */
+ * heartbeat: logged out → Offline; nothing at all in over an hour → Offline
+ * (covers a tab closed without hitting Log out); logged in but nothing in
+ * the last 5 minutes → Idle (logged in, doing nothing — the "staff logs in
+ * and doesn't work" case, previously indistinguishable from Offline); most
+ * recent event is an explicit "Busy" toggle (PropertyShowcase's header
+ * button — the only honest source for that state, since nothing else in the
+ * app implies it) → Busy, until the next login/logout/Available toggle
+ * supersedes it; still attached to a customer → In Meeting; otherwise
+ * Online. */
 function deriveStatus(events: ActivityEvent[], now: number): StaffStatus {
   if (events.length === 0) return "Offline";
   const last = events[events.length - 1];
   if (last.type === "logout") return "Offline";
-  if (now - last.at > STATUS_IDLE_MS) return "Offline";
+  const idleFor = now - last.at;
+  if (idleFor > STATUS_STALE_MS) return "Offline";
+  if (idleFor > STATUS_IDLE_MS) return "Idle";
   if (last.type === "status") return last.label === "Marked Busy" ? "Busy" : "Online";
   return last.leadId ? "In Meeting" : "Online";
 }
@@ -1087,6 +1256,7 @@ function StaffControlPanel({
   events,
   eventsLoading,
   onClose,
+  viewer,
 }: {
   staffEmail: string;
   staffName: string;
@@ -1096,6 +1266,8 @@ function StaffControlPanel({
    * which is a very different, and wrong, thing to tell a manager. */
   eventsLoading: boolean;
   onClose: () => void;
+  /** Who's doing the blocking/kicking — attributed on the reason log below. */
+  viewer: { email: string; name: string } | null;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -1137,6 +1309,22 @@ function StaffControlPanel({
   // anything: each is a one-shot, consequential action, and "Signal Sent" or
   // a lifted suspension shown before the request landed is a claim the panel
   // can't back up. The spinner covers the gap.
+  // Both logged against the affected staff member (not the acting
+  // manager/admin) so "time between kick and restore" — the accountability
+  // metric a manager's own performance gets measured on — can be computed
+  // straight off that person's timeline, the same way block reasons are.
+  const logControlAction = (type: "status", label: string) => {
+    track({
+      sessionId: getSessionId() ?? crypto.randomUUID(),
+      type,
+      label,
+      leadId: null,
+      leadName: null,
+      durationMs: null,
+      ...actorFields(staffEmail, staffName),
+    });
+  };
+
   const forceLogout = async () => {
     setKickPending(true);
     const ok = await kickStaff(staffEmail);
@@ -1144,6 +1332,7 @@ function StaffControlPanel({
     if (ok) {
       setKicked(true);
       setLoginSuspended(true);
+      logControlAction("status", `Force-logged-out by ${viewer?.name ?? "admin"}`);
     }
   };
 
@@ -1151,14 +1340,17 @@ function StaffControlPanel({
     setRestorePending(true);
     const ok = await restoreLogin(staffEmail);
     setRestorePending(false);
-    if (ok) setLoginSuspended(false);
+    if (ok) {
+      setLoginSuspended(false);
+      logControlAction("status", `Access restored by ${viewer?.name ?? "admin"}`);
+    }
   };
 
   // The block toggles are the exception: they're flipped back and forth
   // freely, so they still update optimistically (with a pending marker on
   // the button being synced) and roll back if the server refuses.
 
-  const toggleBlocked = async (slug: string) => {
+  const toggleBlocked = async (slug: string, reason?: string) => {
     const next = !blocked.includes(slug);
     setBlocked((prev) => (next ? [...prev, slug] : prev.filter((s) => s !== slug)));
     setPendingSlugs((prev) => [...prev, slug]);
@@ -1166,8 +1358,30 @@ function StaffControlPanel({
     setPendingSlugs((prev) => prev.filter((s) => s !== slug));
     if (!ok) {
       setBlocked((prev) => (next ? prev.filter((s) => s !== slug) : [...prev, slug]));
+      return;
+    }
+    // Only blocking carries a reason (unblocking is the safe direction and
+    // doesn't gate on one) — logged against the affected staff member so it
+    // shows up on their timeline, not the admin/manager's own activity.
+    if (next && reason) {
+      const sessionId = getSessionId() ?? crypto.randomUUID();
+      const projectName = ALL_PROJECTS.find((p) => p.slug === slug)?.name ?? slug;
+      track({
+        sessionId,
+        type: "status",
+        label: `${projectName} blocked by ${viewer?.name ?? "admin"} — reason: ${reason}`,
+        leadId: null,
+        leadName: null,
+        durationMs: null,
+        ...actorFields(staffEmail, staffName),
+      });
     }
   };
+
+  /** Which project is mid-block, waiting on a mandatory reason — separate
+   * from the plain yes/no confirm dialog below since this one needs a choice,
+   * not just an acknowledgement. */
+  const [blockReasonSlug, setBlockReasonSlug] = useState<string | null>(null);
 
   // A themed confirm step for anything disruptive (force logout, blocking a
   // project) instead of the browser's own unstyleable window.confirm().
@@ -1231,7 +1445,15 @@ function StaffControlPanel({
         <div className={styles.staffIdentity}>
           <span className={styles.staffAvatar}>{initials(staffName)}</span>
           <div>
-            <div className={styles.staffPanelName}>{staffName}</div>
+            <div className={styles.staffPanelName}>
+              {staffName}
+              {(() => {
+                const user = findUserByEmail(staffEmail);
+                return user && isNewJoiner(user, now) ? (
+                  <span className={styles.newJoinerBadge}>New</span>
+                ) : null;
+              })()}
+            </div>
             <div className={styles.metaRow}>
               <span>{staffEmail}</span>
               <span>Last active {last ? new Date(last.at).toLocaleString() : "never"}</span>
@@ -1328,9 +1550,7 @@ function StaffControlPanel({
                     if (isBlocked) {
                       toggleBlocked(p.slug);
                     } else {
-                      requestConfirm(`Block ${p.name} for ${staffName}? They won't be able to open it.`, () =>
-                        toggleBlocked(p.slug),
-                      );
+                      setBlockReasonSlug(p.slug);
                     }
                   }}
                 >
@@ -1431,7 +1651,214 @@ function StaffControlPanel({
           </div>
         </div>
       )}
+
+      {blockReasonSlug && (
+        <div className={styles.confirmOverlay} onClick={() => setBlockReasonSlug(null)}>
+          <div className={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
+            <p className={styles.confirmMessage}>
+              Block {ALL_PROJECTS.find((p) => p.slug === blockReasonSlug)?.name ?? blockReasonSlug} for {staffName}?
+              Pick a reason — it&apos;s kept on record.
+            </p>
+            <div className={styles.blockReasonOptions}>
+              {["Sold Out", "Price Change", "Under Renovation", "Other"].map((reason) => (
+                <button
+                  key={reason}
+                  type="button"
+                  className={styles.blockReasonOption}
+                  onClick={() => {
+                    const slug = blockReasonSlug;
+                    setBlockReasonSlug(null);
+                    toggleBlocked(slug, reason);
+                  }}
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
+            <div className={styles.confirmActions}>
+              <button type="button" className={styles.confirmCancel} onClick={() => setBlockReasonSlug(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+const LEAD_STATUSES: LeadStatus[] = ["New", "Follow-up", "Hot", "Negotiation", "Booked", "Lost"];
+
+/** First 2 + last 3 digits visible, rest masked — enough to recognize a
+ * number without exposing it outright in a table an admin/manager might
+ * have open on a shared screen. */
+function maskPhone(phone: string): string {
+  if (phone.length < 6) return phone;
+  return `${phone.slice(0, 2)}${"x".repeat(phone.length - 5)}${phone.slice(-3)}`;
+}
+
+/**
+ * The full lead directory, editable to a real pipeline outcome (Booked/Lost)
+ * so the funnel from presentation to sale is actually measurable, not just
+ * "how many sessions ran." A sales manager only sees/edits leads currently
+ * assigned to their own team; an admin sees everything.
+ */
+function LeadsPanel({
+  viewer,
+  staffList,
+}: {
+  viewer: { email: string; name: string; role: string } | null;
+  staffList: { email: string; name: string }[];
+}) {
+  const [leads, setLeads] = useState<Lead[] | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  /** Which leads' phone numbers are currently shown in full — starts empty
+   * (every number masked) so a shared screen never shows a customer's phone
+   * number by default. */
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
+
+  function revealPhone(leadId: string, leadName: string) {
+    setRevealed((prev) => new Set(prev).add(leadId));
+    if (!viewer) return;
+    track({
+      sessionId: getSessionId() ?? crypto.randomUUID(),
+      type: "phone_revealed",
+      label: `Viewed phone number for ${leadName}`,
+      leadId,
+      leadName,
+      durationMs: null,
+      ...actorFields(viewer.email, viewer.name),
+    });
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    listLeads().then((rows) => {
+      if (!cancelled) setLeads(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const staffEmails = useMemo(() => new Set(staffList.map((s) => s.email)), [staffList]);
+  const visible = useMemo(() => {
+    if (!leads) return [];
+    if (viewer?.role === "admin") return leads;
+    // A manager's own team only — an unclaimed lead is fair game for anyone,
+    // so it stays visible until a staff member (in or outside the team)
+    // claims it.
+    return leads.filter((l) => !l.assignedStaffEmail || staffEmails.has(l.assignedStaffEmail));
+  }, [leads, viewer, staffEmails]);
+
+  async function changeStatus(leadId: string, status: LeadStatus) {
+    setSavingId(leadId);
+    const ok = await setLeadStatus(leadId, status);
+    if (ok) {
+      setLeads((prev) => prev?.map((l) => (l.leadId === leadId ? { ...l, leadStatus: status } : l)) ?? null);
+    }
+    setSavingId(null);
+  }
+
+  if (leads === null) return <LoadingBlock message="Loading leads…" />;
+
+  const booked = visible.filter((l) => l.leadStatus === "Booked").length;
+  const lost = visible.filter((l) => l.leadStatus === "Lost").length;
+
+  return (
+    <>
+      <div className={styles.statRow}>
+        <div className={styles.stat}>
+          <div className={`${styles.statIcon} ${styles.statIconIndigo}`}>{UsersIcon}</div>
+          <div>
+            <div className={styles.statLabel}>Total Leads</div>
+            <div className={styles.statValue}>{visible.length}</div>
+          </div>
+        </div>
+        <div className={styles.stat}>
+          <div className={`${styles.statIcon} ${styles.statIconBlue}`}>{CalendarIcon}</div>
+          <div>
+            <div className={styles.statLabel}>Booked</div>
+            <div className={styles.statValue}>{booked}</div>
+          </div>
+        </div>
+        <div className={styles.stat}>
+          <div className={`${styles.statIcon} ${styles.statIconGold}`}>{ClockIcon}</div>
+          <div>
+            <div className={styles.statLabel}>Lost</div>
+            <div className={styles.statValue}>{lost}</div>
+          </div>
+        </div>
+      </div>
+      {visible.length === 0 ? (
+        <div className={styles.empty}>
+          <div className={styles.emptyIcon}>{EmptyIcon}</div>
+          <p>No leads on file yet.</p>
+        </div>
+      ) : (
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Preferred Project</th>
+                <th>Assigned To</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((l) => (
+                <tr key={l.leadId}>
+                  <td>
+                    <div className={styles.customer}>
+                      <span className={styles.avatar}>{initials(l.name)}</span>
+                      <span>
+                        {l.name}
+                        <br />
+                        <span className={styles.leadId}>{l.leadId}</span>
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    {!l.phone ? (
+                      "-"
+                    ) : revealed.has(l.leadId) ? (
+                      l.phone
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.revealPhoneBtn}
+                        onClick={() => revealPhone(l.leadId, l.name)}
+                        title="Click to reveal — this is logged"
+                      >
+                        {maskPhone(l.phone)}
+                      </button>
+                    )}
+                  </td>
+                  <td>{l.preferredProject || "-"}</td>
+                  <td>{l.assignedStaffEmail ?? "Unclaimed"}</td>
+                  <td>
+                    <select
+                      className={styles.statusSelect}
+                      value={l.leadStatus}
+                      disabled={savingId === l.leadId}
+                      onChange={(e) => changeStatus(l.leadId, e.target.value as LeadStatus)}
+                    >
+                      {LEAD_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1501,7 +1928,7 @@ export function SessionReports({
   /** Which single section the content area shows. One navbar button per
    * section (and only one button per section), so nothing is duplicated and
    * the whole thing stays on one screen without stacking every panel. */
-  const [view, setView] = useState<"staff" | "analytics" | "customers" | "logins">("customers");
+  const [view, setView] = useState<"staff" | "analytics" | "customers" | "logins" | "leads">("customers");
 
   useEffect(() => {
     setViewer(getSession());
@@ -1570,9 +1997,9 @@ export function SessionReports({
 
   /** Admin/manager get a direct preview, no lead lookup, unlike the sales
    * staff flow (`/session/start`) this skips past. */
-  const openDashboard = useCallback(() => {
+  const openDashboard = useCallback(async () => {
     setLeaving("showcase");
-    setActiveSession(createWalkInLead());
+    setActiveSession(await createWalkInLead());
     router.push(SPACE_PATH);
   }, [router]);
 
@@ -1597,12 +2024,22 @@ export function SessionReports({
   const topProperties = buildTopProperties(presentations);
   const staffLeaderboard = buildStaffLeaderboard(presentations);
   const contentBreakdown = buildContentBreakdown(presentations);
+  const interestBreakdown = buildInterestBreakdown(presentations);
+  const blockFrequency = buildBlockFrequency(events ?? []);
+  const technicalIssues = buildTechnicalIssues(events ?? []);
+  const managerComparison = viewer?.role === "admin" ? buildManagerComparison(presentations) : [];
+  const managerAccountability = viewer?.role === "admin" ? buildManagerAccountability(events ?? []) : [];
   const busyHours = buildHourHistogram(presentations);
   const staffList = USERS.filter(
     (u) =>
       u.role === "sales_staff" &&
       (viewer?.role === "admin" || (viewer?.role === "sales_manager" && u.managerEmail === viewer.email)),
   );
+  const staffWithSessionsToday = new Set(today.map((s) => s.staffEmail));
+  // Only meaningful against the unfiltered view — a staff filter narrows
+  // `today` down to one person and would otherwise flag everyone else as
+  // "zero sessions" for a reason that has nothing to do with their day.
+  const idleToday = staffFilter ? [] : staffList.filter((s) => !staffWithSessionsToday.has(s.email));
 
   return (
     <div className={styles.page}>
@@ -1766,6 +2203,7 @@ export function SessionReports({
                 setProfile(null);
                 setStaffFilter("");
               }}
+              viewer={viewer}
             />
           ) : (
             <div className={styles.empty}>
@@ -1783,9 +2221,97 @@ export function SessionReports({
               <TopPropertiesChart data={topProperties} />
               <ContentBreakdownChart data={contentBreakdown} />
               <BusyHoursChart data={busyHours} />
+              <ContentBreakdownChart
+                data={interestBreakdown}
+                title="Customer Interest Level"
+                emptyLabel="No interest level recorded yet."
+              />
+              {viewer?.role === "admin" && (
+                <ContentBreakdownChart
+                  data={blockFrequency}
+                  title="Project Blocks by Team"
+                  emptyLabel="No projects blocked yet."
+                />
+              )}
+              <ContentBreakdownChart
+                data={technicalIssues}
+                title="Technical Issues (VR Load Failures)"
+                emptyLabel="No VR load failures recorded."
+              />
+              {viewer?.role === "admin" && managerComparison.length > 0 && (
+                <div className={styles.reportWide}>
+                  <div className={styles.chartCard}>
+                    <div className={styles.chartTitle}>Cross-Team Session Time Comparison</div>
+                    <table className={styles.miniTable}>
+                      <thead>
+                        <tr>
+                          <th>Manager</th>
+                          <th>Sessions</th>
+                          <th>Avg. Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {managerComparison.map((r) => (
+                          <tr key={r.managerEmail}>
+                            <td>
+                              {r.managerEmail}
+                              {r.isOutlier && <span className={styles.outlierBadge}>Outlier</span>}
+                            </td>
+                            <td className={styles.numCell}>{r.sessions}</td>
+                            <td className={styles.numCell}>{formatDuration(r.avgMs)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              {viewer?.role === "admin" && (
+                <div className={styles.reportWide}>
+                  <div className={styles.chartCard}>
+                    <div className={styles.chartTitle}>Manager Accountability — Avg. Time to Restore Access</div>
+                    {managerAccountability.length === 0 ? (
+                      <p className={styles.chartEmpty}>No force-logout/restore cycles recorded yet.</p>
+                    ) : (
+                      <table className={styles.miniTable}>
+                        <thead>
+                          <tr>
+                            <th>Manager</th>
+                            <th>Restores</th>
+                            <th>Avg. Time to Restore</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {managerAccountability.map((r) => (
+                            <tr key={r.managerEmail}>
+                              <td>{r.managerEmail}</td>
+                              <td className={styles.numCell}>{r.restores}</td>
+                              <td className={styles.numCell}>{formatDuration(r.avgMs)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className={styles.reportWide}>
                 <StaffLeaderboard rows={staffLeaderboard} />
               </div>
+              {idleToday.length > 0 && (
+                <div className={styles.reportWide}>
+                  <div className={styles.chartCard}>
+                    <div className={styles.chartTitle}>Staff With Zero Sessions Today</div>
+                    <div className={styles.idleStaffList}>
+                      {idleToday.map((s) => (
+                        <span key={s.email} className={styles.idleStaffChip}>
+                          {s.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className={styles.empty}>
@@ -1906,6 +2432,8 @@ export function SessionReports({
               </div>
             </div>
           ))}
+
+        {view === "leads" && <LeadsPanel viewer={viewer} staffList={staffList} />}
 
         {events !== null && view === "logins" &&
           (logins.length === 0 ? (

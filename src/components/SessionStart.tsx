@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSession, getSessionId, SPACE_PATH } from "@/lib/auth";
+import { getSession, getSessionId, MY_ACTIVITY_PATH, SPACE_PATH } from "@/lib/auth";
 import { actorFields, track } from "@/lib/activity";
-import { createWalkInLead, findLead, type Lead } from "@/lib/leads";
+import { claimLead, createWalkInLead, findLead, findSimilarLeads, type Lead } from "@/lib/leads";
 import { setActiveSession } from "@/lib/session";
 import { signOut } from "@/lib/sign-out";
 import { useNavigationLock } from "@/lib/useNavigationLock";
@@ -22,6 +22,15 @@ export function SessionStart() {
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [match, setMatch] = useState<Lead | null>(null);
+  /** Leads that look like the same customer under a different phone format
+   * or a typo'd name, surfaced only after an exact-match miss — lets staff
+   * reuse the existing record instead of the search quietly starting a
+   * duplicate lead. */
+  const [similar, setSimilar] = useState<Lead[]>([]);
+  /** The lookup is now a real network call (see lib/leads.ts), not a sync
+   * array scan — gates the submit button so a slow request can't be double-
+   * submitted. */
+  const [searching, setSearching] = useState(false);
   /** Which navigation is under way. Starting a presentation and signing out
    * both leave this screen, and that route change isn't instant — without a
    * marker the button just sits there looking unclicked. The lock releases
@@ -29,7 +38,7 @@ export function SessionStart() {
    * this card's three buttons permanently dead (see lib/useNavigationLock). */
   const [leaving, setLeaving] = useNavigationLock<"start" | "walkin" | "logout">();
 
-  function logActivity(type: "search" | "customer_profile", label: string, lead: Lead | null) {
+  function logActivity(type: "search" | "customer_profile" | "lead_merged", label: string, lead: Lead | null) {
     const staff = getSession();
     const sessionId = getSessionId();
     if (!staff || !sessionId) return;
@@ -44,25 +53,61 @@ export function SessionStart() {
     });
   }
 
-  function onSearch(e: React.FormEvent) {
+  async function onSearch(e: React.FormEvent) {
     e.preventDefault();
-    const lead = findLead(query);
+    if (searching) return;
+    setSearching(true);
+    const lead = await findLead(query);
     logActivity("search", `Searched "${query.trim()}"`, lead);
     if (!lead) {
       setError(`No customer found for "${query.trim()}". Check the Lead ID or phone number.`);
       setMatch(null);
+      setSimilar(await findSimilarLeads(query));
+      setSearching(false);
       return;
     }
     setError("");
+    setSimilar([]);
     setMatch(lead);
     logActivity("customer_profile", `Opened profile for ${lead.name}`, lead);
+    setSearching(false);
+  }
+
+  /** Staff confirms a suggested lead is the same customer — reuses that
+   * record instead of continuing on to a duplicate walk-in/new entry. */
+  function pickSuggestedLead(lead: Lead) {
+    setError("");
+    setSimilar([]);
+    setMatch(lead);
+    logActivity("lead_merged", `Matched "${query.trim()}" to existing lead ${lead.name} (${lead.leadId})`, lead);
+  }
+
+  function dismissSuggestions() {
+    setSimilar([]);
+  }
+
+  // Fire-and-forget: claims (or reassigns, logging the audit event
+  // server-side) this lead for the staff member starting the session.
+  // Best-effort by design (see lib/leads.ts) — a dropped claim shouldn't
+  // block the presentation from starting.
+  function commitSession(lead: Lead) {
+    const staff = getSession();
+    if (staff) void claimLead(lead.leadId, staff.email, staff.name);
+    setActiveSession(lead);
+    router.push(SPACE_PATH);
   }
 
   function start(lead: Lead, from: "start" | "walkin") {
     if (leaving) return;
     setLeaving(from);
-    setActiveSession(lead);
-    router.push(SPACE_PATH);
+    commitSession(lead);
+  }
+
+  async function beginWalkIn() {
+    if (leaving) return;
+    setLeaving("walkin");
+    const lead = await createWalkInLead();
+    commitSession(lead);
   }
 
   function leave() {
@@ -73,6 +118,13 @@ export function SessionStart() {
 
   return (
     <div className={styles.page}>
+      <button
+        type="button"
+        className={styles.myActivity}
+        onClick={() => router.push(MY_ACTIVITY_PATH)}
+      >
+        My Activity
+      </button>
       <button
         type="button"
         className={styles.logout}
@@ -107,6 +159,7 @@ export function SessionStart() {
                   onChange={(e) => {
                     setQuery(e.target.value);
                     if (error) setError("");
+                    if (similar.length) setSimilar([]);
                   }}
                   placeholder="LEAD-1001 or 9876543210"
                   autoComplete="off"
@@ -121,15 +174,49 @@ export function SessionStart() {
                 </p>
               )}
 
-              <button type="submit" className={styles.submit}>
-                Find Customer&nbsp;&#8599;
+              {similar.length > 0 && (
+                <div className={styles.similar} role="status">
+                  <p className={styles.similarLede}>
+                    Similar customer{similar.length > 1 ? "s" : ""} already on file — is this one of them?
+                  </p>
+                  {similar.map((lead) => (
+                    <div key={lead.leadId} className={styles.similarItem}>
+                      <span className={styles.similarName}>
+                        {lead.name} <span className={styles.similarMeta}>({lead.leadId}, {lead.phone})</span>
+                      </span>
+                      <div className={styles.similarActions}>
+                        <button
+                          type="button"
+                          className={styles.similarUse}
+                          onClick={() => pickSuggestedLead(lead)}
+                        >
+                          Use this lead
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <button type="button" className={styles.similarDismiss} onClick={dismissSuggestions}>
+                    This is a different customer
+                  </button>
+                </div>
+              )}
+
+              <button type="submit" className={styles.submit} disabled={searching} aria-busy={searching}>
+                {searching ? (
+                  <>
+                    <Spinner size={14} />
+                    Searching…
+                  </>
+                ) : (
+                  <>Find Customer&nbsp;&#8599;</>
+                )}
               </button>
             </form>
 
             <button
               type="button"
               className={styles.walkin}
-              onClick={() => start(createWalkInLead(), "walkin")}
+              onClick={beginWalkIn}
               disabled={leaving !== null}
               aria-busy={leaving === "walkin"}
             >
@@ -148,6 +235,11 @@ export function SessionStart() {
             <div className={styles.eyebrow}>Customer Found</div>
             <h2 className={styles.resultName}>{match.name}</h2>
             <span className={styles.resultStatus}>{match.leadStatus}</span>
+            {match.previousVisits > 0 && (
+              <p className={styles.repeatVisitNote}>
+                This customer has visited {match.previousVisits} time{match.previousVisits > 1 ? "s" : ""} before — high intent.
+              </p>
+            )}
 
             <div className={styles.grid}>
               <div className={styles.gridItem}>

@@ -8,6 +8,7 @@ import {
   landingPathForRole,
   LOGIN_PATH,
   MANAGER_PATH,
+  MY_ACTIVITY_PATH,
   SESSION_START_PATH,
   SPACE_PATH,
 } from "@/lib/auth";
@@ -75,7 +76,8 @@ export async function proxy(req: NextRequest) {
     const isStaffOnlyPage =
       pathname.startsWith(SESSION_START_PATH) ||
       pathname.startsWith(SPACE_PATH) ||
-      pathname.startsWith(DASHBOARD_PATH);
+      pathname.startsWith(DASHBOARD_PATH) ||
+      pathname.startsWith(MY_ACTIVITY_PATH);
 
     const outsideOwnArea =
       isAdminOnlyPage ||
