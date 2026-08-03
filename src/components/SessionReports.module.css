@@ -876,10 +876,13 @@
 }
 
 /* Each group's buttons stacked one per line, not side-by-side. */
+/* Uniform width, like the navbar's own list, instead of each button
+   shrink-wrapping its own label. */
 .reportButtonGrid {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
+  max-width: 320px;
   gap: 8px;
 }
 
