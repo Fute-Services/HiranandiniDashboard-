@@ -2684,50 +2684,45 @@ export function SessionReports({
 
         {events !== null && view === "analytics" &&
           (presentations.length > 0 ? (
-            <>
-              {reportSections.map((section) => (
-                <div key={section.group} className={styles.reportButtonSection}>
-                  <div className={styles.reportButtonSectionTitle}>{section.group}</div>
-                  <div className={styles.reportButtonGrid}>
-                    {section.items.map((item) => (
-                      <button
-                        key={item.key}
-                        type="button"
-                        className={styles.reportButton}
-                        onClick={() => setOpenReportKey(item.key)}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
+            <div className={styles.reportLayout}>
+              <div className={styles.reportButtonColumn}>
+                {reportSections.map((section) => (
+                  <div key={section.group} className={styles.reportButtonSection}>
+                    <div className={styles.reportButtonSectionTitle}>{section.group}</div>
+                    <div className={styles.reportButtonGrid}>
+                      {section.items.map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          className={`${styles.reportButton} ${openReportKey === item.key ? styles.reportButtonActive : ""}`}
+                          onClick={() => setOpenReportKey(item.key)}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </>
+                ))}
+              </div>
+              <div className={styles.reportPanel}>
+                {openReportItem ? (
+                  <>
+                    <div className={styles.reportPanelTitle}>{openReportItem.label}</div>
+                    {openReportItem.content}
+                  </>
+                ) : (
+                  <div className={styles.railEmpty}>
+                    <p>Pick a report on the left to see it here.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
             <div className={styles.empty}>
               <div className={styles.emptyIcon}>{EmptyIcon}</div>
               <p>No presentations logged yet, so there&apos;s nothing to chart.</p>
             </div>
           ))}
-
-        {openReportItem && (
-          <div className={styles.modalBackdrop} onClick={() => setOpenReportKey(null)}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-              <div className={styles.modalHeader}>
-                <h3 className={styles.modalTitle}>{openReportItem.label}</h3>
-                <button
-                  type="button"
-                  className={styles.modalClose}
-                  onClick={() => setOpenReportKey(null)}
-                  aria-label="Close"
-                >
-                  &times;
-                </button>
-              </div>
-              <div className={styles.reportGrid}>{openReportItem.content}</div>
-            </div>
-          </div>
-        )}
 
         {events !== null && view === "customers" &&
           (presentations.length === 0 ? (
