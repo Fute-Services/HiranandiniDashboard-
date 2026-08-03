@@ -493,6 +493,14 @@
   opacity: 0.6;
 }
 
+/* The closed <select> picks up the dark styling above, but the dropdown's
+   own option list falls back to the browser's default (white background,
+   near-invisible text) unless each <option> is styled directly. */
+.statusSelect option {
+  background: #1a1a1a;
+  color: #f4f2ec;
+}
+
 .numCell {
   font-variant-numeric: tabular-nums;
   color: rgba(244, 242, 236, 0.85);
