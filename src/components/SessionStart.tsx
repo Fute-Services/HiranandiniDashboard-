@@ -166,7 +166,7 @@ export function SessionStart() {
               one you&apos;re actually holding.
             </p>
             <div className={styles.deviceGrid}>
-              {(["Tab", "TV", "Kiosk", "Laptop", "Mobile"] as const).map((d) => (
+              {(["Tab", "TV", "Kiosk", "Laptop"] as const).map((d) => (
                 <button
                   key={d}
                   type="button"

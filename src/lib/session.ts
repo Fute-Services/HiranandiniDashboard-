@@ -32,7 +32,7 @@ const ACTIVE_SESSION_KEY = "hiranandani_active_session";
  * user-agent string, which can only ever say "Chrome · Windows," not
  * "Tab" vs. "TV" vs. "Kiosk." Null for walk-in/legacy sessions where it
  * was never asked. */
-export type DeviceType = "Tab" | "TV" | "Kiosk" | "Laptop" | "Mobile";
+export type DeviceType = "Tab" | "TV" | "Kiosk" | "Laptop";
 
 export type ActiveSession = {
   lead: Lead;

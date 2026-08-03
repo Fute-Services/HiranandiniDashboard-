@@ -408,7 +408,7 @@ function buildInterestBreakdown(list: Presentation[]) {
  * lib/session.ts's DeviceType) — a real answer to "which device," unlike
  * `shortDevice`'s browser/OS guess, so this is preferred whenever an event
  * actually has one. */
-const KNOWN_DEVICE_TYPES = new Set(["Tab", "TV", "Kiosk", "Laptop", "Mobile"]);
+const KNOWN_DEVICE_TYPES = new Set(["Tab", "TV", "Kiosk", "Laptop"]);
 
 function buildDeviceBreakdown(presentations: Presentation[], leadStatusById: Map<string, string>) {
   const byDevice = new Map<string, { sessions: number; bookedLeads: Set<string> }>();
