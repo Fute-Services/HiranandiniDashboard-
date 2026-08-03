@@ -4,6 +4,8 @@ import { getSql } from "@/lib/db";
 import { withJsonErrors } from "@/lib/api";
 import { isSameOrigin } from "@/lib/csrf";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
+import { AUTH_COOKIE } from "@/lib/auth";
+import { verifySessionToken } from "@/lib/session-token";
 
 /**
  * Real customer/lead directory (see scripts/db/schema.sql's `leads` table),
@@ -25,6 +27,7 @@ type Row = {
   family_size: number;
   loan_requirement: boolean;
   assigned_staff_email: string | null;
+  created_at: number;
 };
 
 function toLead(r: Row) {
@@ -40,7 +43,24 @@ function toLead(r: Row) {
     familySize: r.family_size,
     loanRequirement: r.loan_requirement,
     assignedStaffEmail: r.assigned_staff_email,
+    // BIGINT columns come back from the driver as strings (avoids silent
+    // precision loss on values bigger than Number.MAX_SAFE_INTEGER) — cast
+    // back to a number here so every caller can rely on the declared type
+    // instead of each one needing to know this detail.
+    createdAt: Number(r.created_at),
   };
+}
+
+/** Admin-only gate for the delete action — customer-data deletion is more
+ * sensitive than the block/reassign/status actions this route otherwise
+ * treats as page-level-gated, so it's checked here too, not just trusted to
+ * the admin dashboard UI that calls it. */
+async function requireAdmin(req: NextRequest): Promise<boolean> {
+  const token = req.cookies.get(AUTH_COOKIE)?.value;
+  const secret = process.env.SESSION_SECRET;
+  if (!token || !secret) return false;
+  const payload = await verifySessionToken(token, secret);
+  return payload?.role === "admin";
 }
 
 /** Last 10 digits, ignoring +91/country-code/dash/space formatting
@@ -118,9 +138,10 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
 
   if (action === "create_walkin") {
     const leadId = `WALKIN-${Date.now()}`;
+    const createdAt = Date.now();
     await sql`
       INSERT INTO leads (lead_id, phone, name, budget, preferred_project, lead_status, previous_visits, interested_tower, family_size, loan_requirement, created_at)
-      VALUES (${leadId}, '', 'Walk-in Customer', '', '', 'New', 0, '', 0, false, ${Date.now()})
+      VALUES (${leadId}, '', 'Walk-in Customer', '', '', 'New', 0, '', 0, false, ${createdAt})
     `;
     return NextResponse.json({
       lead: {
@@ -135,6 +156,7 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
         familySize: 0,
         loanRequirement: false,
         assignedStaffEmail: null,
+        createdAt,
       },
     });
   }
@@ -171,6 +193,28 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
     const { leadId, status } = body as { leadId: string; status: string };
     if (!leadId || !status) return NextResponse.json({ error: "leadId, status required" }, { status: 400 });
     await sql`UPDATE leads SET lead_status = ${status} WHERE lead_id = ${leadId}`;
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "delete_lead") {
+    if (!(await requireAdmin(req))) {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
+    const { leadId } = body as { leadId: string };
+    if (!leadId) return NextResponse.json({ error: "leadId required" }, { status: 400 });
+
+    await sql`DELETE FROM leads WHERE lead_id = ${leadId}`;
+    // Scrubs the customer's name from their activity history (the phone
+    // number was never stored there — only in the now-deleted `leads` row)
+    // while leaving the events themselves in place: they're staff
+    // accountability records (who did what, when), not the customer's data,
+    // and this route's own audit log needs the append-only guarantee to hold
+    // for everyone else's history too.
+    await sql`UPDATE activity_events SET lead_name = NULL WHERE lead_id = ${leadId}`;
+    await sql`
+      INSERT INTO activity_events (id, session_id, staff_email, staff_name, manager_email, lead_id, lead_name, type, label, at)
+      VALUES (${crypto.randomUUID()}, ${"leads-" + leadId}, 'admin', 'Admin', NULL, ${leadId}, NULL, 'status', 'Customer data deleted', ${Date.now()})
+    `;
     return NextResponse.json({ ok: true });
   }
 

@@ -374,6 +374,38 @@
   text-align: right;
 }
 
+.archiveToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: rgba(244, 242, 236, 0.6);
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.deleteLeadBtn {
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ff8f85;
+  background: rgba(255, 143, 133, 0.1);
+  border: 1px solid rgba(255, 143, 133, 0.4);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.deleteLeadBtn:hover:not(:disabled) {
+  background: rgba(255, 143, 133, 0.22);
+}
+
+.deleteLeadBtn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 .revealPhoneBtn {
   font-family: var(--font-mono), monospace;
   font-size: 12px;

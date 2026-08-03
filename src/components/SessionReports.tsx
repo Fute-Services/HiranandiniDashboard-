@@ -7,7 +7,7 @@ import { actorFields, listActivity, track, type ActivityEvent, type ActivityType
 import { signOut } from "@/lib/sign-out";
 import { useNavigationLock } from "@/lib/useNavigationLock";
 import { fetchControlState, kickStaff, restoreLogin, setProjectBlockedFor } from "@/lib/controls";
-import { createWalkInLead, listLeads, setLeadStatus, type Lead, type LeadStatus } from "@/lib/leads";
+import { createWalkInLead, deleteLead, isStaleLead, listLeads, setLeadStatus, type Lead, type LeadStatus } from "@/lib/leads";
 import { setActiveSession } from "@/lib/session";
 import { findUserByEmail, isNewJoiner, USERS } from "@/lib/users";
 import { portfolioGroups } from "@/data/properties";
@@ -1716,6 +1716,12 @@ function LeadsPanel({
    * (every number masked) so a shared screen never shows a customer's phone
    * number by default. */
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  /** 30+ day old leads are hidden by default ("auto-archive") rather than
+   * deleted — this reveals them again without needing a separate archive
+   * table or a cron job, since staleness is just a function of createdAt. */
+  const [showArchived, setShowArchived] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   function revealPhone(leadId: string, leadName: string) {
     setRevealed((prev) => new Set(prev).add(leadId));
@@ -1742,7 +1748,7 @@ function LeadsPanel({
   }, []);
 
   const staffEmails = useMemo(() => new Set(staffList.map((s) => s.email)), [staffList]);
-  const visible = useMemo(() => {
+  const scoped = useMemo(() => {
     if (!leads) return [];
     if (viewer?.role === "admin") return leads;
     // A manager's own team only — an unclaimed lead is fair game for anyone,
@@ -1750,6 +1756,9 @@ function LeadsPanel({
     // claims it.
     return leads.filter((l) => !l.assignedStaffEmail || staffEmails.has(l.assignedStaffEmail));
   }, [leads, viewer, staffEmails]);
+  const now = Date.now();
+  const archivedCount = scoped.filter((l) => isStaleLead(l, now)).length;
+  const visible = showArchived ? scoped : scoped.filter((l) => !isStaleLead(l, now));
 
   async function changeStatus(leadId: string, status: LeadStatus) {
     setSavingId(leadId);
@@ -1758,6 +1767,14 @@ function LeadsPanel({
       setLeads((prev) => prev?.map((l) => (l.leadId === leadId ? { ...l, leadStatus: status } : l)) ?? null);
     }
     setSavingId(null);
+  }
+
+  async function confirmDelete(leadId: string) {
+    setDeleteConfirmId(null);
+    setDeletingId(leadId);
+    const ok = await deleteLead(leadId);
+    if (ok) setLeads((prev) => prev?.filter((l) => l.leadId !== leadId) ?? null);
+    setDeletingId(null);
   }
 
   if (leads === null) return <LoadingBlock message="Loading leads…" />;
@@ -1790,6 +1807,16 @@ function LeadsPanel({
           </div>
         </div>
       </div>
+      {archivedCount > 0 && (
+        <label className={styles.archiveToggle}>
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+          />
+          Show {archivedCount} archived (30+ days old)
+        </label>
+      )}
       {visible.length === 0 ? (
         <div className={styles.empty}>
           <div className={styles.emptyIcon}>{EmptyIcon}</div>
@@ -1805,6 +1832,7 @@ function LeadsPanel({
                 <th>Preferred Project</th>
                 <th>Assigned To</th>
                 <th>Status</th>
+                {viewer?.role === "admin" && <th>Delete</th>}
               </tr>
             </thead>
             <tbody>
@@ -1852,10 +1880,41 @@ function LeadsPanel({
                       ))}
                     </select>
                   </td>
+                  {viewer?.role === "admin" && (
+                    <td>
+                      <button
+                        type="button"
+                        className={styles.deleteLeadBtn}
+                        disabled={deletingId === l.leadId}
+                        onClick={() => setDeleteConfirmId(l.leadId)}
+                      >
+                        {deletingId === l.leadId ? <Spinner size={11} /> : "Delete"}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {deleteConfirmId && (
+        <div className={styles.confirmOverlay} onClick={() => setDeleteConfirmId(null)}>
+          <div className={styles.confirmCard} onClick={(e) => e.stopPropagation()}>
+            <p className={styles.confirmMessage}>
+              Permanently delete this customer&apos;s data? Their name and phone number are removed
+              everywhere, including past activity — this can&apos;t be undone.
+            </p>
+            <div className={styles.confirmActions}>
+              <button type="button" className={styles.confirmCancel} onClick={() => setDeleteConfirmId(null)}>
+                Cancel
+              </button>
+              <button type="button" className={styles.confirmOk} onClick={() => confirmDelete(deleteConfirmId)}>
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

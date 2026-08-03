@@ -32,7 +32,7 @@ Real-world use mein admin, sales staff, aur sales manager ke saath jo dikkatein 
 
 **Kya implement hua:** `PropertyShowcase.tsx` mein "End Session" click hote hi ek gate-modal khulta hai (4 options: Highly Interested / Neutral / Not Interested / Follow-up Later) — koi option select kiye bina session end nahi hoti. Selection `interest_level` activity event ke roop mein log hoti hai. Admin/Manager Reports tab mein naya "Customer Interest Level" chart add hua.
 
-### 1.3 Privacy / data sensitivity ✅ Partially Implemented (masking + reveal-audit done; retention/deletion pending business decision)
+### 1.3 Privacy / data sensitivity ✅ Implemented
 **Dikkat:** Phone number, budget, family size — sab plain data ke roop mein store/dikh raha hai.
 
 **Solve karne ke steps:**
@@ -41,7 +41,10 @@ Real-world use mein admin, sales staff, aur sales manager ke saath jo dikkatein 
 3. Data retention policy set karo — X din/mahine baad purane leads auto-archive ho jayein.
 4. Agar customer data export/delete request kare, uske liye ek admin-only "delete lead data" action banao.
 
-**Kya implement hua:** Leads tab (admin/manager dashboard) mein phone number ab masked dikhta hai (`98xxxxx210`) — click karke reveal karna padta hai, aur wo click khud `phone_revealed` activity event ke roop mein log hota hai. **Pending (business decision chahiye):** retention period kitne din/mahine ka ho (legal/compliance requirement pe depend karta hai), aur delete-action ka scope (sirf leads table se ya activity log se bhi — activity log abhi append-only by design hai, isliye delete allow karna audit-trail integrity se conflict karta hai — ye trade-off client ko decide karna hoga).
+**Kya implement hua (2026-08-03, retention + delete):**
+- Phone number Leads tab mein masked dikhta hai (`98xxxxx210`) — click karke reveal karna padta hai, aur wo click khud `phone_revealed` activity event ke roop mein log hota hai.
+- **Retention: 30 din.** Koi naya DB field/cron job nahi chahiye — `leads.created_at` se hi derive hota hai (`isStaleLead()` in `src/lib/leads.ts`). 30+ din purane leads Leads tab mein by default hidden hain ("auto-archive"), lekin delete nahi hote — ek "Show N archived (30+ days old)" checkbox se wapas dikh jaate hain.
+- **Delete action:** Admin-only "Delete" button per lead (server-side bhi role-check hai — `requireAdmin()` in `/api/leads/route.ts`, sirf UI-level gate pe depend nahi karta), themed confirm dialog ke saath. Delete karne par lead row permanently DB se hat jati hai, aur uske linked activity events mein customer ka naam (`lead_name`) scrub ho jata hai — lekin events khud rehte hain (staff accountability record hai, customer ka data nahi) taake audit-trail integrity na tootey. Ek "Customer data deleted" event bhi log hota hai.
 
 ---
 
@@ -202,10 +205,9 @@ Real-world use mein admin, sales staff, aur sales manager ke saath jo dikkatein 
 
 ## Status Summary (2026-08-03)
 
-**Implemented:** 2.1, 1.1 (detection-only), 1.2, 3.2, 3.3, 4.2.2, 2.6, 2.2, 2.3, 2.4, 2.5, 3.1, 3.4, 4.2.5, 1.3 (masking part).
+**Implemented:** 2.1, 1.1 (detection-only), 1.2, 3.2, 3.3, 4.2.2, 2.6, 2.2, 2.3, 2.4, 2.5, 3.1, 3.4, 4.2.5, 1.3 (masking + 30-day retention + admin delete).
 
 **Pending — needs a business/product decision, not silently built:**
-- 1.3's retention period aur delete-action scope (legal/compliance call).
 - 3.1 step 3's real-time alert/notification (needs a push/email/SMS channel).
 - 4.2.4 (scarcity display — needs real inventory/unit-count data, not fake numbers).
 - 4.2.6 (WhatsApp/SMS follow-up — needs an external messaging provider chosen and set up).

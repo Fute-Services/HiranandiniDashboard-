@@ -25,7 +25,17 @@ export type Lead = {
    * updated (with an audit event) if a different staff member claims it
    * afterwards. Null until anyone has. */
   assignedStaffEmail: string | null;
+  /** Epoch ms — drives the 30-day retention window (see `isStaleLead`). */
+  createdAt: number;
 };
+
+/** True once a lead is more than 30 days old — the default Leads tab view
+ * hides these ("auto-archive") rather than deleting anything; an explicit
+ * toggle reveals them, and `deleteLead` is the only thing that actually
+ * removes a record. */
+export function isStaleLead(lead: Pick<Lead, "createdAt">, now: number): boolean {
+  return now - lead.createdAt > 30 * 24 * 60 * 60 * 1000;
+}
 
 /** Matches on Lead ID or phone number, case/space-insensitive, exact only.
  * Never throws: a failed lookup reads the same as "no match" to the caller. */
@@ -77,6 +87,7 @@ export async function createWalkInLead(): Promise<Lead> {
     familySize: 0,
     loanRequirement: false,
     assignedStaffEmail: null,
+    createdAt: Date.now(),
   };
   try {
     const res = await fetchWithTimeout("/api/leads", {
@@ -118,6 +129,24 @@ export async function setLeadStatus(leadId: string, status: LeadStatus): Promise
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "set_status", leadId, status }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Admin-only: permanently deletes a customer's lead record (a data-deletion
+ * request, e.g. GDPR-style) — the server also scrubs their name from linked
+ * activity events while leaving the events themselves (staff accountability
+ * records) in place. This is the only thing in the leads/activity system
+ * that actually removes data rather than just hiding or superseding it. */
+export async function deleteLead(leadId: string): Promise<boolean> {
+  try {
+    const res = await fetchWithTimeout("/api/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete_lead", leadId }),
     });
     return res.ok;
   } catch {
