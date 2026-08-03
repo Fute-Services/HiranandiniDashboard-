@@ -4,7 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, SESSION_START_PATH } from "@/lib/auth";
 import { listActivity, type ActivityEvent } from "@/lib/activity";
-import { formatDuration, groupPresentations, initials, TYPE_LABEL, type Presentation } from "./SessionReports";
+import {
+  CalendarIcon,
+  ClockIcon,
+  formatDuration,
+  groupPresentations,
+  initials,
+  LiveClock,
+  TYPE_LABEL,
+  UsersIcon,
+  type Presentation,
+} from "./SessionReports";
 import { LoadingBlock } from "./Spinner";
 import styles from "./MyActivity.module.css";
 
@@ -46,6 +56,16 @@ export function MyActivity() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
+        <div className={styles.leftGroup}>
+          <div className={styles.brand}>
+            <div className={styles.diamond} />
+            <span className={styles.brandName}>Property Index</span>
+          </div>
+        </div>
+        <LiveClock />
+      </header>
+
+      <div className={styles.titleRow}>
         <div>
           <div className={styles.eyebrow}>My Activity</div>
           <h1 className={styles.title}>{staff?.name ?? "Your activity"}</h1>
@@ -53,7 +73,7 @@ export function MyActivity() {
         <button type="button" className={styles.back} onClick={() => router.push(SESSION_START_PATH)}>
           Back to Start
         </button>
-      </header>
+      </div>
 
       {events === null ? (
         <LoadingBlock message="Loading your activity…" />
@@ -61,16 +81,27 @@ export function MyActivity() {
         <>
           <div className={styles.statRow}>
             <div className={styles.stat}>
-              <div className={styles.statValue}>{presentations.length}</div>
-              <div className={styles.statLabel}>Presentations Run</div>
+              <div className={styles.statIcon}>{CalendarIcon}</div>
+              <div>
+                <div className={styles.statLabel}>Presentations Run</div>
+                <div className={styles.statValue}>{presentations.length}</div>
+              </div>
             </div>
             <div className={styles.stat}>
-              <div className={styles.statValue}>{customers}</div>
-              <div className={styles.statLabel}>Customers Reached</div>
+              <div className={styles.statIcon}>{UsersIcon}</div>
+              <div>
+                <div className={styles.statLabel}>Customers Reached</div>
+                <div className={styles.statValue}>{customers}</div>
+              </div>
             </div>
             <div className={styles.stat}>
-              <div className={styles.statValue}>{presentations.length ? formatDuration(totalMs / presentations.length) : "N/A"}</div>
-              <div className={styles.statLabel}>Avg. Session Time</div>
+              <div className={styles.statIcon}>{ClockIcon}</div>
+              <div>
+                <div className={styles.statLabel}>Avg. Session Time</div>
+                <div className={styles.statValue}>
+                  {presentations.length ? formatDuration(totalMs / presentations.length) : "N/A"}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -78,8 +109,8 @@ export function MyActivity() {
             <p className={styles.empty}>No presentations logged yet — they&apos;ll show up here as you run them.</p>
           ) : (
             <ul className={styles.list}>
-              {presentations.map((p) => (
-                <li key={p.key} className={styles.item}>
+              {presentations.map((p, i) => (
+                <li key={p.key} className={styles.item} style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
                   <div className={styles.itemHead}>
                     <span className={styles.avatar}>{initials(p.leadName)}</span>
                     <div>

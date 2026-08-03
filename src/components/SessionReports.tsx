@@ -554,14 +554,14 @@ const iconProps = {
   "aria-hidden": true,
 };
 
-const CalendarIcon = (
+export const CalendarIcon = (
   <svg {...iconProps}>
     <rect x="3" y="5" width="18" height="16" rx="2.5" />
     <path d="M3 10h18M8 3v4M16 3v4" />
   </svg>
 );
 
-const UsersIcon = (
+export const UsersIcon = (
   <svg {...iconProps}>
     <circle cx="9" cy="8" r="3.2" />
     <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
@@ -569,7 +569,7 @@ const UsersIcon = (
   </svg>
 );
 
-const ClockIcon = (
+export const ClockIcon = (
   <svg {...iconProps}>
     <circle cx="12" cy="12" r="9" />
     <path d="M12 7v5l3.5 2" />
@@ -1125,7 +1125,7 @@ function DateRangePicker({
 /** Live wall clock for the header. Ticks every second, and renders nothing
  * until mounted so the server-rendered HTML can't disagree with the
  * client's first paint (a hydration mismatch). */
-function LiveClock() {
+export function LiveClock() {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
