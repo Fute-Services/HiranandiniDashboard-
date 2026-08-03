@@ -477,8 +477,8 @@
   font-size: 11px;
   letter-spacing: 0.08em;
   color: #f4f2ec;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 147, 48, 0.06);
+  border: 1px solid rgba(255, 147, 48, 0.35);
   border-radius: 10px;
   padding: 10px 14px;
   cursor: pointer;
@@ -486,8 +486,12 @@
 }
 
 .demoButton:hover:not(:disabled) {
-  background: rgba(125, 148, 240, 0.14);
-  border-color: rgba(125, 148, 240, 0.45);
+  background: rgba(255, 147, 48, 0.14);
+  border-color: rgba(255, 147, 48, 0.6);
+}
+
+.demoName {
+  color: #ff9330;
 }
 
 .demoPending {

@@ -310,7 +310,7 @@ export default function LoginPage() {
                   disabled={pending !== null}
                   aria-busy={pending === user.email}
                 >
-                  <span>{user.name}</span>
+                  <span className={styles.demoName}>{user.name}</span>
                   <span className={styles.demoRole}>
                     {pending === user.email ? (
                       <span className={styles.demoPending}>
