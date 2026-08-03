@@ -1482,12 +1482,25 @@ function StaffControlPanel({
   }, [staffEmail]);
   const activeChip = chips.find((c) => c.key === activeKey) ?? chips[0] ?? null;
 
+  /** A staff member can rack up hundreds of client walkthroughs over their
+   * tenure — search-then-paginate instead of expecting anyone to scroll
+   * through all of them to find one customer. */
+  const [chipSearch, setChipSearch] = useState("");
+  const filteredChips = useMemo(
+    () => chips.filter((c) => c.label.toLowerCase().includes(chipSearch.trim().toLowerCase())),
+    [chips, chipSearch],
+  );
+
   const [chipsPage, setChipsPage] = useState(1);
   useEffect(() => {
     setChipsPage(1);
+    setChipSearch("");
   }, [staffEmail]);
-  const chipsTotalPages = Math.max(1, Math.ceil(chips.length / PAGE_SIZE));
-  const pagedChips = chips.slice((chipsPage - 1) * PAGE_SIZE, chipsPage * PAGE_SIZE);
+  useEffect(() => {
+    setChipsPage(1);
+  }, [chipSearch]);
+  const chipsTotalPages = Math.max(1, Math.ceil(filteredChips.length / PAGE_SIZE));
+  const pagedChips = filteredChips.slice((chipsPage - 1) * PAGE_SIZE, chipsPage * PAGE_SIZE);
 
   const [viewMode, setViewMode] = useState<"roadmap" | "list">("roadmap");
 
@@ -1644,23 +1657,37 @@ function StaffControlPanel({
             </button>
           </div>
 
-          <div className={styles.clientCards}>
-            {pagedChips.map((c) => (
-              <button
-                key={c.key}
-                type="button"
-                className={`${styles.clientCard} ${c.key === activeChip?.key ? styles.clientCardActive : ""}`}
-                onClick={() => setActiveKey(c.key)}
-              >
-                <span className={styles.clientCardAvatar}>{initials(c.label)}</span>
-                <span className={styles.clientCardBody}>
-                  <span className={styles.clientCardName}>{c.label}</span>
-                  <span className={styles.clientCardMeta}>{c.meta}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-          <Pagination page={chipsPage} totalPages={chipsTotalPages} onChange={setChipsPage} />
+          <input
+            type="text"
+            className={styles.filterInput}
+            placeholder="Search customer…"
+            value={chipSearch}
+            onChange={(e) => setChipSearch(e.target.value)}
+          />
+
+          {filteredChips.length === 0 ? (
+            <p className={styles.chartEmpty}>No customer matches &quot;{chipSearch}&quot;.</p>
+          ) : (
+            <>
+              <div className={styles.clientCards}>
+                {pagedChips.map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    className={`${styles.clientCard} ${c.key === activeChip?.key ? styles.clientCardActive : ""}`}
+                    onClick={() => setActiveKey(c.key)}
+                  >
+                    <span className={styles.clientCardAvatar}>{initials(c.label)}</span>
+                    <span className={styles.clientCardBody}>
+                      <span className={styles.clientCardName}>{c.label}</span>
+                      <span className={styles.clientCardMeta}>{c.meta}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <Pagination page={chipsPage} totalPages={chipsTotalPages} onChange={setChipsPage} />
+            </>
+          )}
 
           {activeChip &&
             (viewMode === "roadmap" ? (
