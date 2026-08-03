@@ -654,6 +654,34 @@ function TopPropertiesChart({ data }: { data: { label: string; count: number }[]
 /** Staff performance table: sessions run, customers reached, content shown
  * and average session length, busiest first. A table rather than a chart —
  * these are four unrelated numbers per person, not one series to compare. */
+/** Compact presentation list for the Today's/Total Presentations stat-card
+ * modals — customer, staff, start time, duration, same columns either way. */
+function PresentationsMiniTable({ rows }: { rows: Presentation[] }) {
+  if (rows.length === 0) return <p className={styles.chartEmpty}>No presentations to list yet.</p>;
+  return (
+    <table className={styles.miniTable}>
+      <thead>
+        <tr>
+          <th>Customer</th>
+          <th>Sales Staff</th>
+          <th>Started</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((p) => (
+          <tr key={p.key}>
+            <td>{p.leadName}</td>
+            <td>{p.staffName}</td>
+            <td>{new Date(p.startedAt).toLocaleString()}</td>
+            <td className={styles.numCell}>{formatDuration(p.totalTimeMs)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function StaffLeaderboard({
   rows,
 }: {
@@ -2122,6 +2150,7 @@ export function SessionReports({
    * its own button, and clicking one opens just that report in a modal, so
    * the tab opens on a button grid instead of a wall of charts. */
   const [openReportKey, setOpenReportKey] = useState<string | null>(null);
+  const [openStatKey, setOpenStatKey] = useState<"today" | "total" | "avg" | null>(null);
 
   useEffect(() => {
     setViewer(getSession());
@@ -2421,6 +2450,24 @@ export function SessionReports({
   ];
   const openReportItem = reportSections.flatMap((s) => s.items).find((i) => i.key === openReportKey) ?? null;
 
+  /** The three top-of-page stat cards are buttons too — each opens the
+   * presentations behind that number instead of just stating it. */
+  const STAT_MODALS = {
+    today: {
+      title: "Today's Presentations",
+      content: <PresentationsMiniTable rows={today} />,
+    },
+    total: {
+      title: "Total Presentations",
+      content: <PresentationsMiniTable rows={presentations} />,
+    },
+    avg: {
+      title: "Avg. Session Time — by Staff",
+      content: <StaffLeaderboard rows={staffLeaderboard} />,
+    },
+  } as const;
+  const openStat = openStatKey ? STAT_MODALS[openStatKey] : null;
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -2543,28 +2590,59 @@ export function SessionReports({
           own data (lead counts, unit counts), not customer sessions. */}
       {view !== "leads" && view !== "inventory" && (
       <div className={styles.statRow}>
-        <div className={styles.stat}>
+        <button
+          type="button"
+          className={`${styles.stat} ${styles.statButton}`}
+          onClick={() => setOpenStatKey("today")}
+        >
           <div className={`${styles.statIcon} ${styles.statIconBlue}`}>{CalendarIcon}</div>
           <div>
             <div className={styles.statLabel}>Today&apos;s Presentations</div>
             <div className={styles.statValue}>{today.length}</div>
           </div>
-        </div>
-        <div className={styles.stat}>
+        </button>
+        <button
+          type="button"
+          className={`${styles.stat} ${styles.statButton}`}
+          onClick={() => setOpenStatKey("total")}
+        >
           <div className={`${styles.statIcon} ${styles.statIconIndigo}`}>{UsersIcon}</div>
           <div>
             <div className={styles.statLabel}>Total Presentations</div>
             <div className={styles.statValue}>{presentations.length}</div>
           </div>
-        </div>
-        <div className={styles.stat}>
+        </button>
+        <button
+          type="button"
+          className={`${styles.stat} ${styles.statButton}`}
+          onClick={() => setOpenStatKey("avg")}
+        >
           <div className={`${styles.statIcon} ${styles.statIconGold}`}>{ClockIcon}</div>
           <div>
             <div className={styles.statLabel}>Avg. Session Time</div>
             <div className={styles.statValue}>{presentations.length ? formatDuration(avgMs) : "N/A"}</div>
           </div>
-        </div>
+        </button>
       </div>
+      )}
+
+      {openStat && (
+        <div className={styles.modalBackdrop} onClick={() => setOpenStatKey(null)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>{openStat.title}</h3>
+              <button
+                type="button"
+                className={styles.modalClose}
+                onClick={() => setOpenStatKey(null)}
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
+            <div className={styles.tableWrap}>{openStat.content}</div>
+          </div>
+        </div>
       )}
 
       {/* A refetch keeps the previous results on screen (they're still the
