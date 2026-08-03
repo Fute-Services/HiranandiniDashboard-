@@ -203,6 +203,9 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
     const { leadId } = body as { leadId: string };
     if (!leadId) return NextResponse.json({ error: "leadId required" }, { status: 400 });
 
+    const leadRows = (await sql`SELECT name FROM leads WHERE lead_id = ${leadId}`) as { name: string }[];
+    const leadName = leadRows[0]?.name ?? "";
+
     await sql`DELETE FROM leads WHERE lead_id = ${leadId}`;
     // Scrubs the customer's name from their activity history (the phone
     // number was never stored there — only in the now-deleted `leads` row)
@@ -211,6 +214,21 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
     // and this route's own audit log needs the append-only guarantee to hold
     // for everyone else's history too.
     await sql`UPDATE activity_events SET lead_name = NULL WHERE lead_id = ${leadId}`;
+    // The structured lead_name column isn't the only place the name landed —
+    // every event's free-text `label` was generated from it too (e.g.
+    // "Opened profile for Rohan Mehta"), so scrubbing lead_name alone still
+    // leaves the name readable in the timeline. `replace()` on an empty
+    // needle is a no-op guard for walk-ins with no real name to scrub.
+    if (leadName) {
+      // No LIKE filter needed — replace() is a no-op on rows where the name
+      // doesn't occur, and a wildcard-based WHERE would need leadName's own
+      // %/_ characters escaped to stay correct.
+      await sql`
+        UPDATE activity_events
+        SET label = replace(label, ${leadName}, '[deleted]')
+        WHERE lead_id = ${leadId}
+      `;
+    }
     await sql`
       INSERT INTO activity_events (id, session_id, staff_email, staff_name, manager_email, lead_id, lead_name, type, label, at)
       VALUES (${crypto.randomUUID()}, ${"leads-" + leadId}, 'admin', 'Admin', NULL, ${leadId}, NULL, 'status', 'Customer data deleted', ${Date.now()})
