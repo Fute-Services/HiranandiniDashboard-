@@ -2118,10 +2118,10 @@ export function SessionReports({
   const [view, setView] = useState<"staff" | "analytics" | "customers" | "logins" | "leads" | "inventory">(
     "customers",
   );
-  /** Reports had grown to 11 cards on one screen — split into three smaller
-   * groups so each view opens on a handful of related cards instead of a
-   * wall of charts to scroll past. */
-  const [reportSection, setReportSection] = useState<"overview" | "content" | "issues">("overview");
+  /** Reports had grown to 11 cards shown all at once — now each report is
+   * its own button, and clicking one opens just that report in a modal, so
+   * the tab opens on a button grid instead of a wall of charts. */
+  const [openReportKey, setOpenReportKey] = useState<string | null>(null);
 
   useEffect(() => {
     setViewer(getSession());
@@ -2238,6 +2238,188 @@ export function SessionReports({
   // `today` down to one person and would otherwise flag everyone else as
   // "zero sessions" for a reason that has nothing to do with their day.
   const idleToday = staffFilter ? [] : staffList.filter((s) => !staffWithSessionsToday.has(s.email));
+
+  // Each report is its own button (see openReportKey) rather than an
+  // always-visible card, so the Reports tab opens on a short list of
+  // buttons instead of a wall of charts. Built as data, not duplicated JSX,
+  // so the button grid and the modal both read from the same source.
+  type ReportItem = { key: string; label: string; content: React.ReactNode };
+  const reportSections: { group: string; items: ReportItem[] }[] = [
+    {
+      group: "Overview",
+      items: [
+        { key: "trend", label: "Presentations Trend", content: <TrendChart data={dayCounts} /> },
+        { key: "hours", label: "Busiest Hours", content: <BusyHoursChart data={busyHours} /> },
+        {
+          key: "devices",
+          label: "Device Usage & Bookings",
+          content: (
+            <div className={styles.chartCard}>
+              <div className={styles.chartTitle}>Device Usage &amp; Bookings</div>
+              {deviceBreakdown.length === 0 ? (
+                <p className={styles.chartEmpty}>No sessions to break down by device yet.</p>
+              ) : (
+                <table className={styles.miniTable}>
+                  <thead>
+                    <tr>
+                      <th>Device</th>
+                      <th>Sessions</th>
+                      <th>Booked</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deviceBreakdown.map((r) => (
+                      <tr key={r.device}>
+                        <td>{r.device}</td>
+                        <td className={styles.numCell}>{r.sessions}</td>
+                        <td className={styles.numCell}>{r.booked}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ),
+        },
+        { key: "leaderboard", label: "Staff Performance", content: <StaffLeaderboard rows={staffLeaderboard} /> },
+        ...(idleToday.length > 0
+          ? [
+              {
+                key: "idle-today",
+                label: "Staff With Zero Sessions Today",
+                content: (
+                  <div className={styles.chartCard}>
+                    <div className={styles.chartTitle}>Staff With Zero Sessions Today</div>
+                    <div className={styles.idleStaffList}>
+                      {idleToday.map((s) => (
+                        <span key={s.email} className={styles.idleStaffChip}>
+                          {s.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ),
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      group: "Content & Interest",
+      items: [
+        { key: "top-properties", label: "Most-Shown Projects", content: <TopPropertiesChart data={topProperties} /> },
+        { key: "content-breakdown", label: "What Gets Shown", content: <ContentBreakdownChart data={contentBreakdown} /> },
+        {
+          key: "interest",
+          label: "Customer Interest Level",
+          content: (
+            <ContentBreakdownChart
+              data={interestBreakdown}
+              title="Customer Interest Level"
+              emptyLabel="No interest level recorded yet."
+            />
+          ),
+        },
+      ],
+    },
+    {
+      group: "Issues & Oversight",
+      items: [
+        {
+          key: "technical-issues",
+          label: "Technical Issues (VR Load Failures)",
+          content: (
+            <ContentBreakdownChart
+              data={technicalIssues}
+              title="Technical Issues (VR Load Failures)"
+              emptyLabel="No VR load failures recorded."
+            />
+          ),
+        },
+        ...(viewer?.role === "admin"
+          ? [
+              {
+                key: "block-frequency",
+                label: "Project Blocks by Team",
+                content: (
+                  <ContentBreakdownChart
+                    data={blockFrequency}
+                    title="Project Blocks by Team"
+                    emptyLabel="No projects blocked yet."
+                  />
+                ),
+              },
+              {
+                key: "manager-comparison",
+                label: "Cross-Team Session Time Comparison",
+                content: (
+                  <div className={styles.chartCard}>
+                    <div className={styles.chartTitle}>Cross-Team Session Time Comparison</div>
+                    {managerComparison.length === 0 ? (
+                      <p className={styles.chartEmpty}>No sessions to compare yet.</p>
+                    ) : (
+                      <table className={styles.miniTable}>
+                        <thead>
+                          <tr>
+                            <th>Manager</th>
+                            <th>Sessions</th>
+                            <th>Avg. Time</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {managerComparison.map((r) => (
+                            <tr key={r.managerEmail}>
+                              <td>
+                                {r.managerEmail}
+                                {r.isOutlier && <span className={styles.outlierBadge}>Outlier</span>}
+                              </td>
+                              <td className={styles.numCell}>{r.sessions}</td>
+                              <td className={styles.numCell}>{formatDuration(r.avgMs)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                ),
+              },
+              {
+                key: "manager-accountability",
+                label: "Manager Accountability",
+                content: (
+                  <div className={styles.chartCard}>
+                    <div className={styles.chartTitle}>Manager Accountability — Avg. Time to Restore Access</div>
+                    {managerAccountability.length === 0 ? (
+                      <p className={styles.chartEmpty}>No force-logout/restore cycles recorded yet.</p>
+                    ) : (
+                      <table className={styles.miniTable}>
+                        <thead>
+                          <tr>
+                            <th>Manager</th>
+                            <th>Restores</th>
+                            <th>Avg. Time to Restore</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {managerAccountability.map((r) => (
+                            <tr key={r.managerEmail}>
+                              <td>{r.managerEmail}</td>
+                              <td className={styles.numCell}>{r.restores}</td>
+                              <td className={styles.numCell}>{formatDuration(r.avgMs)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                ),
+              },
+            ]
+          : []),
+      ],
+    },
+  ];
+  const openReportItem = reportSections.flatMap((s) => s.items).find((i) => i.key === openReportKey) ?? null;
 
   return (
     <div className={styles.page}>
@@ -2425,163 +2607,23 @@ export function SessionReports({
         {events !== null && view === "analytics" &&
           (presentations.length > 0 ? (
             <>
-              <div className={styles.reportSectionTabs}>
-                {(
-                  [
-                    { key: "overview" as const, label: "Overview" },
-                    { key: "content" as const, label: "Content & Interest" },
-                    { key: "issues" as const, label: "Issues & Oversight" },
-                  ]
-                ).map((t) => (
-                  <button
-                    key={t.key}
-                    type="button"
-                    className={`${styles.reportSectionTab} ${reportSection === t.key ? styles.reportSectionTabActive : ""}`}
-                    onClick={() => setReportSection(t.key)}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-
-              {reportSection === "overview" && (
-                <div className={styles.reportGrid}>
-                  <div className={styles.reportWide}>
-                    <TrendChart data={dayCounts} />
+              {reportSections.map((section) => (
+                <div key={section.group} className={styles.reportButtonSection}>
+                  <div className={styles.reportButtonSectionTitle}>{section.group}</div>
+                  <div className={styles.reportButtonGrid}>
+                    {section.items.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        className={styles.reportButton}
+                        onClick={() => setOpenReportKey(item.key)}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
                   </div>
-                  <BusyHoursChart data={busyHours} />
-                  <div className={styles.reportWide}>
-                    <div className={styles.chartCard}>
-                      <div className={styles.chartTitle}>Device Usage &amp; Bookings</div>
-                      {deviceBreakdown.length === 0 ? (
-                        <p className={styles.chartEmpty}>No sessions to break down by device yet.</p>
-                      ) : (
-                        <table className={styles.miniTable}>
-                          <thead>
-                            <tr>
-                              <th>Device</th>
-                              <th>Sessions</th>
-                              <th>Booked</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {deviceBreakdown.map((r) => (
-                              <tr key={r.device}>
-                                <td>{r.device}</td>
-                                <td className={styles.numCell}>{r.sessions}</td>
-                                <td className={styles.numCell}>{r.booked}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  </div>
-                  <div className={styles.reportWide}>
-                    <StaffLeaderboard rows={staffLeaderboard} />
-                  </div>
-                  {idleToday.length > 0 && (
-                    <div className={styles.reportWide}>
-                      <div className={styles.chartCard}>
-                        <div className={styles.chartTitle}>Staff With Zero Sessions Today</div>
-                        <div className={styles.idleStaffList}>
-                          {idleToday.map((s) => (
-                            <span key={s.email} className={styles.idleStaffChip}>
-                              {s.name}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              )}
-
-              {reportSection === "content" && (
-                <div className={styles.reportGrid}>
-                  <TopPropertiesChart data={topProperties} />
-                  <ContentBreakdownChart data={contentBreakdown} />
-                  <ContentBreakdownChart
-                    data={interestBreakdown}
-                    title="Customer Interest Level"
-                    emptyLabel="No interest level recorded yet."
-                  />
-                </div>
-              )}
-
-              {reportSection === "issues" && (
-                <div className={styles.reportGrid}>
-                  <ContentBreakdownChart
-                    data={technicalIssues}
-                    title="Technical Issues (VR Load Failures)"
-                    emptyLabel="No VR load failures recorded."
-                  />
-                  {viewer?.role === "admin" && (
-                    <ContentBreakdownChart
-                      data={blockFrequency}
-                      title="Project Blocks by Team"
-                      emptyLabel="No projects blocked yet."
-                    />
-                  )}
-                  {viewer?.role === "admin" && managerComparison.length > 0 && (
-                    <div className={styles.reportWide}>
-                      <div className={styles.chartCard}>
-                        <div className={styles.chartTitle}>Cross-Team Session Time Comparison</div>
-                        <table className={styles.miniTable}>
-                          <thead>
-                            <tr>
-                              <th>Manager</th>
-                              <th>Sessions</th>
-                              <th>Avg. Time</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {managerComparison.map((r) => (
-                              <tr key={r.managerEmail}>
-                                <td>
-                                  {r.managerEmail}
-                                  {r.isOutlier && <span className={styles.outlierBadge}>Outlier</span>}
-                                </td>
-                                <td className={styles.numCell}>{r.sessions}</td>
-                                <td className={styles.numCell}>{formatDuration(r.avgMs)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                  {viewer?.role === "admin" && (
-                    <div className={styles.reportWide}>
-                      <div className={styles.chartCard}>
-                        <div className={styles.chartTitle}>Manager Accountability — Avg. Time to Restore Access</div>
-                        {managerAccountability.length === 0 ? (
-                          <p className={styles.chartEmpty}>No force-logout/restore cycles recorded yet.</p>
-                        ) : (
-                          <table className={styles.miniTable}>
-                            <thead>
-                              <tr>
-                                <th>Manager</th>
-                                <th>Restores</th>
-                                <th>Avg. Time to Restore</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {managerAccountability.map((r) => (
-                                <tr key={r.managerEmail}>
-                                  <td>{r.managerEmail}</td>
-                                  <td className={styles.numCell}>{r.restores}</td>
-                                  <td className={styles.numCell}>{formatDuration(r.avgMs)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              ))}
             </>
           ) : (
             <div className={styles.empty}>
@@ -2589,6 +2631,25 @@ export function SessionReports({
               <p>No presentations logged yet, so there&apos;s nothing to chart.</p>
             </div>
           ))}
+
+        {openReportItem && (
+          <div className={styles.modalBackdrop} onClick={() => setOpenReportKey(null)}>
+            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.modalHeader}>
+                <h3 className={styles.modalTitle}>{openReportItem.label}</h3>
+                <button
+                  type="button"
+                  className={styles.modalClose}
+                  onClick={() => setOpenReportKey(null)}
+                  aria-label="Close"
+                >
+                  &times;
+                </button>
+              </div>
+              <div className={styles.reportGrid}>{openReportItem.content}</div>
+            </div>
+          </div>
+        )}
 
         {events !== null && view === "customers" &&
           (presentations.length === 0 ? (

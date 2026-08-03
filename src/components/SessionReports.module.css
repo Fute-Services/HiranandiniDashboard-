@@ -315,37 +315,6 @@
 
 /* ---------- charts ---------- */
 
-.reportSectionTabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-
-.reportSectionTab {
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(244, 242, 236, 0.55);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  padding: 7px 14px;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.reportSectionTab:hover {
-  color: #f4f2ec;
-  background: rgba(255, 255, 255, 0.09);
-}
-
-.reportSectionTabActive {
-  color: #f4f2ec;
-  background: rgba(75, 99, 214, 0.28);
-  border-color: rgba(125, 148, 240, 0.5);
-}
-
 /* Reports section: a 3-up card grid, .reportWide for cards that need a
    full row. Grows with its content; the page scrolls. */
 .reportGrid {
@@ -811,6 +780,105 @@
   .propBar {
     transition: none;
   }
+}
+
+/* ---------- single-report modal ---------- */
+
+/* One report at a time, opened from its button in the Reports tab (see
+   reportSections/openReportKey) — wider than .confirmCard since it holds a
+   chart or table, not just a message and two buttons. */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.modal {
+  width: min(680px, calc(100vw - 32px));
+  max-height: 82vh;
+  overflow-y: auto;
+  background: linear-gradient(180deg, rgba(30, 30, 32, 0.9), rgba(8, 8, 10, 0.9));
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  padding: 20px 22px 24px;
+  box-shadow: 0 24px 50px -12px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  color: #f4f2ec;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.modalTitle {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.modalClose {
+  font-size: 20px;
+  line-height: 1;
+  color: rgba(244, 242, 236, 0.6);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.modalClose:hover {
+  color: #fff;
+}
+
+/* Inside the modal there's exactly one item, not a 3-up grid — a single
+   column reads better at this width than one lonely card in a row. */
+.modal .reportGrid {
+  grid-template-columns: 1fr;
+}
+
+.reportButtonSection {
+  margin-bottom: 20px;
+}
+
+.reportButtonSectionTitle {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.5);
+  margin-bottom: 10px;
+}
+
+.reportButtonGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reportButton {
+  font-size: 13px;
+  color: #f4f2ec;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.reportButton:hover {
+  background: rgba(75, 99, 214, 0.28);
+  border-color: rgba(125, 148, 240, 0.5);
 }
 
 /* ---------- themed confirm dialog ---------- */
