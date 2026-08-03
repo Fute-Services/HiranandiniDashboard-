@@ -46,9 +46,12 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   const [blockedSlugs, setBlockedSlugs] = useState<string[]>([]);
   /** Manually admin-entered, real unit-availability counts (see
    * lib/inventory.ts) — a project absent here just shows no urgency note,
-   * never a fabricated one. Fetched once; this doesn't need the blocked-
-   * projects poll's mid-session-change guarantee. */
+   * never a fabricated one. Polled alongside blockedSlugs below so a change
+   * an admin makes mid-session (e.g. "down to 2 units") reaches the staff
+   * member actually presenting, not just the next time they reload. */
   const [inventory, setInventory] = useState<Record<string, number | null>>({});
+  const prevInventoryRef = useRef<Record<string, number | null> | null>(null);
+  const [inventoryNotice, setInventoryNotice] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
   const [detailsProperty, setDetailsProperty] = useState<Property | null>(null);
@@ -89,10 +92,6 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   const [leaving, setLeaving] = useNavigationLock<"end" | "logout">();
 
   useEffect(() => {
-    getInventory().then(setInventory);
-  }, []);
-
-  useEffect(() => {
     const active = getActiveSession();
     if (!active) {
       router.replace(SESSION_START_PATH);
@@ -121,10 +120,29 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
     const poll = async (force = false) => {
       if (!force && document.hidden) return;
       const email = getSession()?.email;
-      const slugs = email ? await getBlockedProjectsFor(email) : [];
+      const [slugs, inv] = await Promise.all([
+        email ? getBlockedProjectsFor(email) : Promise.resolve([]),
+        getInventory(),
+      ]);
       if (cancelled) return;
       setBlockedSlugs(slugs);
       setPermissionsLoaded(true);
+
+      const prev = prevInventoryRef.current;
+      if (prev) {
+        const changedSlug = Object.keys(inv).find((slug) => inv[slug] !== prev[slug]);
+        if (changedSlug) {
+          const name = properties.find((p) => p.slug === changedSlug)?.name ?? changedSlug;
+          const val = inv[changedSlug];
+          setInventoryNotice(
+            val === null || val === undefined
+              ? `${name}: availability info cleared`
+              : `${name}: ${val} unit${val === 1 ? "" : "s"} left`,
+          );
+        }
+      }
+      prevInventoryRef.current = inv;
+      setInventory(inv);
     };
     poll(true);
     // 2s, not the usual 8s background poll: a block landing mid-session
@@ -143,6 +161,10 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", tick);
     };
+    // `properties` is this component's own prop, fixed for its whole mount
+    // (static per-portfolio data, not state) — safe to read inside the poll
+    // without retriggering the effect on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [blockedNotice, setBlockedNotice] = useState(false);
@@ -151,6 +173,12 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
     const id = window.setTimeout(() => setBlockedNotice(false), 4000);
     return () => window.clearTimeout(id);
   }, [blockedNotice]);
+
+  useEffect(() => {
+    if (!inventoryNotice) return;
+    const id = window.setTimeout(() => setInventoryNotice(null), 4000);
+    return () => window.clearTimeout(id);
+  }, [inventoryNotice]);
 
   // A block that lands while that exact project's details modal is already
   // open wouldn't otherwise do anything — blockedSlugs only filters the
@@ -229,6 +257,11 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
       {blockedNotice && (
         <div className={styles.blockedNotice} role="alert">
           This project is blocked. Contact your admin.
+        </div>
+      )}
+      {inventoryNotice && (
+        <div className={styles.inventoryNotice} role="status">
+          {inventoryNotice}
         </div>
       )}
       <div className={styles.vrBackdrop}>

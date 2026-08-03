@@ -19,6 +19,26 @@
   -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 
+/* Fires when an admin updates a project's units-left count mid-session —
+   a positive/neutral notice (green), unlike .blockedNotice's warning tone. */
+.inventoryNotice {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  background: linear-gradient(180deg, rgba(10, 40, 20, 0.92), rgba(4, 20, 10, 0.92));
+  border: 1px solid rgba(110, 231, 168, 0.5);
+  color: #f4f2ec;
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  box-shadow: 0 8px 30px -8px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
 .page {
   position: relative;
   min-height: 100vh;

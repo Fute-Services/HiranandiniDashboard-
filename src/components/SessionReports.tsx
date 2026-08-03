@@ -396,6 +396,28 @@ function buildInterestBreakdown(list: Presentation[]) {
     .sort((a, b) => b.count - a.count);
 }
 
+/**
+ * Which device (browser/OS combo — the closest deterministic signal the
+ * logged `navigator.userAgent` actually gives us, see `shortDevice`) ran the
+ * most presentations, and how many of those presentations' customers went
+ * on to actually book — answers "which device is winning us the most
+ * sales," not just "which device is used most." `leadStatusById` comes from
+ * the real `leads` table (`Booked` status), joined here by leadId.
+ */
+function buildDeviceBreakdown(presentations: Presentation[], leadStatusById: Map<string, string>) {
+  const byDevice = new Map<string, { sessions: number; bookedLeads: Set<string> }>();
+  for (const p of presentations) {
+    const device = shortDevice(p.device) ?? "Unknown";
+    const row = byDevice.get(device) ?? { sessions: 0, bookedLeads: new Set<string>() };
+    row.sessions += 1;
+    if (leadStatusById.get(p.leadId) === "Booked") row.bookedLeads.add(p.leadId);
+    byDevice.set(device, row);
+  }
+  return [...byDevice.entries()]
+    .map(([device, r]) => ({ device, sessions: r.sessions, booked: r.bookedLeads.size }))
+    .sort((a, b) => b.sessions - a.sessions);
+}
+
 /** How often each team's projects get blocked — reads the raw event log
  * (not grouped presentations: a block has no leadId, so `groupPresentations`
  * would drop it) to flag a manager whose team gets blocked disproportionately
@@ -1726,6 +1748,9 @@ function LeadsPanel({
   const [showArchived, setShowArchived] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  /** Which day(s) a lead was *created* on — defaults to today so the tab
+   * opens on "who came in today," not the entire lead history at once. */
+  const [range, setRange] = useState<DateRange>(presetRange("today"));
 
   function revealPhone(leadId: string, leadName: string) {
     setRevealed((prev) => new Set(prev).add(leadId));
@@ -1760,9 +1785,14 @@ function LeadsPanel({
     // claims it.
     return leads.filter((l) => !l.assignedStaffEmail || staffEmails.has(l.assignedStaffEmail));
   }, [leads, viewer, staffEmails]);
+  const dateFiltered = useMemo(() => {
+    if (range.from === undefined) return scoped;
+    const toExclusive = (range.to ?? range.from) + DAY_MS;
+    return scoped.filter((l) => l.createdAt >= range.from! && l.createdAt < toExclusive);
+  }, [scoped, range]);
   const now = Date.now();
-  const archivedCount = scoped.filter((l) => isStaleLead(l, now)).length;
-  const visible = showArchived ? scoped : scoped.filter((l) => !isStaleLead(l, now));
+  const archivedCount = dateFiltered.filter((l) => isStaleLead(l, now)).length;
+  const visible = showArchived ? dateFiltered : dateFiltered.filter((l) => !isStaleLead(l, now));
 
   async function changeStatus(leadId: string, status: LeadStatus) {
     setSavingId(leadId);
@@ -1788,6 +1818,9 @@ function LeadsPanel({
 
   return (
     <>
+      <div className={styles.filterBar}>
+        <DateRangePicker range={range} onChange={setRange} />
+      </div>
       <div className={styles.statRow}>
         <div className={styles.stat}>
           <div className={`${styles.statIcon} ${styles.statIconIndigo}`}>{UsersIcon}</div>
@@ -1824,7 +1857,7 @@ function LeadsPanel({
       {visible.length === 0 ? (
         <div className={styles.empty}>
           <div className={styles.emptyIcon}>{EmptyIcon}</div>
-          <p>No leads on file yet.</p>
+          <p>{range.from === undefined ? "No leads on file yet." : "No leads created in this date range."}</p>
         </div>
       ) : (
         <div className={styles.tableWrap}>
@@ -1977,12 +2010,17 @@ function InventoryPanel() {
                 <td>{p.name}</td>
                 <td>
                   <input
-                    type="number"
-                    min={0}
+                    type="text"
+                    inputMode="numeric"
                     className={styles.statusSelect}
-                    placeholder="Not set"
+                    placeholder="null"
                     value={draft}
-                    onChange={(e) => setDrafts((prev) => ({ ...prev, [p.slug]: e.target.value }))}
+                    onChange={(e) => {
+                      // Digits only — a plain number input still lets "-", ".",
+                      // "e" through, which aren't valid unit counts.
+                      const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
+                      setDrafts((prev) => ({ ...prev, [p.slug]: digitsOnly }));
+                    }}
                   />
                 </td>
                 <td>
@@ -2023,6 +2061,13 @@ export function SessionReports({
 }) {
   const router = useRouter();
   const [events, setEvents] = useState<ActivityEvent[] | null>(null);
+  /** Just for the device-usage/booking-rate report — a separate fetch from
+   * LeadsPanel's own (which is scoped to whichever tab is open), since this
+   * needs each lead's final status regardless of which tab the viewer is on. */
+  const [leadsForDeviceReport, setLeadsForDeviceReport] = useState<Lead[]>([]);
+  useEffect(() => {
+    listLeads().then(setLeadsForDeviceReport);
+  }, []);
   /** True whenever an activity request is in flight, including refetches
    * triggered by a changed filter — a table that already has last query's
    * rows in it otherwise looks like the new filter simply did nothing. */
@@ -2073,6 +2118,10 @@ export function SessionReports({
   const [view, setView] = useState<"staff" | "analytics" | "customers" | "logins" | "leads" | "inventory">(
     "customers",
   );
+  /** Reports had grown to 11 cards on one screen — split into three smaller
+   * groups so each view opens on a handful of related cards instead of a
+   * wall of charts to scroll past. */
+  const [reportSection, setReportSection] = useState<"overview" | "content" | "issues">("overview");
 
   useEffect(() => {
     setViewer(getSession());
@@ -2174,6 +2223,11 @@ export function SessionReports({
   const managerComparison = viewer?.role === "admin" ? buildManagerComparison(presentations) : [];
   const managerAccountability = viewer?.role === "admin" ? buildManagerAccountability(events ?? []) : [];
   const busyHours = buildHourHistogram(presentations);
+  const leadStatusById = useMemo(
+    () => new Map(leadsForDeviceReport.map((l) => [l.leadId, l.leadStatus] as const)),
+    [leadsForDeviceReport],
+  );
+  const deviceBreakdown = buildDeviceBreakdown(presentations, leadStatusById);
   const staffList = USERS.filter(
     (u) =>
       u.role === "sales_staff" &&
@@ -2302,6 +2356,10 @@ export function SessionReports({
         </>
       )}
 
+      {/* Presentation-specific stats — not relevant on the Leads or
+          Inventory tabs, which have their own stat rows scoped to their
+          own data (lead counts, unit counts), not customer sessions. */}
+      {view !== "leads" && view !== "inventory" && (
       <div className={styles.statRow}>
         <div className={styles.stat}>
           <div className={`${styles.statIcon} ${styles.statIconBlue}`}>{CalendarIcon}</div>
@@ -2325,6 +2383,7 @@ export function SessionReports({
           </div>
         </div>
       </div>
+      )}
 
       {/* A refetch keeps the previous results on screen (they're still the
           best answer available), so the only signal that a new filter is
@@ -2365,105 +2424,165 @@ export function SessionReports({
 
         {events !== null && view === "analytics" &&
           (presentations.length > 0 ? (
-            <div className={styles.reportGrid}>
-              <div className={styles.reportWide}>
-                <TrendChart data={dayCounts} />
+            <>
+              <div className={styles.reportSectionTabs}>
+                {(
+                  [
+                    { key: "overview" as const, label: "Overview" },
+                    { key: "content" as const, label: "Content & Interest" },
+                    { key: "issues" as const, label: "Issues & Oversight" },
+                  ]
+                ).map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    className={`${styles.reportSectionTab} ${reportSection === t.key ? styles.reportSectionTabActive : ""}`}
+                    onClick={() => setReportSection(t.key)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
               </div>
-              <TopPropertiesChart data={topProperties} />
-              <ContentBreakdownChart data={contentBreakdown} />
-              <BusyHoursChart data={busyHours} />
-              <ContentBreakdownChart
-                data={interestBreakdown}
-                title="Customer Interest Level"
-                emptyLabel="No interest level recorded yet."
-              />
-              {viewer?.role === "admin" && (
-                <ContentBreakdownChart
-                  data={blockFrequency}
-                  title="Project Blocks by Team"
-                  emptyLabel="No projects blocked yet."
-                />
-              )}
-              <ContentBreakdownChart
-                data={technicalIssues}
-                title="Technical Issues (VR Load Failures)"
-                emptyLabel="No VR load failures recorded."
-              />
-              {viewer?.role === "admin" && managerComparison.length > 0 && (
-                <div className={styles.reportWide}>
-                  <div className={styles.chartCard}>
-                    <div className={styles.chartTitle}>Cross-Team Session Time Comparison</div>
-                    <table className={styles.miniTable}>
-                      <thead>
-                        <tr>
-                          <th>Manager</th>
-                          <th>Sessions</th>
-                          <th>Avg. Time</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {managerComparison.map((r) => (
-                          <tr key={r.managerEmail}>
-                            <td>
-                              {r.managerEmail}
-                              {r.isOutlier && <span className={styles.outlierBadge}>Outlier</span>}
-                            </td>
-                            <td className={styles.numCell}>{r.sessions}</td>
-                            <td className={styles.numCell}>{formatDuration(r.avgMs)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+
+              {reportSection === "overview" && (
+                <div className={styles.reportGrid}>
+                  <div className={styles.reportWide}>
+                    <TrendChart data={dayCounts} />
                   </div>
-                </div>
-              )}
-              {viewer?.role === "admin" && (
-                <div className={styles.reportWide}>
-                  <div className={styles.chartCard}>
-                    <div className={styles.chartTitle}>Manager Accountability — Avg. Time to Restore Access</div>
-                    {managerAccountability.length === 0 ? (
-                      <p className={styles.chartEmpty}>No force-logout/restore cycles recorded yet.</p>
-                    ) : (
-                      <table className={styles.miniTable}>
-                        <thead>
-                          <tr>
-                            <th>Manager</th>
-                            <th>Restores</th>
-                            <th>Avg. Time to Restore</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {managerAccountability.map((r) => (
-                            <tr key={r.managerEmail}>
-                              <td>{r.managerEmail}</td>
-                              <td className={styles.numCell}>{r.restores}</td>
-                              <td className={styles.numCell}>{formatDuration(r.avgMs)}</td>
+                  <BusyHoursChart data={busyHours} />
+                  <div className={styles.reportWide}>
+                    <div className={styles.chartCard}>
+                      <div className={styles.chartTitle}>Device Usage &amp; Bookings</div>
+                      {deviceBreakdown.length === 0 ? (
+                        <p className={styles.chartEmpty}>No sessions to break down by device yet.</p>
+                      ) : (
+                        <table className={styles.miniTable}>
+                          <thead>
+                            <tr>
+                              <th>Device</th>
+                              <th>Sessions</th>
+                              <th>Booked</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                </div>
-              )}
-              <div className={styles.reportWide}>
-                <StaffLeaderboard rows={staffLeaderboard} />
-              </div>
-              {idleToday.length > 0 && (
-                <div className={styles.reportWide}>
-                  <div className={styles.chartCard}>
-                    <div className={styles.chartTitle}>Staff With Zero Sessions Today</div>
-                    <div className={styles.idleStaffList}>
-                      {idleToday.map((s) => (
-                        <span key={s.email} className={styles.idleStaffChip}>
-                          {s.name}
-                        </span>
-                      ))}
+                          </thead>
+                          <tbody>
+                            {deviceBreakdown.map((r) => (
+                              <tr key={r.device}>
+                                <td>{r.device}</td>
+                                <td className={styles.numCell}>{r.sessions}</td>
+                                <td className={styles.numCell}>{r.booked}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
                     </div>
                   </div>
+                  <div className={styles.reportWide}>
+                    <StaffLeaderboard rows={staffLeaderboard} />
+                  </div>
+                  {idleToday.length > 0 && (
+                    <div className={styles.reportWide}>
+                      <div className={styles.chartCard}>
+                        <div className={styles.chartTitle}>Staff With Zero Sessions Today</div>
+                        <div className={styles.idleStaffList}>
+                          {idleToday.map((s) => (
+                            <span key={s.email} className={styles.idleStaffChip}>
+                              {s.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+
+              {reportSection === "content" && (
+                <div className={styles.reportGrid}>
+                  <TopPropertiesChart data={topProperties} />
+                  <ContentBreakdownChart data={contentBreakdown} />
+                  <ContentBreakdownChart
+                    data={interestBreakdown}
+                    title="Customer Interest Level"
+                    emptyLabel="No interest level recorded yet."
+                  />
+                </div>
+              )}
+
+              {reportSection === "issues" && (
+                <div className={styles.reportGrid}>
+                  <ContentBreakdownChart
+                    data={technicalIssues}
+                    title="Technical Issues (VR Load Failures)"
+                    emptyLabel="No VR load failures recorded."
+                  />
+                  {viewer?.role === "admin" && (
+                    <ContentBreakdownChart
+                      data={blockFrequency}
+                      title="Project Blocks by Team"
+                      emptyLabel="No projects blocked yet."
+                    />
+                  )}
+                  {viewer?.role === "admin" && managerComparison.length > 0 && (
+                    <div className={styles.reportWide}>
+                      <div className={styles.chartCard}>
+                        <div className={styles.chartTitle}>Cross-Team Session Time Comparison</div>
+                        <table className={styles.miniTable}>
+                          <thead>
+                            <tr>
+                              <th>Manager</th>
+                              <th>Sessions</th>
+                              <th>Avg. Time</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {managerComparison.map((r) => (
+                              <tr key={r.managerEmail}>
+                                <td>
+                                  {r.managerEmail}
+                                  {r.isOutlier && <span className={styles.outlierBadge}>Outlier</span>}
+                                </td>
+                                <td className={styles.numCell}>{r.sessions}</td>
+                                <td className={styles.numCell}>{formatDuration(r.avgMs)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                  {viewer?.role === "admin" && (
+                    <div className={styles.reportWide}>
+                      <div className={styles.chartCard}>
+                        <div className={styles.chartTitle}>Manager Accountability — Avg. Time to Restore Access</div>
+                        {managerAccountability.length === 0 ? (
+                          <p className={styles.chartEmpty}>No force-logout/restore cycles recorded yet.</p>
+                        ) : (
+                          <table className={styles.miniTable}>
+                            <thead>
+                              <tr>
+                                <th>Manager</th>
+                                <th>Restores</th>
+                                <th>Avg. Time to Restore</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {managerAccountability.map((r) => (
+                                <tr key={r.managerEmail}>
+                                  <td>{r.managerEmail}</td>
+                                  <td className={styles.numCell}>{r.restores}</td>
+                                  <td className={styles.numCell}>{formatDuration(r.avgMs)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <div className={styles.empty}>
               <div className={styles.emptyIcon}>{EmptyIcon}</div>

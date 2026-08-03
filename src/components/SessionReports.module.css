@@ -315,6 +315,37 @@
 
 /* ---------- charts ---------- */
 
+.reportSectionTabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.reportSectionTab {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 236, 0.55);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.reportSectionTab:hover {
+  color: #f4f2ec;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.reportSectionTabActive {
+  color: #f4f2ec;
+  background: rgba(75, 99, 214, 0.28);
+  border-color: rgba(125, 148, 240, 0.5);
+}
+
 /* Reports section: a 3-up card grid, .reportWide for cards that need a
    full row. Grows with its content; the page scrolls. */
 .reportGrid {
