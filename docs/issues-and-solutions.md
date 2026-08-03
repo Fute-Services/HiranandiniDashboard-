@@ -195,10 +195,10 @@ Real-world use mein admin, sales staff, aur sales manager ke saath jo dikkatein 
 - Staff ko pata chalega ye lead zyada serious hai, extra effort lagayein.
 - **Kya implement hua:** `SessionStart.tsx` ke "Customer Found" card mein ab `previousVisits > 0` hone par ek highlighted note dikhta hai: "This customer has visited N times before — high intent."
 
-**4.2.6 WhatsApp/SMS integration se turant follow-up** — *Needs a decision*
+**4.2.6 WhatsApp/SMS integration se turant follow-up** — *Deferred to Version 2*
 - Presentation khatam hone ke turant baad customer ko ek automatic WhatsApp message jaye (jo dikhaya gaya uska summary + brochure link).
 - Fresh memory rehte hi ek touchpoint milta hai, jo conversion rate badhata hai.
-- **Kyun skip kiya:** Iske liye ek real messaging provider (WhatsApp Business API, Twilio, ya koi SMS gateway) integrate karna padega — external service choose karna aur account/API keys set up karna client ka decision hai, silently koi provider wire nahi kiya.
+- **Decision (2026-08-03):** V1 ke scope se bahar — V2 mein add hoga. Iske liye ek real messaging provider (WhatsApp Business API, Twilio, ya koi SMS gateway) integrate karna padega — jab V2 pe kaam shuru ho tab provider choose karke account/API keys set up karna hoga.
 
 **High-impact, kam-effort priority:** Pehle 4.2.2 (conversion tracking) aur 4.2.1 (follow-up reminder) — inse funnel leak point pata chalega aur cold leads warm follow-up se convert hongi.
 
@@ -211,7 +211,9 @@ Real-world use mein admin, sales staff, aur sales manager ke saath jo dikkatein 
 **Pending — needs a business/product decision, not silently built:**
 - 3.1 step 3's real-time alert/notification (needs a push/email/SMS channel).
 - 4.2.4 (scarcity display — needs real inventory/unit-count data, not fake numbers).
-- 4.2.6 (WhatsApp/SMS follow-up — needs an external messaging provider chosen and set up).
+
+**Deferred to Version 2 (decided 2026-08-03):**
+- 4.2.6 (WhatsApp/SMS follow-up — needs an external messaging provider chosen and set up; out of V1 scope).
 
 **Not implemented — needs real usage data first:**
 - 4.2.3 (best-performing pitch pattern — meaningless on mock/demo data).
