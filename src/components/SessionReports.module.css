@@ -871,12 +871,7 @@
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  text-align: center;
-  color: #ff9330;
-  background: rgba(255, 147, 48, 0.1);
-  border: 1px solid rgba(255, 147, 48, 0.3);
-  border-radius: 8px;
-  padding: 6px 10px;
+  color: rgba(244, 242, 236, 0.5);
   margin-bottom: 10px;
 }
 
