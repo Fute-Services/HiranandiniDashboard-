@@ -485,6 +485,21 @@
   min-height: 30px;
 }
 
+.unitsLeftBadge {
+  display: inline-block;
+  margin-top: 4px;
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #e8b93a;
+  background: rgba(232, 185, 58, 0.14);
+  border: 1px solid rgba(232, 185, 58, 0.4);
+  border-radius: 999px;
+  padding: 3px 8px;
+  width: fit-content;
+}
+
 .cardLink {
   font-family: var(--font-mono), monospace;
   font-size: 9.5px;

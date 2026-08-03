@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Property } from "@/data/properties";
 import { getSession, SESSION_START_PATH } from "@/lib/auth";
 import { getBlockedProjectsFor } from "@/lib/controls";
+import { getInventory } from "@/lib/inventory";
 import {
   finalizeSession,
   getActiveSession,
@@ -43,6 +44,11 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [blockedSlugs, setBlockedSlugs] = useState<string[]>([]);
+  /** Manually admin-entered, real unit-availability counts (see
+   * lib/inventory.ts) — a project absent here just shows no urgency note,
+   * never a fabricated one. Fetched once; this doesn't need the blocked-
+   * projects poll's mid-session-change guarantee. */
+  const [inventory, setInventory] = useState<Record<string, number | null>>({});
   const [noteText, setNoteText] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
   const [detailsProperty, setDetailsProperty] = useState<Property | null>(null);
@@ -81,6 +87,10 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
    * navigation that never lands can't leave End Session and Log out disabled
    * with a reload as the only way out (see lib/useNavigationLock). */
   const [leaving, setLeaving] = useNavigationLock<"end" | "logout">();
+
+  useEffect(() => {
+    getInventory().then(setInventory);
+  }, []);
 
   useEffect(() => {
     const active = getActiveSession();
@@ -356,6 +366,11 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
                 <div className={styles.cardBody}>
                   <div className={styles.cardIndex}>{pad2(i + 1)}</div>
                   <h3 className={styles.cardName}>{property.name}</h3>
+                  {typeof inventory[property.slug] === "number" && (
+                    <span className={styles.unitsLeftBadge}>
+                      Only {inventory[property.slug]} unit{inventory[property.slug] === 1 ? "" : "s"} left
+                    </span>
+                  )}
                   <span className={styles.cardLink}>Visit&nbsp;&#8599;</span>
                 </div>
               </a>

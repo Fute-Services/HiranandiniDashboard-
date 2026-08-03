@@ -57,3 +57,13 @@ CREATE TABLE IF NOT EXISTS leads (
 );
 
 CREATE INDEX IF NOT EXISTS idx_leads_phone ON leads (phone);
+
+-- Manually admin-entered unit-availability count per project (slug from
+-- src/data/properties.ts), shown to customers as an "Only N units left"
+-- urgency note on the showcase. Absent/NULL means "not set" -- the UI must
+-- not show a fabricated number, only a real one the admin entered.
+CREATE TABLE IF NOT EXISTS property_inventory (
+  slug TEXT PRIMARY KEY,
+  units_left INT,
+  updated_at BIGINT NOT NULL
+);

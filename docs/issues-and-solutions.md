@@ -113,7 +113,9 @@ Real-world use mein admin, sales staff, aur sales manager ke saath jo dikkatein 
 2. Ye automatic anomaly detection ho, manual review ki zarurat na pade shuru mein.
 3. Outlier detect hone par admin ko alert/notification bhejo.
 
-**Kya implement hua:** `buildManagerComparison()` — har manager ka avg session time compute karke, agar koi manager sabki median se 2x zyada hai to "Outlier" badge ke saath flag karta hai (automatic, manual review nahi chahiye). Admin Reports tab mein "Cross-Team Session Time Comparison" table. Real-time alert/notification (step 3) skip kiya — abhi koi push-notification infra nahi hai, add karne ke liye ek external service (email/SMS/push) chahiye hoga.
+**Kya implement hua:** `buildManagerComparison()` — har manager ka avg session time compute karke, agar koi manager sabki median se 2x zyada hai to "Outlier" badge ke saath flag karta hai (automatic, manual review nahi chahiye). Admin Reports tab mein "Cross-Team Session Time Comparison" table.
+
+**Real-time alert (step 3, 2026-08-03):** Client ne in-app banner/badge choose kiya (koi external push/email/SMS service nahi). Ab jab bhi outlier detect hota hai, admin dashboard ke top pe (kisi bhi tab pe ho) ek warning banner dikhta hai — "⚠ N teams showing unusual session-time patterns — view Reports for details" — click karne se seedha Reports tab khulta hai.
 
 ### 3.2 Lead ownership dispute ✅ Implemented
 **Dikkat:** Ek lead do managers ki teams ne alag time pe handle kiya — commission/credit ka jhagda ho sakta hai.
@@ -186,9 +188,10 @@ Real-world use mein admin, sales staff, aur sales manager ke saath jo dikkatein 
 - Us pattern ko baaki staff ke liye "recommended flow" bana do.
 - **Kyun skip kiya:** Meaningful pattern nikalne ke liye kaafi sales data chahiye (abhi sirf mock/demo data hai) — real usage ke baad hi ye analysis kaam ka hoga.
 
-**4.2.4 Urgency/scarcity dikhana customer ko** — *Needs a decision*
+**4.2.4 Urgency/scarcity dikhana customer ko ✅ Implemented**
 - Showcase screen pe agar "Only 3 units left" ya "12 people visited this project this week" jaisa real data (agar available ho) dikhaya jaye, to customer pe psychological urgency create hoti hai — direct conversion booster.
-- **Kyun skip kiya:** Ye tabhi honest hai jab real inventory/unit-count data ho — abhi properties.ts mein sirf naam/location/link hai, real available-units count nahi. Fake number dikhana misleading hoga customer ke saath.
+- **Decision (2026-08-03):** Admin manually har project ka units-left count enter karega (naya "Inventory" tab, admin-only) — koi external inventory system nahi.
+- **Kya implement hua:** Naya `property_inventory` Postgres table (`scripts/db/schema.sql`), `/api/inventory` route (GET kisi bhi logged-in user ke liye, POST admin-only). Admin dashboard mein naya "Inventory" tab har project ke liye editable "Units Left" field deta hai (khali chhodne se "not set" maana jata hai — koi fake number nahi dikhta). `PropertyShowcase.tsx` mein property card pe "Only N units left" badge dikhta hai **sirf** tab jab admin ne value set ki ho.
 
 **4.2.5 Repeat-visit customers ko priority dena ✅ Implemented**
 - "Previous Visits" field already leads mein hai — jo customer 2nd/3rd baar aa raha hai, unhe staff ke liye highlight karo: "This customer has visited 2 times before, high intent".
@@ -204,18 +207,16 @@ Real-world use mein admin, sales staff, aur sales manager ke saath jo dikkatein 
 
 ---
 
-## Status Summary (2026-08-03)
+## Status Summary — V1 Complete (2026-08-03)
 
-**Implemented:** 2.1, 1.1 (detection-only), 1.2, 3.2, 3.3, 4.2.2, 2.6, 2.2, 2.3, 2.4, 2.5, 3.1, 3.4, 4.2.5, 1.3 (masking + 30-day retention + admin delete).
+**Implemented (18 items):** 2.1, 1.1 (detection-only), 1.2, 3.1 (incl. in-app outlier alert banner), 3.2, 3.3, 3.4, 2.2, 2.3, 2.4, 2.5, 2.6, 1.3 (masking + 30-day retention + admin delete), 4.2.2, 4.2.4 (manual inventory), 4.2.5.
 
-**Pending — needs a business/product decision, not silently built:**
-- 3.1 step 3's real-time alert/notification (needs a push/email/SMS channel).
-- 4.2.4 (scarcity display — needs real inventory/unit-count data, not fake numbers).
-
-**Deferred to Version 2 (decided 2026-08-03):**
+**Deferred to Version 2 (client decision, 2026-08-03):**
 - 4.2.6 (WhatsApp/SMS follow-up — needs an external messaging provider chosen and set up; out of V1 scope).
 
 **Not implemented — needs real usage data first:**
-- 4.2.3 (best-performing pitch pattern — meaningless on mock/demo data).
+- 4.2.3 (best-performing pitch pattern — meaningless on mock/demo data, revisit once there's real presentation history to mine).
 
-Side-effect of this pass: **leads migrated from a hardcoded mock array to a real Postgres `leads` table** (`scripts/db/schema.sql`, `src/app/api/leads/route.ts`), which is what made 3.2 and 4.2.2 possible as more than detection-only.
+Side-effects of this pass:
+- **Leads migrated from a hardcoded mock array to a real Postgres `leads` table** (`scripts/db/schema.sql`, `src/app/api/leads/route.ts`), which is what made 3.2 and 4.2.2 possible as more than detection-only.
+- **New `property_inventory` table** (`scripts/db/schema.sql`, `src/app/api/inventory/route.ts`) backs the manual units-left entry for 4.2.4 — admin-only "Inventory" tab in the dashboard.

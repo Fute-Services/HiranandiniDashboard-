@@ -8,6 +8,7 @@ import { signOut } from "@/lib/sign-out";
 import { useNavigationLock } from "@/lib/useNavigationLock";
 import { fetchControlState, kickStaff, restoreLogin, setProjectBlockedFor } from "@/lib/controls";
 import { createWalkInLead, deleteLead, isStaleLead, listLeads, setLeadStatus, type Lead, type LeadStatus } from "@/lib/leads";
+import { getInventory, setUnitsLeft } from "@/lib/inventory";
 import { setActiveSession } from "@/lib/session";
 import { findUserByEmail, isNewJoiner, USERS } from "@/lib/users";
 import { portfolioGroups } from "@/data/properties";
@@ -841,6 +842,9 @@ const VIEW_TABS = [
   { key: "staff" as const, label: "Staff Activity" },
   { key: "analytics" as const, label: "Reports" },
   { key: "leads" as const, label: "Leads" },
+  // Admin-only — setting real-world unit availability is an ops function,
+  // same reasoning as the Leads tab's delete action being admin-gated.
+  { key: "inventory" as const, label: "Inventory", adminOnly: true },
   { key: "logins" as const, label: "Login History" },
 ];
 
@@ -1922,6 +1926,85 @@ function LeadsPanel({
 }
 
 /**
+ * Admin-only: manually enter how many units are left per project, so the
+ * showcase can show a real "Only N units left" urgency note instead of a
+ * fabricated one. Blank/cleared means "not set" — PropertyShowcase only
+ * shows the note when a real number has actually been entered.
+ */
+function InventoryPanel() {
+  const [inventory, setInventory] = useState<Record<string, number | null> | null>(null);
+  const [savingSlug, setSavingSlug] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    getInventory().then((inv) => {
+      if (!cancelled) setInventory(inv);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function save(slug: string) {
+    const raw = drafts[slug]?.trim() ?? "";
+    const value = raw === "" ? null : Number(raw);
+    if (value !== null && (!Number.isInteger(value) || value < 0)) return;
+    setSavingSlug(slug);
+    const ok = await setUnitsLeft(slug, value);
+    if (ok) setInventory((prev) => ({ ...prev, [slug]: value }));
+    setSavingSlug(null);
+  }
+
+  if (inventory === null) return <LoadingBlock message="Loading inventory…" />;
+
+  return (
+    <div className={styles.tableWrap}>
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th>Project</th>
+            <th>Units Left</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {ALL_PROJECTS.map((p) => {
+            const current = inventory[p.slug] ?? null;
+            const draft = drafts[p.slug] ?? (current === null ? "" : String(current));
+            return (
+              <tr key={p.slug}>
+                <td>{p.name}</td>
+                <td>
+                  <input
+                    type="number"
+                    min={0}
+                    className={styles.statusSelect}
+                    placeholder="Not set"
+                    value={draft}
+                    onChange={(e) => setDrafts((prev) => ({ ...prev, [p.slug]: e.target.value }))}
+                  />
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className={styles.saveInventoryBtn}
+                    disabled={savingSlug === p.slug}
+                    onClick={() => save(p.slug)}
+                  >
+                    {savingSlug === p.slug ? <Spinner size={11} /> : "Save"}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
  * The reporting view shared by both `/admin/dashboard` and
  * `/manager/dashboard`: a projects overview, Today's Presentations, total
  * session duration, filters (staff/customer/project/date), and every
@@ -1987,7 +2070,9 @@ export function SessionReports({
   /** Which single section the content area shows. One navbar button per
    * section (and only one button per section), so nothing is duplicated and
    * the whole thing stays on one screen without stacking every panel. */
-  const [view, setView] = useState<"staff" | "analytics" | "customers" | "logins" | "leads">("customers");
+  const [view, setView] = useState<"staff" | "analytics" | "customers" | "logins" | "leads" | "inventory">(
+    "customers",
+  );
 
   useEffect(() => {
     setViewer(getSession());
@@ -2111,6 +2196,13 @@ export function SessionReports({
         </div>
         <LiveClock />
       </header>
+
+      {viewer?.role === "admin" && managerComparison.some((r) => r.isOutlier) && (
+        <button type="button" className={styles.outlierAlertBanner} onClick={() => setView("analytics")}>
+          ⚠ {managerComparison.filter((r) => r.isOutlier).length} team{managerComparison.filter((r) => r.isOutlier).length > 1 ? "s" : ""} showing
+          unusual session-time patterns — view Reports for details
+        </button>
+      )}
 
       <div className={styles.eyebrow}>Reporting</div>
       <h1 className={styles.title}>{title}</h1>
@@ -2493,6 +2585,7 @@ export function SessionReports({
           ))}
 
         {view === "leads" && <LeadsPanel viewer={viewer} staffList={staffList} />}
+        {view === "inventory" && viewer?.role === "admin" && <InventoryPanel />}
 
         {events !== null && view === "logins" &&
           (logins.length === 0 ? (
@@ -2532,7 +2625,7 @@ export function SessionReports({
       </div>
 
       <nav className={styles.sideDock} aria-label="Dashboard sections and actions">
-        {VIEW_TABS.map((t) => (
+        {VIEW_TABS.filter((t) => !t.adminOnly || viewer?.role === "admin").map((t) => (
           <button
             key={t.key}
             type="button"
