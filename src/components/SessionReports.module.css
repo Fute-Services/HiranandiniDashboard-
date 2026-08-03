@@ -875,10 +875,18 @@
   margin-bottom: 10px;
 }
 
+/* One horizontal row per group — no wrap, scrolls sideways if the buttons
+   don't fit, rather than dropping to a second line. */
 .reportButtonGrid {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.reportButtonGrid .reportButton {
+  flex-shrink: 0;
 }
 
 /* Matches .dockBtn (the side navbar) — same pill, same mono/uppercase
