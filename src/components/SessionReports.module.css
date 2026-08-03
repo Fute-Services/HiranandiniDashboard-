@@ -871,7 +871,12 @@
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(244, 242, 236, 0.5);
+  text-align: center;
+  color: #ff9330;
+  background: rgba(255, 147, 48, 0.1);
+  border: 1px solid rgba(255, 147, 48, 0.3);
+  border-radius: 8px;
+  padding: 6px 10px;
   margin-bottom: 10px;
 }
 
@@ -895,12 +900,12 @@
   grid-template-columns: 260px 1fr;
   gap: 16px;
   align-items: start;
-  max-height: calc(100vh - 260px);
 }
 
+/* The button list flows naturally, full height, no internal scrollbar —
+   only the report panel (which can hold a long table) scrolls within
+   itself if it needs to. */
 .reportButtonColumn {
-  overflow-y: auto;
-  max-height: calc(100vh - 260px);
   padding-right: 4px;
 }
 
