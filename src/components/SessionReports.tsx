@@ -1659,7 +1659,7 @@ function StaffControlPanel({
 
           <input
             type="text"
-            className={styles.filterInput}
+            className={`${styles.filterInput} ${styles.chipSearchInput}`}
             placeholder="Search customer…"
             value={chipSearch}
             onChange={(e) => setChipSearch(e.target.value)}

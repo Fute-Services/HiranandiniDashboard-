@@ -1905,6 +1905,14 @@
 
 /* Cards instead of a horizontal-scrolling chip row — 2-3 fit per row and
    nothing is hidden off-screen behind a scrollbar. */
+/* Breathing room the shared .filterInput doesn't need in a filter *bar*
+   (where the row's own gap already separates it from neighbors), but does
+   need here, sitting alone between the section header and the chip grid. */
+.chipSearchInput {
+  display: block;
+  margin: 4px 0 10px;
+}
+
 .clientCards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
