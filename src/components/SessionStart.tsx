@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSession, getSessionId, MY_ACTIVITY_PATH, SPACE_PATH } from "@/lib/auth";
 import { actorFields, track } from "@/lib/activity";
 import { claimLead, createWalkInLead, findLead, findSimilarLeads, type Lead } from "@/lib/leads";
-import { setActiveSession } from "@/lib/session";
+import { setActiveSession, type DeviceType } from "@/lib/session";
 import { signOut } from "@/lib/sign-out";
 import { useNavigationLock } from "@/lib/useNavigationLock";
 import { Spinner } from "./Spinner";
@@ -90,24 +90,39 @@ export function SessionStart() {
   // server-side) this lead for the staff member starting the session.
   // Best-effort by design (see lib/leads.ts) — a dropped claim shouldn't
   // block the presentation from starting.
-  function commitSession(lead: Lead) {
+  function commitSession(lead: Lead, deviceType: DeviceType) {
     const staff = getSession();
     if (staff) void claimLead(lead.leadId, staff.email, staff.name);
-    setActiveSession(lead);
+    setActiveSession(lead, deviceType);
     router.push(SPACE_PATH);
   }
 
+  /** "Start Session"/"Continue without a Lead ID" both gate on this first —
+   * which device is actually running the presentation isn't something the
+   * browser's user-agent can answer ("Chrome · Windows" either way), so it's
+   * asked once, here, rather than guessed. */
+  const [pendingStart, setPendingStart] = useState<{ lead: Lead; from: "start" | "walkin" } | null>(null);
+
   function start(lead: Lead, from: "start" | "walkin") {
     if (leaving) return;
-    setLeaving(from);
-    commitSession(lead);
+    setPendingStart({ lead, from });
   }
 
   async function beginWalkIn() {
     if (leaving) return;
     setLeaving("walkin");
     const lead = await createWalkInLead();
-    commitSession(lead);
+    // Release the lock once the walk-in lead exists — the device picker
+    // that comes next has its own buttons to click, not this one.
+    setLeaving(null);
+    setPendingStart({ lead, from: "walkin" });
+  }
+
+  function confirmDevice(deviceType: DeviceType) {
+    if (!pendingStart) return;
+    setLeaving(pendingStart.from);
+    commitSession(pendingStart.lead, deviceType);
+    setPendingStart(null);
   }
 
   function leave() {
@@ -142,7 +157,31 @@ export function SessionStart() {
         )}
       </button>
       <div className={styles.card}>
-        {!match ? (
+        {pendingStart ? (
+          <div className={styles.result}>
+            <div className={styles.eyebrow}>One More Thing</div>
+            <h2 className={styles.resultName}>Which device are you presenting on?</h2>
+            <p className={styles.lede}>
+              This is what shows up in reports as &quot;what device sells the most&quot; — pick the
+              one you&apos;re actually holding.
+            </p>
+            <div className={styles.deviceGrid}>
+              {(["Tab", "TV", "Kiosk", "Laptop", "Mobile"] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  className={styles.deviceOption}
+                  onClick={() => confirmDevice(d)}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+            <button type="button" className={styles.back} onClick={() => setPendingStart(null)}>
+              Cancel
+            </button>
+          </div>
+        ) : !match ? (
           <>
             <div className={styles.eyebrow}>Search Customer</div>
             <h1 className={styles.title}>Start a presentation</h1>

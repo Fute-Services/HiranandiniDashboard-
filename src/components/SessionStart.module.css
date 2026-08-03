@@ -336,6 +336,29 @@
   margin-bottom: 26px;
 }
 
+.deviceGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.deviceOption {
+  font-size: 14px;
+  color: #f4f2ec;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  padding: 14px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.deviceOption:hover {
+  background: rgba(232, 185, 58, 0.16);
+  border-color: rgba(232, 185, 58, 0.5);
+}
+
 .gridItem {
   display: flex;
   flex-direction: column;

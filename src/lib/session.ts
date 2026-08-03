@@ -27,6 +27,13 @@ export type SessionEvent = {
  */
 const ACTIVE_SESSION_KEY = "hiranandani_active_session";
 
+/** Which physical device this presentation is running on — chosen by the
+ * staff member at "Start Session" rather than guessed from the browser's
+ * user-agent string, which can only ever say "Chrome · Windows," not
+ * "Tab" vs. "TV" vs. "Kiosk." Null for walk-in/legacy sessions where it
+ * was never asked. */
+export type DeviceType = "Tab" | "TV" | "Kiosk" | "Laptop" | "Mobile";
+
 export type ActiveSession = {
   lead: Lead;
   startedAt: number;
@@ -34,6 +41,7 @@ export type ActiveSession = {
   events: SessionEvent[];
   currentStep: string | null;
   currentStepEnteredAt: number | null;
+  deviceType: DeviceType | null;
 };
 
 /**
@@ -62,7 +70,7 @@ function writeRaw(value: string) {
   }
 }
 
-export function setActiveSession(lead: Lead) {
+export function setActiveSession(lead: Lead, deviceType: DeviceType | null = null) {
   const session: ActiveSession = {
     lead,
     startedAt: Date.now(),
@@ -70,6 +78,7 @@ export function setActiveSession(lead: Lead) {
     events: [],
     currentStep: null,
     currentStepEnteredAt: null,
+    deviceType,
   };
   writeRaw(JSON.stringify(session));
 }
@@ -101,6 +110,7 @@ function trackForSession(session: ActiveSession, type: ActivityType, label: stri
     leadId: session.lead.leadId,
     leadName: session.lead.name,
     durationMs,
+    device: session.deviceType ?? undefined,
     ...actorFields(staff.email, staff.name),
   });
 }

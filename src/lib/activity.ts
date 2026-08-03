@@ -53,7 +53,13 @@ export type ActivityEvent = {
   location: string | null;
 };
 
-export type NewActivityEvent = Omit<ActivityEvent, "id" | "at" | "device" | "location">;
+export type NewActivityEvent = Omit<ActivityEvent, "id" | "at" | "device" | "location"> & {
+  /** Staff-chosen device type (Tab/TV/Kiosk/…, see lib/session.ts), when the
+   * event happens inside a presentation session. Falls back to the raw
+   * `navigator.userAgent` when omitted — a browser string is still better
+   * than nothing for events outside a session (login, search). */
+  device?: string;
+};
 
 /** Generates a new per-login session id, stored in a cookie by lib/auth.ts
  * so every event logged between login and logout carries the same id. */
@@ -69,7 +75,7 @@ export function track(event: NewActivityEvent) {
     fetchWithTimeout("/api/activity", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...event, device: navigator.userAgent }),
+      body: JSON.stringify({ ...event, device: event.device ?? navigator.userAgent }),
       keepalive: true,
     }).catch(() => {});
   } catch {

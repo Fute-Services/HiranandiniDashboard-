@@ -404,10 +404,16 @@ function buildInterestBreakdown(list: Presentation[]) {
  * sales," not just "which device is used most." `leadStatusById` comes from
  * the real `leads` table (`Booked` status), joined here by leadId.
  */
+/** Device types staff pick themselves at "Start Session" (see
+ * lib/session.ts's DeviceType) — a real answer to "which device," unlike
+ * `shortDevice`'s browser/OS guess, so this is preferred whenever an event
+ * actually has one. */
+const KNOWN_DEVICE_TYPES = new Set(["Tab", "TV", "Kiosk", "Laptop", "Mobile"]);
+
 function buildDeviceBreakdown(presentations: Presentation[], leadStatusById: Map<string, string>) {
   const byDevice = new Map<string, { sessions: number; bookedLeads: Set<string> }>();
   for (const p of presentations) {
-    const device = shortDevice(p.device) ?? "Unknown";
+    const device = (p.device && KNOWN_DEVICE_TYPES.has(p.device) ? p.device : shortDevice(p.device)) ?? "Unknown";
     const row = byDevice.get(device) ?? { sessions: 0, bookedLeads: new Set<string>() };
     row.sessions += 1;
     if (leadStatusById.get(p.leadId) === "Booked") row.bookedLeads.add(p.leadId);
