@@ -898,23 +898,19 @@
   gap: 6px;
 }
 
-/* Left column (buttons) + right panel (selected report), instead of a
-   modal — the report renders in the space beside the list, same pattern
-   as .customersLayout's table+rail. Bounded to the viewport height with
-   each side scrolling internally, so picking a report never grows the
-   page itself. */
+/* Buttons on top, full width; the selected report renders in a panel
+   below the whole button block, not beside it — so the button groups get
+   the full page width and the panel doesn't fight them for space. */
 .reportLayout {
-  display: grid;
-  grid-template-columns: 260px 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-  align-items: start;
 }
 
-/* The button list flows naturally, full height, no internal scrollbar —
-   only the report panel (which can hold a long table) scrolls within
-   itself if it needs to. */
 .reportButtonColumn {
-  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .reportPanel {
@@ -922,8 +918,6 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
   padding: 16px;
-  overflow-y: auto;
-  max-height: calc(100vh - 260px);
 }
 
 .reportPanelTitle {
