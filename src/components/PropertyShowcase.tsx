@@ -369,7 +369,7 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
         </button>
 
         <div className={styles.shelf}>
-          <div className={styles.shelfLabel}>Hiranandani Portfolio &middot; 2026</div>
+          <div className={styles.shelfLabel}>Fute Services Portfolio &middot; 2026</div>
           <div className={styles.cards} ref={cardsRef}>
             {/* No loading placeholder here on purpose: these cards are
                 choreographed to fly in several seconds after mount anyway

@@ -109,7 +109,7 @@ export function EarthPortal() {
       {!group && (
         <div className={styles.welcome}>
           <div>
-            <div className={styles.eyebrow}>Hiranandani Portfolio</div>
+            <div className={styles.eyebrow}>Fute Services Portfolio</div>
             <div className={styles.groupGrid}>
               {portfolioGroups.map((g) => (
                 <button
@@ -187,7 +187,7 @@ export function EarthPortal() {
             <div>
               <div className={styles.lightBrandRow}>
                 <span className={styles.lightDiamond} />
-                <span className={styles.lightBrand}>Hiranandani</span>
+                <span className={styles.lightBrand}>Fute Services</span>
               </div>
               <h1 className={styles.lightTitle}>{group.name}</h1>
               <div className={styles.lightSubtitle}>

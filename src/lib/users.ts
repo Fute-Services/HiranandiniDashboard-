@@ -46,7 +46,7 @@ export function isNewJoiner(user: Pick<User, "joiningDate">, now: number): boole
 
 export const USERS: User[] = [
   {
-    email: "admin@hiranandani.com",
+    email: "admin@futeservices.com",
     // admin123
     passwordHash:
       "0c14dfb30c222d222a0e78f2daa8af18:0979c78b3b6a713bdf09022b14f1b82c4fbc3770261c1b8611f84f4365e68e427e88ccd55351e6cc42ba4e11b4712843b6d03b348f43cea9194efc4abad132d2",
@@ -54,7 +54,7 @@ export const USERS: User[] = [
     role: "admin",
   },
   {
-    email: "manager@hiranandani.com",
+    email: "manager@futeservices.com",
     // manager123
     passwordHash:
       "ab9eedd6498fa9df1da2df9630f29740:3b8fb6b30d5d5d1c5d2fd1e4b1930efae54ac018bc925dab2f6bda338ed60444e98323256f13d262e5a420a7633251a3dd16e9152ca33cb23faeb73cc203b58f",
@@ -62,31 +62,31 @@ export const USERS: User[] = [
     role: "sales_manager",
   },
   {
-    email: "staff@hiranandani.com",
+    email: "staff@futeservices.com",
     // staff123
     passwordHash:
       "4644e62880d7921d78bf033a87f2da01:c4305fd8233a9961753343754031a441d878e4bc8986020c10a97ce884bf3f25e705eff26805f676a3b1cc910e69f2f6397f1d18ace7b260c048294100bd7da3",
     name: "Sales Staff",
     role: "sales_staff",
-    managerEmail: "manager@hiranandani.com",
+    managerEmail: "manager@futeservices.com",
   },
   {
-    email: "aditya@hiranandani.com",
+    email: "aditya@futeservices.com",
     // staff123
     passwordHash:
       "4644e62880d7921d78bf033a87f2da01:c4305fd8233a9961753343754031a441d878e4bc8986020c10a97ce884bf3f25e705eff26805f676a3b1cc910e69f2f6397f1d18ace7b260c048294100bd7da3",
     name: "Aditya Rane",
     role: "sales_staff",
-    managerEmail: "manager@hiranandani.com",
+    managerEmail: "manager@futeservices.com",
   },
   {
-    email: "sneha@hiranandani.com",
+    email: "sneha@futeservices.com",
     // staff123
     passwordHash:
       "4644e62880d7921d78bf033a87f2da01:c4305fd8233a9961753343754031a441d878e4bc8986020c10a97ce884bf3f25e705eff26805f676a3b1cc910e69f2f6397f1d18ace7b260c048294100bd7da3",
     name: "Sneha Iyer",
     role: "sales_staff",
-    managerEmail: "manager@hiranandani.com",
+    managerEmail: "manager@futeservices.com",
   },
 ];
 

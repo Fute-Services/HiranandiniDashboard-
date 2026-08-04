@@ -14,9 +14,9 @@ const now = Date.now();
 const day = 24 * 60 * 60 * 1000;
 
 const staff = [
-  { email: "staff@hiranandani.com", name: "Sales Staff", managerEmail: "manager@hiranandani.com" },
-  { email: "aditya@hiranandani.com", name: "Aditya Rane", managerEmail: "manager@hiranandani.com" },
-  { email: "sneha@hiranandani.com", name: "Sneha Iyer", managerEmail: "manager@hiranandani.com" },
+  { email: "staff@futeservices.com", name: "Sales Staff", managerEmail: "manager@futeservices.com" },
+  { email: "aditya@futeservices.com", name: "Aditya Rane", managerEmail: "manager@futeservices.com" },
+  { email: "sneha@futeservices.com", name: "Sneha Iyer", managerEmail: "manager@futeservices.com" },
 ];
 // Golden Willows/Elena repeat across leads on purpose — Top-Shown Projects
 // otherwise had every project opened exactly once and rendered as identical

@@ -18,6 +18,14 @@ const jetbrains = JetBrains_Mono({
   display: "swap",
 });
 
+// One demo button per role, not one per account — USERS has multiple
+// sales_staff accounts (real login credentials, still used by seed data and
+// existing activity), but "DEMO MODE" only needs to show what each role's
+// dashboard looks like.
+const DEMO_USERS = (["admin", "sales_manager", "sales_staff"] as const).map(
+  (role) => USERS.find((u) => u.role === role)!,
+);
+
 const Eye = (
   <svg
     width="18"
@@ -192,7 +200,7 @@ export default function LoginPage() {
               <div className={`${styles.mono} ${styles.welcome}`}>
                 WELCOME&nbsp;BACK
               </div>
-              <h1 className={styles.title}>HIRANANDANI</h1>
+              <h1 className={styles.title}>FUTE SERVICES</h1>
               <p className={styles.lede}>
                 Sign in to manage your property portfolio, track projects and
                 access secure documents.
@@ -236,7 +244,7 @@ export default function LoginPage() {
                     setEmail(e.target.value);
                     if (error) setError("");
                   }}
-                  placeholder="you@hiranandani.com"
+                  placeholder="you@futeservices.com"
                   autoComplete="email"
                   required
                   className={styles.input}
@@ -301,7 +309,7 @@ export default function LoginPage() {
               <span className={styles.demoLabel}>DEMO&nbsp;MODE</span>
             </div>
             <div className={styles.demoButtons}>
-              {USERS.map((user) => (
+              {DEMO_USERS.map((user) => (
                 <button
                   key={user.email}
                   type="button"

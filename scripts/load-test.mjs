@@ -11,9 +11,9 @@ const BASE_URL = process.argv[2] ?? "http://localhost:3000";
 const CONCURRENCY = Number(process.argv[3] ?? 25);
 
 const DEMO_EMAILS = [
-  "staff@hiranandani.com",
-  "aditya@hiranandani.com",
-  "sneha@hiranandani.com",
+  "staff@futeservices.com",
+  "aditya@futeservices.com",
+  "sneha@futeservices.com",
 ];
 
 function parseCookie(setCookieHeaders, name) {
