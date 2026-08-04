@@ -3455,7 +3455,6 @@ function ChatPanel() {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && send()}
-            disabled={sending}
           />
           <button
             type="button"
