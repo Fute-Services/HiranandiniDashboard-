@@ -48,6 +48,6 @@ export async function createStaff(input: CreateStaffInput): Promise<{ ok: boolea
     if (!res.ok) return { ok: false, error: data?.error ?? "Something went wrong." };
     return { ok: true };
   } catch {
-    return { ok: false, error: "Network error — please try again." };
+    return { ok: false, error: "Network error, please try again." };
   }
 }

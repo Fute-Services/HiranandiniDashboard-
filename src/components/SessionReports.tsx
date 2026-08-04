@@ -12,6 +12,7 @@ import { getInventory, setUnitsLeft } from "@/lib/inventory";
 import { setActiveSession } from "@/lib/session";
 import { findUserByEmail, isNewJoiner } from "@/lib/users";
 import { createStaff, listStaff, type StaffUser } from "@/lib/staff";
+import { fetchWithTimeout, readJsonSafe } from "@/lib/http";
 import { portfolioGroups } from "@/data/properties";
 import { LoadingBlock, Spinner } from "./Spinner";
 
@@ -594,6 +595,12 @@ export const SearchIcon = (
   <svg {...iconProps}>
     <circle cx="10.5" cy="10.5" r="6.5" />
     <path d="M20 20l-4.35-4.35" />
+  </svg>
+);
+
+const SendIcon = (
+  <svg {...iconProps}>
+    <path d="M4 12l16-8-6.5 8L20 20 4 12z" />
   </svg>
 );
 
@@ -3311,6 +3318,13 @@ export function SessionReports({
           ))}
       </div>
 
+      {renderDock()}
+      <ChatPanel />
+    </div>
+  );
+
+  function renderDock() {
+    return (
       <nav className={styles.sideDock} aria-label="Dashboard sections and actions">
         {VIEW_TABS.filter((t) => !t.adminOnly || viewer?.role === "admin").map((t) => (
           <button
@@ -3360,6 +3374,100 @@ export function SessionReports({
           )}
         </button>
       </nav>
-    </div>
+    );
+  }
+}
+
+type ChatMessage = { id: string; role: "user" | "assistant" | "error"; text: string };
+
+/** Right-side panel, replacing the second nav copy. Talks to /api/chat,
+ * which calls Groq server-side (see src/app/api/chat/route.ts) so the API
+ * key never reaches the browser. */
+function ChatPanel() {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const send = async () => {
+    const text = draft.trim();
+    if (!text || sending) return;
+    const next = [...messages, { id: crypto.randomUUID(), role: "user" as const, text }];
+    setMessages(next);
+    setDraft("");
+    setSending(true);
+    try {
+      const res = await fetchWithTimeout("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: next.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text })),
+        }),
+      });
+      const data = await readJsonSafe<{ reply?: string; error?: string }>(res);
+      if (!res.ok || !data?.reply) {
+        setMessages((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), role: "error", text: data?.error ?? "Something went wrong." },
+        ]);
+        return;
+      }
+      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", text: data.reply! }]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "error", text: "Network error, please try again." },
+      ]);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <aside className={styles.chatPanel} aria-label="Assistant">
+      <div className={styles.chatHeader}>Assistant</div>
+      <div className={styles.chatMessages}>
+        {messages.length === 0 ? (
+          <p className={styles.chatEmpty}>Ask me anything about this dashboard.</p>
+        ) : (
+          messages.map((m) => (
+            <div
+              key={m.id}
+              className={`${styles.chatBubble} ${m.role !== "user" ? styles.chatBubbleAssistant : ""} ${
+                m.role === "error" ? styles.chatBubbleError : ""
+              }`}
+            >
+              {m.text}
+            </div>
+          ))
+        )}
+        {sending && (
+          <div className={`${styles.chatBubble} ${styles.chatBubbleAssistant}`}>
+            <Spinner size={11} />
+          </div>
+        )}
+      </div>
+      <div className={styles.chatInputRow}>
+        <div className={styles.chatInputWrap}>
+          <input
+            type="text"
+            className={styles.chatInput}
+            placeholder="Type a message…"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && send()}
+            disabled={sending}
+          />
+          <button
+            type="button"
+            className={styles.chatSendBtn}
+            onClick={send}
+            disabled={!draft.trim() || sending}
+            aria-label="Send"
+          >
+            {SendIcon}
+          </button>
+        </div>
+      </div>
+    </aside>
   );
 }
