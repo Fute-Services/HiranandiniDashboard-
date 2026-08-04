@@ -10,7 +10,8 @@ import { fetchControlState, kickStaff, restoreLogin, setProjectBlockedFor } from
 import { createWalkInLead, deleteLead, isStaleLead, listLeads, setLeadStatus, type Lead, type LeadStatus } from "@/lib/leads";
 import { getInventory, setUnitsLeft } from "@/lib/inventory";
 import { setActiveSession } from "@/lib/session";
-import { findUserByEmail, isNewJoiner, USERS } from "@/lib/users";
+import { findUserByEmail, isNewJoiner } from "@/lib/users";
+import { createStaff, listStaff, type StaffUser } from "@/lib/staff";
 import { portfolioGroups } from "@/data/properties";
 import { LoadingBlock, Spinner } from "./Spinner";
 
@@ -410,14 +411,18 @@ function buildInterestBreakdown(list: Presentation[]) {
  * actually has one. */
 const KNOWN_DEVICE_TYPES = new Set(["Tab", "TV", "Kiosk", "Laptop"]);
 
+/** Tab/TV/Kiosk/Laptop only — a session where nobody picked a device type
+ * (walk-in/legacy, see lib/session.ts) falls back to the raw browser
+ * user-agent, and showing that next to "Kiosk"/"TV" reads as a stray
+ * "Browser" row rather than a real device category, so it's left out here. */
 function buildDeviceBreakdown(presentations: Presentation[], leadStatusById: Map<string, string>) {
   const byDevice = new Map<string, { sessions: number; bookedLeads: Set<string> }>();
   for (const p of presentations) {
-    const device = (p.device && KNOWN_DEVICE_TYPES.has(p.device) ? p.device : shortDevice(p.device)) ?? "Unknown";
-    const row = byDevice.get(device) ?? { sessions: 0, bookedLeads: new Set<string>() };
+    if (!p.device || !KNOWN_DEVICE_TYPES.has(p.device)) continue;
+    const row = byDevice.get(p.device) ?? { sessions: 0, bookedLeads: new Set<string>() };
     row.sessions += 1;
     if (leadStatusById.get(p.leadId) === "Booked") row.bookedLeads.add(p.leadId);
-    byDevice.set(device, row);
+    byDevice.set(p.device, row);
   }
   return [...byDevice.entries()]
     .map(([device, r]) => ({ device, sessions: r.sessions, booked: r.bookedLeads.size }))
@@ -438,6 +443,22 @@ function buildBlockFrequency(events: ActivityEvent[]) {
   return [...counts.entries()]
     .map(([label, count]) => ({ label, count }))
     .sort((a, b) => b.count - a.count);
+}
+
+/** Per-block detail rows — same event log as buildBlockFrequency, but kept
+ * apart: this powers a row-per-block table (which project, who blocked it,
+ * why), not the by-manager chart. Label format is set by
+ * StaffControlPanel's toggleBlocked: "<project> blocked by <name> —
+ * reason: <reason>". */
+function buildBlockDetails(events: ActivityEvent[]) {
+  const rows: { at: number; project: string; blockedBy: string; reason: string }[] = [];
+  for (const e of events) {
+    if (e.type !== "status" || !e.label.includes(" blocked by ")) continue;
+    const [beforeReason, reason] = e.label.split(" — reason: ");
+    const [project, blockedBy] = beforeReason.split(" blocked by ");
+    rows.push({ at: e.at, project, blockedBy, reason: reason ?? "No reason given" });
+  }
+  return rows.sort((a, b) => b.at - a.at);
 }
 
 /** How often the VR tour actually failed to load per staff member — reads
@@ -569,6 +590,13 @@ export const UsersIcon = (
   </svg>
 );
 
+export const SearchIcon = (
+  <svg {...iconProps}>
+    <circle cx="10.5" cy="10.5" r="6.5" />
+    <path d="M20 20l-4.35-4.35" />
+  </svg>
+);
+
 export const ClockIcon = (
   <svg {...iconProps}>
     <circle cx="12" cy="12" r="9" />
@@ -587,7 +615,7 @@ const EmptyIcon = (
  * already names what's plotted. Every bar carries its own hover/focus
  * tooltip; the tallest bar is direct-labeled so the peak reads without
  * hovering at all. */
-function TrendChart({ data }: { data: { label: string; count: number }[] }) {
+function TrendChart({ data, accent }: { data: { label: string; count: number }[]; accent?: string }) {
   const max = Math.max(1, ...data.map((d) => d.count));
   const peakIndex = data.reduce(
     (best, d, i) => (d.count > data[best].count ? i : best),
@@ -595,7 +623,7 @@ function TrendChart({ data }: { data: { label: string; count: number }[] }) {
   );
 
   return (
-    <div className={styles.chartCard}>
+    <div className={styles.chartCard} style={accent ? ({ "--chart-accent": accent } as React.CSSProperties) : undefined}>
       <div className={styles.chartTitle}>Presentations &middot; Last {TREND_DAYS} Days</div>
       <div className={styles.trendChart}>
         {data.map((d, i) => (
@@ -629,11 +657,11 @@ function TrendChart({ data }: { data: { label: string; count: number }[] }) {
  * rather than the column form above. Room on this axis to direct-label
  * every value, so no hover is needed to read it (hover still lifts the bar
  * as a response cue). */
-function TopPropertiesChart({ data }: { data: { label: string; count: number }[] }) {
+function TopPropertiesChart({ data, accent }: { data: { label: string; count: number }[]; accent?: string }) {
   const max = Math.max(1, ...data.map((d) => d.count));
 
   return (
-    <div className={styles.chartCard}>
+    <div className={styles.chartCard} style={accent ? ({ "--chart-accent": accent } as React.CSSProperties) : undefined}>
       <div className={styles.chartTitle}>Most-Shown Projects</div>
       {data.length === 0 ? (
         <p className={styles.chartEmpty}>No projects opened yet.</p>
@@ -688,6 +716,163 @@ function PresentationsMiniTable({ rows }: { rows: Presentation[] }) {
   );
 }
 
+const IDLE_RANGES = [
+  { key: "today", label: "Today", days: 0 },
+  { key: "14d", label: "14 Days", days: 14 },
+  { key: "30d", label: "30 Days", days: 30 },
+  { key: "60d", label: "60 Days", days: 60 },
+] as const;
+
+/** Which staff had zero sessions in a window — its own Today/14/30/60-day
+ * presets and staff picker, independent of the page-level date range and
+ * staff filter above, since "who's gone quiet" is its own question with its
+ * own timeframe, not necessarily whatever the rest of the page is showing. */
+function IdleStaffReport({
+  presentations,
+  staffList,
+  onSelectStaff,
+}: {
+  presentations: Presentation[];
+  staffList: { email: string; name: string }[];
+  /** Jumps straight to that person's profile in Staff Activity — otherwise
+   * this list is a dead end: a name with no way to act on it. */
+  onSelectStaff: (staff: { email: string; name: string }) => void;
+}) {
+  const [rangeKey, setRangeKey] = useState<(typeof IDLE_RANGES)[number]["key"]>("today");
+  const [staffEmail, setStaffEmail] = useState("");
+  const [search, setSearch] = useState("");
+  const range = IDLE_RANGES.find((r) => r.key === rangeKey) ?? IDLE_RANGES[0];
+
+  const cutoff = useMemo(() => {
+    const startOfToday = new Date().setHours(0, 0, 0, 0);
+    return range.days === 0 ? startOfToday : startOfToday - range.days * DAY_MS;
+  }, [range.days]);
+
+  const staffWithSessions = useMemo(
+    () => new Set(presentations.filter((p) => p.startedAt >= cutoff).map((p) => p.staffEmail)),
+    [presentations, cutoff],
+  );
+
+  // All-time last session per staff, not just within the window above — so
+  // an idle chip can say "quiet for 12 days" instead of a flat yes/no.
+  const lastSeenByStaff = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of presentations) {
+      const prev = map.get(p.staffEmail);
+      if (prev === undefined || p.startedAt > prev) map.set(p.staffEmail, p.startedAt);
+    }
+    return map;
+  }, [presentations]);
+
+  const idle = staffList
+    .filter((s) => !staffWithSessions.has(s.email))
+    .filter((s) => !staffEmail || s.email === staffEmail)
+    .filter((s) => s.name.toLowerCase().includes(search.trim().toLowerCase()));
+
+  // Client-side CSV, no backend — this list is small (a handful of names)
+  // and the point is just getting it into a spreadsheet a manager already
+  // has open, not building an export pipeline.
+  const exportCsv = () => {
+    const rows = [
+      ["Name", "Email", "Last Active"],
+      ...idle.map((s) => {
+        const lastSeen = lastSeenByStaff.get(s.email);
+        return [s.name, s.email, lastSeen ? new Date(lastSeen).toLocaleString() : "Never"];
+      }),
+    ];
+    const csv = rows.map((r) => r.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `idle-staff-${range.key}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Opens the manager's own mail client with the idle staff pre-filled as
+  // recipients — nothing is sent from here, it just hands off to whatever
+  // they already use for email, no messaging backend needed.
+  const notifyHref = `mailto:${idle.map((s) => s.email).join(",")}?subject=${encodeURIComponent(
+    "Just checking in",
+  )}&body=${encodeURIComponent(
+    `Hi,\n\nI noticed you haven't had a session logged in the last ${range.label.toLowerCase()}. Everything okay? Let me know if you're stuck on something or need help with a lead.\n\nThanks`,
+  )}`;
+
+  return (
+    <>
+      <div className={`${styles.reportPanelTitle} ${styles.idleHeader}`}>
+        <span>Staff With Zero Sessions</span>
+        <div className={styles.idleControls}>
+          <div className={styles.idleRangeButtons}>
+            {IDLE_RANGES.map((r) => (
+              <button
+                key={r.key}
+                type="button"
+                className={`${styles.idleRangeBtn} ${rangeKey === r.key ? styles.idleRangeBtnActive : ""}`}
+                onClick={() => setRangeKey(r.key)}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+          <StyledDropdown
+            value={staffEmail}
+            placeholder="All Sales Staff"
+            options={staffList.map((s) => ({ value: s.email, label: s.name }))}
+            onChange={setStaffEmail}
+          />
+          <div className={styles.searchInputWrap}>
+            <span className={styles.searchInputIcon}>{SearchIcon}</span>
+            <input
+              type="text"
+              className={`${styles.filterInput} ${styles.searchInput}`}
+              placeholder="Search staff…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+      <div className={`${styles.chartCard} ${styles.idleBody}`}>
+        {idle.length === 0 ? (
+          <p className={styles.chartEmpty}>Everyone had a session in the last {range.label.toLowerCase()}.</p>
+        ) : (
+          <>
+            <div className={styles.idleActions}>
+              <button type="button" className={styles.idleActionBtn} onClick={exportCsv}>
+                Export CSV
+              </button>
+              <a href={notifyHref} className={styles.idleActionBtn}>
+                Notify by Email
+              </a>
+            </div>
+            <div className={styles.idleStaffList}>
+              {idle.map((s) => {
+                const lastSeen = lastSeenByStaff.get(s.email);
+                const daysAgo = lastSeen ? Math.floor((Date.now() - lastSeen) / DAY_MS) : null;
+                return (
+                  <button
+                    key={s.email}
+                    type="button"
+                    className={styles.idleStaffChip}
+                    onClick={() => onSelectStaff(s)}
+                    title={`View ${s.name}'s activity`}
+                  >
+                    {s.name}
+                    <span className={styles.idleStaffChipMeta}>
+                      {daysAgo === null ? "Never active" : daysAgo === 0 ? "Today" : `${daysAgo}d ago`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
 function StaffLeaderboard({
   rows,
 }: {
@@ -699,40 +884,27 @@ function StaffLeaderboard({
       {rows.length === 0 ? (
         <p className={styles.chartEmpty}>No sessions to compare yet.</p>
       ) : (
-        <table className={styles.miniTable}>
-          <thead>
-            <tr>
-              <th>Sales Staff</th>
-              <th>Sessions</th>
-              <th>Customers</th>
-              <th>Shown</th>
-              <th>Avg. Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const user = findUserByEmail(r.email);
-              const isNew = user ? isNewJoiner(user, Date.now()) : false;
-              return (
-              <tr key={r.email}>
-                <td>
-                  <div className={styles.customer}>
-                    <span className={styles.avatar}>{initials(r.staffName)}</span>
-                    <span>
-                      {r.staffName}
-                      {isNew && <span className={styles.newJoinerBadge}>New</span>}
-                    </span>
-                  </div>
-                </td>
-                <td className={styles.numCell}>{r.sessions}</td>
-                <td className={styles.numCell}>{r.customers}</td>
-                <td className={styles.numCell}>{r.shown}</td>
-                <td className={styles.numCell}>{formatDuration(r.avgMs)}</td>
-              </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className={styles.blockDetailList}>
+          {rows.map((r) => {
+            const user = findUserByEmail(r.email);
+            const isNew = user ? isNewJoiner(user, Date.now()) : false;
+            return (
+              <div key={r.email} className={styles.blockDetailRow}>
+                <div className={styles.customer}>
+                  <span className={styles.avatar}>{initials(r.staffName)}</span>
+                  <span className={styles.blockDetailProject}>
+                    {r.staffName}
+                    {isNew && <span className={styles.newJoinerBadge}>New</span>}
+                  </span>
+                </div>
+                <div className={styles.blockDetailMeta}>
+                  {r.sessions} session{r.sessions === 1 ? "" : "s"} &middot; {r.customers} customer
+                  {r.customers === 1 ? "" : "s"} &middot; {r.shown} shown &middot; {formatDuration(r.avgMs)} avg.
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -745,15 +917,17 @@ function ContentBreakdownChart({
   data,
   title = "What Gets Shown",
   emptyLabel = "Nothing shown to customers yet.",
+  accent,
 }: {
   data: { label: string; count: number }[];
   title?: string;
   emptyLabel?: string;
+  accent?: string;
 }) {
   const max = Math.max(1, ...data.map((d) => d.count));
 
   return (
-    <div className={styles.chartCard}>
+    <div className={styles.chartCard} style={accent ? ({ "--chart-accent": accent } as React.CSSProperties) : undefined}>
       <div className={styles.chartTitle}>{title}</div>
       {data.length === 0 ? (
         <p className={styles.chartEmpty}>{emptyLabel}</p>
@@ -776,12 +950,12 @@ function ContentBreakdownChart({
 
 /** Presentation starts by hour of day — a column chart, same as the daily
  * trend, because it's also a distribution across ordered time buckets. */
-function BusyHoursChart({ data }: { data: { label: string; count: number }[] }) {
+function BusyHoursChart({ data, accent }: { data: { label: string; count: number }[]; accent?: string }) {
   const max = Math.max(1, ...data.map((d) => d.count));
   const peakIndex = data.reduce((best, d, i) => (d.count > (data[best]?.count ?? 0) ? i : best), 0);
 
   return (
-    <div className={styles.chartCard}>
+    <div className={styles.chartCard} style={accent ? ({ "--chart-accent": accent } as React.CSSProperties) : undefined}>
       <div className={styles.chartTitle}>Busiest Hours</div>
       {data.length === 0 ? (
         <p className={styles.chartEmpty}>No sessions to plot yet.</p>
@@ -891,6 +1065,123 @@ function StyledDropdown({
   );
 }
 
+const STAFF_ROLE_OPTIONS = [
+  { value: "sales_staff", label: "Sales Staff" },
+  { value: "sales_manager", label: "Sales Manager" },
+  { value: "admin", label: "Admin" },
+];
+
+/** Admin-only "create account" form — reuses the confirm-dialog shell
+ * (.confirmOverlay/.confirmCard) rather than the read-only .modal, since
+ * this one actually has fields and a submit action, closer in shape to the
+ * existing block-reason picker than to a report viewer. */
+function AddStaffModal({
+  managerList,
+  onClose,
+  onCreated,
+}: {
+  managerList: StaffUser[];
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"sales_staff" | "sales_manager" | "admin">("sales_staff");
+  const [managerEmail, setManagerEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async () => {
+    setError("");
+    if (role === "sales_staff" && !managerEmail) {
+      setError("Pick a manager for this staff member.");
+      return;
+    }
+    setSaving(true);
+    const result = await createStaff({
+      name,
+      email,
+      password,
+      role,
+      managerEmail: role === "sales_staff" ? managerEmail : undefined,
+    });
+    setSaving(false);
+    if (!result.ok) {
+      setError(result.error ?? "Something went wrong.");
+      return;
+    }
+    onCreated();
+  };
+
+  return (
+    <div className={styles.confirmOverlay} onClick={onClose}>
+      <div className={`${styles.confirmCard} ${styles.addStaffCard}`} onClick={(e) => e.stopPropagation()}>
+        <p className={styles.confirmMessage}>Add a new admin, sales manager, or sales staff account.</p>
+
+        <div className={styles.addStaffFields}>
+          <input
+            type="text"
+            className={styles.filterInput}
+            placeholder="Full name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <input
+            type="email"
+            className={styles.filterInput}
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            className={styles.filterInput}
+            placeholder="Password (min. 8 characters)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <StyledDropdown
+            value={role}
+            placeholder="Role"
+            options={STAFF_ROLE_OPTIONS}
+            onChange={(v) => {
+              setRole(v as "sales_staff" | "sales_manager" | "admin");
+              setManagerEmail("");
+            }}
+          />
+          {role === "sales_staff" && (
+            <StyledDropdown
+              value={managerEmail}
+              placeholder="Assign to manager…"
+              options={managerList.map((m) => ({ value: m.email, label: m.name }))}
+              onChange={setManagerEmail}
+            />
+          )}
+        </div>
+
+        {error && <p className={styles.addStaffError}>{error}</p>}
+
+        <div className={styles.confirmActions}>
+          <button type="button" className={styles.confirmCancel} onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button type="button" className={styles.addStaffSubmit} onClick={submit} disabled={saving}>
+            {saving ? (
+              <>
+                <Spinner size={11} />
+                Creating…
+              </>
+            ) : (
+              "Create Account"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** One entry per dashboard section — exactly one navbar button each, so no
  * two buttons ever open the same thing. */
 const VIEW_TABS = [
@@ -903,6 +1194,18 @@ const VIEW_TABS = [
   { key: "inventory" as const, label: "Inventory", adminOnly: true },
   { key: "logins" as const, label: "Login History" },
 ];
+
+/** What the page's <h1> reads per tab — the tab label alone ("Reports")
+ * read as orphaned once there were six of them, so each gets a fuller
+ * heading instead of the same static title regardless of which is open. */
+const VIEW_TITLES: Record<(typeof VIEW_TABS)[number]["key"], string> = {
+  customers: "Customer Visits",
+  staff: "Staff Activity",
+  analytics: "Reports",
+  leads: "Leads",
+  inventory: "Inventory",
+  logins: "Login History",
+};
 
 /** Selected reporting window. Both ends are midnight-aligned timestamps;
  * `to` is the *start* of the end day, and callers add a day to make the
@@ -1663,13 +1966,16 @@ function StaffControlPanel({
             </button>
           </div>
 
-          <input
-            type="text"
-            className={`${styles.filterInput} ${styles.chipSearchInput}`}
-            placeholder="Search customer…"
-            value={chipSearch}
-            onChange={(e) => setChipSearch(e.target.value)}
-          />
+          <div className={styles.searchInputWrap}>
+            <span className={styles.searchInputIcon}>{SearchIcon}</span>
+            <input
+              type="text"
+              className={`${styles.filterInput} ${styles.chipSearchInput} ${styles.searchInput}`}
+              placeholder="Search customer…"
+              value={chipSearch}
+              onChange={(e) => setChipSearch(e.target.value)}
+            />
+          </div>
 
           {filteredChips.length === 0 ? (
             <p className={styles.chartEmpty}>No customer matches &quot;{chipSearch}&quot;.</p>
@@ -1812,6 +2118,11 @@ function LeadsPanel({
   /** Which day(s) a lead was *created* on — defaults to today so the tab
    * opens on "who came in today," not the entire lead history at once. */
   const [range, setRange] = useState<DateRange>(presetRange("today"));
+  /** Name, phone, or project — the only way to find one specific lead used
+   * to be scrolling the whole (date-filtered) list. */
+  const [search, setSearch] = useState("");
+  /** "" means all statuses. */
+  const [statusFilter, setStatusFilter] = useState<LeadStatus | "">("");
 
   function revealPhone(leadId: string, leadName: string) {
     setRevealed((prev) => new Set(prev).add(leadId));
@@ -1851,9 +2162,21 @@ function LeadsPanel({
     const toExclusive = (range.to ?? range.from) + DAY_MS;
     return scoped.filter((l) => l.createdAt >= range.from! && l.createdAt < toExclusive);
   }, [scoped, range]);
+  const searched = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let rows = dateFiltered;
+    if (statusFilter) rows = rows.filter((l) => l.leadStatus === statusFilter);
+    if (!q) return rows;
+    return rows.filter(
+      (l) =>
+        l.name.toLowerCase().includes(q) ||
+        l.phone.toLowerCase().includes(q) ||
+        l.preferredProject.toLowerCase().includes(q),
+    );
+  }, [dateFiltered, search, statusFilter]);
   const now = Date.now();
-  const archivedCount = dateFiltered.filter((l) => isStaleLead(l, now)).length;
-  const visible = showArchived ? dateFiltered : dateFiltered.filter((l) => !isStaleLead(l, now));
+  const archivedCount = searched.filter((l) => isStaleLead(l, now)).length;
+  const visible = showArchived ? searched : searched.filter((l) => !isStaleLead(l, now));
 
   async function changeStatus(leadId: string, status: LeadStatus) {
     setSavingId(leadId);
@@ -1874,36 +2197,60 @@ function LeadsPanel({
 
   if (leads === null) return <LoadingBlock message="Loading leads…" />;
 
-  const booked = visible.filter((l) => l.leadStatus === "Booked").length;
-  const lost = visible.filter((l) => l.leadStatus === "Lost").length;
+  // Counts stay pinned to the date range only — independent of the
+  // status/search filters below them — so clicking "Booked" while "Lost" is
+  // already selected doesn't read as "0 booked."
+  const dateFilteredNotArchived = dateFiltered.filter((l) => showArchived || !isStaleLead(l, now));
+  const booked = dateFilteredNotArchived.filter((l) => l.leadStatus === "Booked").length;
+  const lost = dateFilteredNotArchived.filter((l) => l.leadStatus === "Lost").length;
 
   return (
     <>
       <div className={styles.filterBar}>
         <DateRangePicker range={range} onChange={setRange} />
+        <div className={styles.searchInputWrap}>
+          <span className={styles.searchInputIcon}>{SearchIcon}</span>
+          <input
+            type="text"
+            className={`${styles.filterInput} ${styles.searchInput}`}
+            placeholder="Search name, phone, or project…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <StyledDropdown
+          value={statusFilter}
+          placeholder="All Statuses"
+          options={LEAD_STATUSES.map((s) => ({ value: s, label: s }))}
+          onChange={(v) => setStatusFilter(v as LeadStatus | "")}
+        />
       </div>
       <div className={styles.statRow}>
-        <div className={styles.stat}>
+        <button type="button" className={`${styles.stat} ${styles.statButton}`} onClick={() => setStatusFilter("")}>
           <div className={`${styles.statIcon} ${styles.statIconIndigo}`}>{UsersIcon}</div>
           <div>
             <div className={styles.statLabel}>Total Leads</div>
-            <div className={styles.statValue}>{visible.length}</div>
+            <div className={styles.statValue}>{dateFilteredNotArchived.length}</div>
           </div>
-        </div>
-        <div className={styles.stat}>
+        </button>
+        <button
+          type="button"
+          className={`${styles.stat} ${styles.statButton}`}
+          onClick={() => setStatusFilter("Booked")}
+        >
           <div className={`${styles.statIcon} ${styles.statIconBlue}`}>{CalendarIcon}</div>
           <div>
             <div className={styles.statLabel}>Booked</div>
             <div className={styles.statValue}>{booked}</div>
           </div>
-        </div>
-        <div className={styles.stat}>
+        </button>
+        <button type="button" className={`${styles.stat} ${styles.statButton}`} onClick={() => setStatusFilter("Lost")}>
           <div className={`${styles.statIcon} ${styles.statIconGold}`}>{ClockIcon}</div>
           <div>
             <div className={styles.statLabel}>Lost</div>
             <div className={styles.statValue}>{lost}</div>
           </div>
-        </div>
+        </button>
       </div>
       {archivedCount > 0 && (
         <label className={styles.archiveToggle}>
@@ -1918,7 +2265,13 @@ function LeadsPanel({
       {visible.length === 0 ? (
         <div className={styles.empty}>
           <div className={styles.emptyIcon}>{EmptyIcon}</div>
-          <p>{range.from === undefined ? "No leads on file yet." : "No leads created in this date range."}</p>
+          <p>
+            {search || statusFilter
+              ? "No leads match this search/filter."
+              : range.from === undefined
+                ? "No leads on file yet."
+                : "No leads created in this date range."}
+          </p>
         </div>
       ) : (
         <div className={styles.tableWrap}>
@@ -2129,6 +2482,17 @@ export function SessionReports({
   useEffect(() => {
     listLeads().then(setLeadsForDeviceReport);
   }, []);
+
+  /** Sales manager/staff directory — merges the hardcoded demo accounts with
+   * admin-created ones (see /api/users), already scoped server-side to what
+   * this viewer is allowed to see. Re-fetched after a successful "Add
+   * Staff" so a newly created account shows up without a page reload. */
+  const [directory, setDirectory] = useState<StaffUser[]>([]);
+  const [directoryVersion, setDirectoryVersion] = useState(0);
+  useEffect(() => {
+    listStaff().then(setDirectory);
+  }, [directoryVersion]);
+  const [addStaffOpen, setAddStaffOpen] = useState(false);
   /** True whenever an activity request is in flight, including refetches
    * triggered by a changed filter — a table that already has last query's
    * rows in it otherwise looks like the new filter simply did nothing. */
@@ -2281,6 +2645,7 @@ export function SessionReports({
   const contentBreakdown = buildContentBreakdown(presentations);
   const interestBreakdown = buildInterestBreakdown(presentations);
   const blockFrequency = buildBlockFrequency(events ?? []);
+  const blockDetails = buildBlockDetails(events ?? []);
   const technicalIssues = buildTechnicalIssues(events ?? []);
   const managerComparison = viewer?.role === "admin" ? buildManagerComparison(presentations) : [];
   const managerAccountability = viewer?.role === "admin" ? buildManagerAccountability(events ?? []) : [];
@@ -2290,28 +2655,21 @@ export function SessionReports({
     [leadsForDeviceReport],
   );
   const deviceBreakdown = buildDeviceBreakdown(presentations, leadStatusById);
-  const staffList = USERS.filter(
-    (u) =>
-      u.role === "sales_staff" &&
-      (viewer?.role === "admin" || (viewer?.role === "sales_manager" && u.managerEmail === viewer.email)),
-  );
-  const staffWithSessionsToday = new Set(today.map((s) => s.staffEmail));
-  // Only meaningful against the unfiltered view — a staff filter narrows
-  // `today` down to one person and would otherwise flag everyone else as
-  // "zero sessions" for a reason that has nothing to do with their day.
-  const idleToday = staffFilter ? [] : staffList.filter((s) => !staffWithSessionsToday.has(s.email));
-
+  // Server-side scoped already (admin: everyone, sales_manager: own team +
+  // self) — see /api/users/route.ts.
+  const staffList = directory.filter((u) => u.role === "sales_staff");
+  const managerList = directory.filter((u) => u.role === "sales_manager");
   // Each report is its own button (see openReportKey) rather than an
   // always-visible card, so the Reports tab opens on a short list of
   // buttons instead of a wall of charts. Built as data, not duplicated JSX,
   // so the button grid and the modal both read from the same source.
-  type ReportItem = { key: string; label: string; content: React.ReactNode };
+  type ReportItem = { key: string; label: string; content: React.ReactNode; hideTitle?: boolean };
   const reportSections: { group: string; items: ReportItem[] }[] = [
     {
       group: "Overview",
       items: [
-        { key: "trend", label: "Presentations Trend", content: <TrendChart data={dayCounts} /> },
-        { key: "hours", label: "Busiest Hours", content: <BusyHoursChart data={busyHours} /> },
+        { key: "trend", label: "Presentations Trend", content: <TrendChart data={dayCounts} accent="#ff6b00" /> },
+        { key: "hours", label: "Busiest Hours", content: <BusyHoursChart data={busyHours} accent="#ffb35a" /> },
         {
           key: "devices",
           label: "Device Usage & Bookings",
@@ -2344,33 +2702,37 @@ export function SessionReports({
           ),
         },
         { key: "leaderboard", label: "Staff Performance", content: <StaffLeaderboard rows={staffLeaderboard} /> },
-        ...(idleToday.length > 0
-          ? [
-              {
-                key: "idle-today",
-                label: "Staff With Zero Sessions Today",
-                content: (
-                  <div className={styles.chartCard}>
-                    <div className={styles.chartTitle}>Staff With Zero Sessions Today</div>
-                    <div className={styles.idleStaffList}>
-                      {idleToday.map((s) => (
-                        <span key={s.email} className={styles.idleStaffChip}>
-                          {s.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ),
-              },
-            ]
-          : []),
+        {
+          key: "idle-today",
+          label: "Staff With Zero Sessions",
+          hideTitle: true,
+          content: (
+            <IdleStaffReport
+              presentations={presentations}
+              staffList={staffList}
+              onSelectStaff={(s) => {
+                setStaffFilter(s.email);
+                setProfile({ email: s.email, name: s.name });
+                setView("staff");
+              }}
+            />
+          ),
+        },
       ],
     },
     {
       group: "Content & Interest",
       items: [
-        { key: "top-properties", label: "Most-Shown Projects", content: <TopPropertiesChart data={topProperties} /> },
-        { key: "content-breakdown", label: "What Gets Shown", content: <ContentBreakdownChart data={contentBreakdown} /> },
+        {
+          key: "top-properties",
+          label: "Most-Shown Projects",
+          content: <TopPropertiesChart data={topProperties} accent="#ff9330" />,
+        },
+        {
+          key: "content-breakdown",
+          label: "What Gets Shown",
+          content: <ContentBreakdownChart data={contentBreakdown} accent="#e8b93a" />,
+        },
         {
           key: "interest",
           label: "Customer Interest Level",
@@ -2379,6 +2741,7 @@ export function SessionReports({
               data={interestBreakdown}
               title="Customer Interest Level"
               emptyLabel="No interest level recorded yet."
+              accent="#cc5500"
             />
           ),
         },
@@ -2395,6 +2758,7 @@ export function SessionReports({
               data={technicalIssues}
               title="Technical Issues (VR Load Failures)"
               emptyLabel="No VR load failures recorded."
+              accent="#e0453b"
             />
           ),
         },
@@ -2403,12 +2767,34 @@ export function SessionReports({
               {
                 key: "block-frequency",
                 label: "Project Blocks by Team",
+                hideTitle: true,
                 content: (
-                  <ContentBreakdownChart
-                    data={blockFrequency}
-                    title="Project Blocks by Team"
-                    emptyLabel="No projects blocked yet."
-                  />
+                  <>
+                    <ContentBreakdownChart
+                      data={blockFrequency}
+                      title="Project Blocks by Team"
+                      emptyLabel="No projects blocked yet."
+                      accent="#a8651d"
+                    />
+                    <div className={styles.chartCard}>
+                      <div className={styles.chartTitle}>Block Detail</div>
+                      {blockDetails.length === 0 ? (
+                        <p className={styles.chartEmpty}>No projects blocked yet.</p>
+                      ) : (
+                        <div className={styles.blockDetailList}>
+                          {blockDetails.map((r) => (
+                            <div key={r.at} className={styles.blockDetailRow}>
+                              <div className={styles.blockDetailProject}>{r.project}</div>
+                              <div className={styles.blockDetailMeta}>
+                                Blocked by {r.blockedBy} &middot; {r.reason} &middot;{" "}
+                                {new Date(r.at).toLocaleString()}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
                 ),
               },
               {
@@ -2504,12 +2890,6 @@ export function SessionReports({
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div className={styles.leftGroup}>
-          <div className={styles.brand}>
-            <div className={styles.diamond} />
-            <span className={styles.brandName}>{brandLabel}</span>
-          </div>
-        </div>
         <LiveClock />
       </header>
 
@@ -2521,7 +2901,7 @@ export function SessionReports({
       )}
 
       <div className={styles.eyebrow}>Reporting</div>
-      <h1 className={styles.title}>{title}</h1>
+      <h1 className={styles.title}>{VIEW_TITLES[view] ?? title}</h1>
 
       {/* Full filter bar only where it actually drives a table/chart
           (Customer Visits, Reports). Staff Activity keeps just the staff
@@ -2532,26 +2912,26 @@ export function SessionReports({
         <>
           <div className={styles.sectionTitle}>Search &amp; Filter</div>
           <div className={styles.filterBar}>
-            <StyledDropdown
-              value={staffFilter}
-              placeholder="All Sales Staff"
-              options={staffList.map((s) => ({ value: s.email, label: s.name }))}
-              onChange={(email) => {
-                setStaffFilter(email);
-                const staff = staffList.find((s) => s.email === email);
-                setProfile(staff ? { email: staff.email, name: staff.name } : null);
-                // Picking a staff member is a request to look at that staff
-                // member, so jump straight to their section.
-                if (staff) setView("staff");
-              }}
-            />
-            <input
-              type="text"
-              className={styles.filterInput}
-              placeholder="Customer or project…"
-              value={customerFilter}
-              onChange={(e) => setCustomerFilter(e.target.value)}
-            />
+            {/* Staff picker only on Reports — on Customer Visits it's just
+                the search box and date range. */}
+            {view === "analytics" && (
+              <StyledDropdown
+                value={staffFilter}
+                placeholder="All Sales Staff"
+                options={staffList.map((s) => ({ value: s.email, label: s.name }))}
+                onChange={(email) => setStaffFilter(email)}
+              />
+            )}
+            <div className={styles.searchInputWrap}>
+              <span className={styles.searchInputIcon}>{SearchIcon}</span>
+              <input
+                type="text"
+                className={`${styles.filterInput} ${styles.searchInput}`}
+                placeholder="Search Customer"
+                value={customerFilter}
+                onChange={(e) => setCustomerFilter(e.target.value)}
+              />
+            </div>
             <DateRangePicker range={range} onChange={setRange} />
           </div>
         </>
@@ -2562,17 +2942,20 @@ export function SessionReports({
           <div className={styles.sectionTitle}>Select Sales Staff</div>
           <div className={styles.filterBar}>
             <div className={styles.dropdownWrap} ref={staffSearchRef}>
-              <input
-                type="text"
-                className={styles.filterInput}
-                placeholder="Search staff by name…"
-                value={staffSearch}
-                onChange={(e) => {
-                  setStaffSearch(e.target.value);
-                  setStaffSearchOpen(true);
-                }}
-                onFocus={() => setStaffSearchOpen(true)}
-              />
+              <div className={styles.searchInputWrap}>
+                <span className={styles.searchInputIcon}>{SearchIcon}</span>
+                <input
+                  type="text"
+                  className={`${styles.filterInput} ${styles.searchInput}`}
+                  placeholder="Search staff by name…"
+                  value={staffSearch}
+                  onChange={(e) => {
+                    setStaffSearch(e.target.value);
+                    setStaffSearchOpen(true);
+                  }}
+                  onFocus={() => setStaffSearchOpen(true)}
+                />
+              </div>
               {staffSearchOpen && (
                 <ul className={styles.dropdownMenu} role="listbox">
                   {(() => {
@@ -2603,8 +2986,24 @@ export function SessionReports({
                 </ul>
               )}
             </div>
+            {viewer?.role === "admin" && (
+              <button type="button" className={styles.addStaffBtn} onClick={() => setAddStaffOpen(true)}>
+                + Add Staff
+              </button>
+            )}
           </div>
         </>
+      )}
+
+      {addStaffOpen && (
+        <AddStaffModal
+          managerList={managerList}
+          onClose={() => setAddStaffOpen(false)}
+          onCreated={() => {
+            setAddStaffOpen(false);
+            setDirectoryVersion((v) => v + 1);
+          }}
+        />
       )}
 
       {/* Just the date range — logins have no customer/project to search by,
@@ -2740,7 +3139,9 @@ export function SessionReports({
               <div className={styles.reportPanel}>
                 {openReportItem ? (
                   <>
-                    <div className={styles.reportPanelTitle}>{openReportItem.label}</div>
+                    {!openReportItem.hideTitle && (
+                      <div className={styles.reportPanelTitle}>{openReportItem.label}</div>
+                    )}
                     {openReportItem.content}
                   </>
                 ) : (
@@ -2939,6 +3340,9 @@ export function SessionReports({
           )}
         </button>
         <span className={styles.dockDivider} />
+        <div className={styles.dockLabel} aria-hidden="true">
+          {brandLabel}
+        </div>
         <button
           type="button"
           className={`${styles.dockBtn} ${styles.dockBtnDanger}`}

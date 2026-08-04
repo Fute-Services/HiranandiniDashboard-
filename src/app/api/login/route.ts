@@ -13,7 +13,8 @@ import { isSameOrigin } from "@/lib/csrf";
 import { getSql } from "@/lib/db";
 import { withJsonErrors } from "@/lib/api";
 import { signSessionToken } from "@/lib/session-token";
-import { findUser, findUserByEmail } from "@/lib/users";
+import { findUser, findUserByEmail, type User } from "@/lib/users";
+import { verifyPassword } from "@/lib/password";
 
 /**
  * Server-side login: password verification (and the password hashes
@@ -26,6 +27,20 @@ import { findUser, findUserByEmail } from "@/lib/users";
  * (there's no real credential to check for a demo click) without shipping
  * password hashes to the browser to make that decision.
  */
+
+/** Admin-created accounts (see /api/users) live in the `users` table, not
+ * the static USERS array — checked only when the static lookup misses, so
+ * every existing demo account keeps resolving exactly as before. */
+async function findDbUser(email: string, password: string): Promise<User | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT email, password_hash, name, role, manager_email FROM users WHERE email = ${email}
+  `) as { email: string; password_hash: string; name: string; role: User["role"]; manager_email: string | null }[];
+  const row = rows[0];
+  if (!row || !verifyPassword(password, row.password_hash)) return null;
+  return { email: row.email, passwordHash: row.password_hash, name: row.name, role: row.role, managerEmail: row.manager_email ?? undefined };
+}
+
 export const POST = withJsonErrors(async (req: NextRequest) => {
   if (!isSameOrigin(req)) {
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
@@ -42,7 +57,11 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
     return NextResponse.json({ error: "Too many attempts, try again shortly." }, { status: 429 });
   }
 
-  const user = body.demo ? findUserByEmail(email) : findUser(email, body.password ?? "");
+  // Demo mode only ever resolves against the static array — a DB-created
+  // account has a real password and must never be reachable without one.
+  const user = body.demo
+    ? findUserByEmail(email)
+    : findUser(email, body.password ?? "") ?? (await findDbUser(email, body.password ?? ""));
   if (!user) return NextResponse.json({ error: "Incorrect email or password." }, { status: 401 });
 
   // A force-logout suspends login until an admin/manager explicitly

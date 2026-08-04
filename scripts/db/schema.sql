@@ -67,3 +67,18 @@ CREATE TABLE IF NOT EXISTS property_inventory (
   units_left INT,
   updated_at BIGINT NOT NULL
 );
+
+-- Sales manager/staff accounts created by an admin through the dashboard
+-- (see /api/users), on top of the hardcoded demo accounts in
+-- src/lib/users.ts. Kept as a separate table rather than merged into that
+-- array, since that array ships client-side (login page's demo buttons) --
+-- a real account's password_hash must never reach the browser bundle.
+CREATE TABLE IF NOT EXISTS users (
+  email TEXT PRIMARY KEY,
+  password_hash TEXT NOT NULL,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  manager_email TEXT,
+  joining_date TEXT,
+  created_at BIGINT NOT NULL
+);
