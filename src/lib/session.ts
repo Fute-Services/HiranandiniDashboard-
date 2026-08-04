@@ -25,7 +25,7 @@ export type SessionEvent = {
  * cookie, since it's read/written entirely client-side and never needs to
  * gate a route the way the auth cookies do.
  */
-const ACTIVE_SESSION_KEY = "hiranandani_active_session";
+const ACTIVE_SESSION_KEY = "futeservices_active_session";
 
 /** Which physical device this presentation is running on — chosen by the
  * staff member at "Start Session" rather than guessed from the browser's

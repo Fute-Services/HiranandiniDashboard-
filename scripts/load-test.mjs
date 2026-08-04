@@ -37,7 +37,7 @@ async function simulateSession(i) {
     return { i, email, ok: false, step: "login", status: loginRes.status, ms: Date.now() - t0 };
   }
   const setCookie = [...loginRes.headers].filter(([k]) => k.toLowerCase() === "set-cookie").map(([, v]) => v);
-  const cookieHeader = ["hiranandani_auth", "hiranandani_role", "hiranandani_email", "hiranandani_session_id"]
+  const cookieHeader = ["futeservices_auth", "futeservices_role", "futeservices_email", "futeservices_session_id"]
     .map((n) => parseCookie(setCookie, n))
     .filter(Boolean)
     .join("; ");

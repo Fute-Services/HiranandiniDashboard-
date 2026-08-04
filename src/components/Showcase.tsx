@@ -7,7 +7,7 @@ import styles from "./Showcase.module.css";
 export type ShowcaseItem = { id: string; name: string; image: string; href: string };
 
 export type Showcase = {
-  brand: string; // "HIRANANDANI"  → eyebrow
+  brand: string; // "FUTE SERVICES"  → eyebrow
   title: string; // "Fortune City" → hero title
   subtitle: string; // "HIRANANDANI FORTUNE CITY"
   year: string; // "2026"

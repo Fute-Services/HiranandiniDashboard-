@@ -8,16 +8,16 @@ import type { Role } from "./users";
  * readable cookies used only for display/attribution (which name to show,
  * which manager a staff member reports to), not for gating access.
  */
-export const AUTH_COOKIE = "hiranandani_auth";
+export const AUTH_COOKIE = "futeservices_auth";
 /** Which mock account signed in, see src/lib/users.ts. */
-export const ROLE_COOKIE = "hiranandani_role";
-export const NAME_COOKIE = "hiranandani_name";
+export const ROLE_COOKIE = "futeservices_role";
+export const NAME_COOKIE = "futeservices_name";
 /** Needed to look a signed-in sales_staff member's manager back up (team scoping). */
-export const EMAIL_COOKIE = "hiranandani_email";
+export const EMAIL_COOKIE = "futeservices_email";
 /** Groups every activity-log event (src/lib/activity.ts) from this login
  * until logout under one id, so the admin/manager timeline can tell distinct
  * login sessions apart. */
-export const SESSION_ID_COOKIE = "hiranandani_session_id";
+export const SESSION_ID_COOKIE = "futeservices_session_id";
 export const AUTH_MAX_AGE = 60 * 60 * 24 * 7; // 7 days, in seconds
 export const LOGIN_PATH = "/login";
 /** Intro splash, public and shown before login on every visit. */

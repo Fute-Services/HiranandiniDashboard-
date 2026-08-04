@@ -2,7 +2,7 @@ import type { Role } from "./users";
 
 /**
  * Signed session payload, verified server-side (middleware) on every
- * request — replaces trusting a plain `hiranandani_auth=1` cookie, which
+ * request — replaces trusting a plain `futeservices_auth=1` cookie, which
  * anyone could set by hand. Uses Web Crypto (`crypto.subtle`) rather than
  * Node's `crypto` module so the same code runs in both the Edge middleware
  * runtime and Node route handlers with no extra config.
