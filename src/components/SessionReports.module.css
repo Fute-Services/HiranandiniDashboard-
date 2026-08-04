@@ -16,7 +16,7 @@
   font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
   /* Deep left padding clears the fixed side navbar, so content never sits
      underneath it. */
-  padding: 26px 20px 14px 256px;
+  padding: 26px 256px 14px 20px;
 }
 
 /* Positioned out of flow: the clock is the only thing left in the header,
@@ -26,7 +26,7 @@
 .header {
   position: fixed;
   top: 14px;
-  right: 20px;
+  left: 20px;
   z-index: 21;
 }
 
@@ -35,7 +35,7 @@
 .clock {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 2px;
   min-width: 104px;
   min-height: 34px;
@@ -773,7 +773,7 @@
 .refreshing {
   position: fixed;
   bottom: 18px;
-  right: 20px;
+  left: 20px;
   z-index: 25;
   display: inline-flex;
   align-items: center;
@@ -2441,12 +2441,12 @@
    bright inset top edge to fake a lit glass rim, and a soft outer shadow
    so it visibly floats above the page instead of sitting flush on it. */
 .sideDock {
-  /* Pinned to the viewport, not the document: it stays put on the left of
+  /* Pinned to the viewport, not the document: it stays put on the right of
      the screen while the page scrolls behind it, so the section switcher is
      always in the same place. */
   position: fixed;
   top: 16px;
-  left: 16px;
+  right: 16px;
   bottom: 16px;
   z-index: 20;
   display: flex;
