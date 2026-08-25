@@ -1,5 +1,6 @@
 import { actorFields, track, type ActivityType } from "./activity";
 import { getSession, getSessionId } from "./auth";
+import { fetchWithTimeout } from "./http";
 import type { Lead } from "./leads";
 
 export type StepEvent = {
@@ -27,12 +28,17 @@ export type SessionEvent = {
  */
 const ACTIVE_SESSION_KEY = "futeservices_active_session";
 
-/** Which physical device this presentation is running on — chosen by the
- * staff member at "Start Session" rather than guessed from the browser's
- * user-agent string, which can only ever say "Chrome · Windows," not
- * "Tab" vs. "TV" vs. "Kiosk." Null for walk-in/legacy sessions where it
- * was never asked. */
-export type DeviceType = "Tab" | "TV" | "Kiosk" | "Laptop";
+/** Which kind of screen this presentation is running on — chosen by the staff
+ * member at "Start Session" rather than guessed from the browser's user-agent
+ * string, which can only ever say "Chrome · Windows," not "Tab" vs. "TV" vs.
+ * "Kiosk." Null for walk-in/legacy sessions where it was never asked.
+ *
+ * The list is the single source of truth — the device picker and the reports'
+ * device breakdown both derive from it, rather than each keeping their own
+ * copy to drift out of sync. */
+export const DEVICE_TYPES = ["Tab", "TV", "Kiosk", "Laptop"] as const;
+
+export type DeviceType = (typeof DEVICE_TYPES)[number];
 
 export type ActiveSession = {
   lead: Lead;
@@ -70,6 +76,25 @@ function writeRaw(value: string) {
   }
 }
 
+/** Fire-and-forget call to Sperto's device-usage log (src/lib/sperto-device-usage.ts)
+ * via the server-side route that holds the api_key. Never throws and is
+ * never awaited by callers — a presentation session starting or ending must
+ * never depend on this succeeding, same reasoning as `track()` in
+ * lib/activity.ts. `keepalive` lets the "OUT" call survive the page unload
+ * that immediately follows logout. */
+function recordDeviceUsage(lead: Lead, deviceType: DeviceType | null, type: "IN" | "OUT") {
+  try {
+    fetchWithTimeout("/api/session/device-usage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leadId: lead.leadId, deviceType, type, pageUrl: window.location.href }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // best-effort; ignore
+  }
+}
+
 export function setActiveSession(lead: Lead, deviceType: DeviceType | null = null) {
   const session: ActiveSession = {
     lead,
@@ -81,6 +106,7 @@ export function setActiveSession(lead: Lead, deviceType: DeviceType | null = nul
     deviceType,
   };
   writeRaw(JSON.stringify(session));
+  recordDeviceUsage(lead, deviceType, "IN");
 }
 
 export function getActiveSession(): ActiveSession | null {
@@ -145,13 +171,22 @@ export function recordStepEnter(step: string) {
  * they show, and how far into the session" (not just total time). Safe to
  * call even if nothing's active (no-ops). Streams live to the server-side
  * activity log in addition to the local buffer this session's summary reads.
+ *
+ * `durationMs` is for events that close out something that was open for a
+ * while — a project the staff member showed and then shut. The roadmap can
+ * only ever *infer* dwell from the gap to the next event, which is wrong the
+ * moment a session ends on that project; a measured duration isn't.
  */
-export function logSessionEvent(label: string, type: ActivityType = "project_open") {
+export function logSessionEvent(
+  label: string,
+  type: ActivityType = "project_open",
+  durationMs: number | null = null,
+) {
   const session = getActiveSession();
   if (!session) return;
   session.events.push({ label, type, at: Date.now() });
   saveActiveSession(session);
-  trackForSession(session, type, label, null);
+  trackForSession(session, type, label, durationMs);
 }
 
 export function clearActiveSession() {
@@ -163,10 +198,11 @@ export function clearActiveSession() {
 }
 
 /**
- * "End Session" closes out the current step's time locally and clears the
- * active session. The activity log itself has already been written live by
- * every recordStepEnter/logSessionEvent call along the way (see
- * trackForSession above), so there's nothing left to persist here.
+ * Closes out the current step's time locally and clears the active session.
+ * Called from the showcase's Log out, which is the only way a presentation
+ * ends now. The activity log itself has already been written live by every
+ * recordStepEnter/logSessionEvent call along the way (see trackForSession
+ * above), so there's nothing left to persist here.
  */
 export function finalizeSession() {
   const session = getActiveSession();
@@ -175,5 +211,6 @@ export function finalizeSession() {
     const now = Date.now();
     trackForSession(session, "step", `Left "${session.currentStep}"`, now - session.currentStepEnteredAt);
   }
+  recordDeviceUsage(session.lead, session.deviceType, "OUT");
   clearActiveSession();
 }

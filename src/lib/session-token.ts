@@ -12,6 +12,17 @@ export type SessionPayload = {
   role: Role;
   name: string;
   exp: number;
+  /** Which registered device this session was started on, for the
+   * passwordless (device-mode) staff login. Absent on password logins, and on
+   * every token minted before devices existed — which is why it is optional:
+   * widening the type is purely additive, so tokens already in the wild keep
+   * verifying instead of every user being signed out on deploy.
+   *
+   * This is the only device claim in the system that is signed. Anything
+   * server-side that acts on "which screen is this" must read it from here
+   * rather than from a request body, or a staff member could open a session
+   * against someone else's device. */
+  deviceId?: string;
 };
 
 function toBase64Url(bytes: ArrayBuffer | Uint8Array): string {

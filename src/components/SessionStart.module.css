@@ -1,13 +1,25 @@
+/*
+ * "Which customer is this?" — the one screen between the login and the
+ * presentation.
+ *
+ * Same room as the login: graphite ground, one soft light fall, a single card.
+ * The indigo wash and indigo-glowing button are gone; the card no longer has a
+ * coloured halo behind it, and the customer's detail grid is a real ruled grid
+ * rather than eight loose label/value pairs, so the staff member can scan it in
+ * front of the customer instead of reading it.
+ */
+
 .page {
   position: relative;
   min-height: 100vh;
   min-height: 100dvh;
   width: 100%;
-  background: radial-gradient(circle at 30% 20%, rgba(75, 99, 214, 0.16), transparent 55%),
-    radial-gradient(circle at 80% 85%, rgba(232, 185, 58, 0.1), transparent 55%),
-    #05060e;
-  color: #f4f2ec;
-  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
+  background:
+    radial-gradient(820px 560px at 22% 4%, rgba(242, 239, 232, 0.05), transparent 60%),
+    radial-gradient(700px 520px at 86% 100%, rgba(194, 160, 89, 0.05), transparent 60%),
+    var(--surface-0);
+  color: var(--ink);
+  font-family: var(--ui);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -15,209 +27,145 @@
   padding: 32px 20px;
 }
 
-.myActivity {
-  position: absolute;
-  top: 24px;
-  left: 24px;
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(244, 242, 236, 0.7);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  padding: 8px 16px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.myActivity:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
+/* Quiet, and in the corner. This is a way out, not the action. */
 .logout {
   position: absolute;
   top: 24px;
   right: 24px;
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #ffe4e1;
-  background: rgba(209, 59, 50, 0.22);
-  border: 1px solid rgba(255, 120, 110, 0.4);
-  border-radius: 999px;
-  padding: 8px 16px;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.logout:hover:not(:disabled) {
-  background: rgba(220, 60, 50, 0.38);
-}
-
-/* The logout pill grows a spinner while the sign-out is in flight, so it has
-   to lay its content out in a row rather than as a bare label. */
-.logout {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  font-family: var(--code);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: color var(--t) var(--ease), border-color var(--t) var(--ease),
+    background var(--t) var(--ease);
 }
 
-.logout:focus-visible {
-  outline: 2px solid #7d94f0;
-  outline-offset: 2px;
+.logout:hover:not(:disabled) {
+  color: var(--bad-bright);
+  border-color: var(--bad-line);
+  background: var(--bad-ghost);
 }
 
 .card {
+  position: relative;
   width: 100%;
-  max-width: 460px;
-  background: rgba(13, 13, 24, 0.6);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 22px;
-  padding: 36px;
-  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.7), 0 0 40px -18px rgba(75, 99, 214, 0.35);
+  max-width: 480px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  padding: 38px;
+  box-shadow: var(--shadow-xl), var(--edge-top);
+}
+
+/* The same brass hairline the login card and the shelf carry — it is what
+   makes these three screens read as one product. */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--brass) 50%, transparent);
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .eyebrow {
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.24em;
+  font-family: var(--code);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--brass);
 }
 
 .title {
-  margin: 10px 0 8px;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-family: var(--serif);
+  margin: 12px 0 10px;
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--ink-strong);
 }
 
 .lede {
   margin: 0 0 26px;
   font-size: 14px;
-  line-height: 1.55;
-  color: rgba(244, 242, 236, 0.6);
+  font-weight: 300;
+  line-height: 1.6;
+  color: var(--ink-muted);
 }
 
 .field {
   display: flex;
   flex-direction: column;
   gap: 9px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .label {
-  font-family: var(--font-mono), monospace;
-  font-size: 10px;
-  letter-spacing: 0.18em;
+  font-family: var(--code);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--ink-dim);
 }
 
 .input {
-  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
+  font-family: var(--ui);
   font-size: 15px;
-  color: #f4f2ec;
+  color: var(--ink);
   padding: 13px 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  transition: border-color var(--t) var(--ease), background var(--t) var(--ease),
+    box-shadow var(--t) var(--ease);
 }
 
 .input::placeholder {
-  color: rgba(244, 242, 236, 0.35);
+  color: var(--ink-faint);
 }
 
 .input:focus {
   outline: none;
-  border-color: #4b63d6;
+  border-color: var(--brass);
+  background: var(--surface-4);
+  box-shadow: 0 0 0 3px var(--brass-ghost);
 }
 
 .error {
   font-size: 12px;
-  color: #ff7a6b;
-  margin: -6px 0 16px;
-}
-
-.similar {
-  background: rgba(232, 185, 58, 0.09);
-  border: 1px solid rgba(232, 185, 58, 0.3);
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin: -6px 0 16px;
-}
-
-.similarLede {
-  margin: 0 0 10px;
-  font-size: 12px;
   line-height: 1.5;
-  color: rgba(244, 242, 236, 0.75);
+  color: var(--bad-bright);
+  margin: -8px 0 16px;
 }
 
-.similarItem {
+/* The initial lookup, which the staff member didn't ask for — they typed the
+   Customer ID a screen ago and are waiting to see a name. Centred in the card
+   at the card's own size so the layout doesn't jump when the result lands. */
+.loading {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.similarItem:first-of-type {
-  border-top: none;
-}
-
-.similarName {
-  font-size: 13px;
-  color: #f4f2ec;
-}
-
-.similarMeta {
-  font-family: var(--font-mono), monospace;
-  font-size: 10.5px;
-  color: rgba(244, 242, 236, 0.45);
-}
-
-.similarUse {
-  flex-shrink: 0;
-  font-family: var(--font-mono), monospace;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #e8b93a;
-  background: rgba(232, 185, 58, 0.14);
-  border: 1px solid rgba(232, 185, 58, 0.4);
-  border-radius: 999px;
-  padding: 6px 12px;
-  cursor: pointer;
-}
-
-.similarUse:hover {
-  background: rgba(232, 185, 58, 0.26);
-}
-
-.similarDismiss {
-  display: block;
-  width: 100%;
+  justify-content: center;
+  gap: 16px;
+  min-height: 180px;
   text-align: center;
-  margin-top: 10px;
-  font-family: var(--font-mono), monospace;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.4);
-  background: none;
-  border: none;
-  cursor: pointer;
 }
 
-.similarDismiss:hover {
-  color: rgba(255, 255, 255, 0.7);
+.loading .lede {
+  margin: 0;
 }
 
 .submit {
@@ -225,24 +173,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-family: var(--font-mono), monospace;
-  font-size: 12px;
-  letter-spacing: 0.16em;
+  gap: 9px;
+  font-family: var(--code);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #fff;
-  background: #4b63d6;
+  color: var(--ink-inverse);
+  background: linear-gradient(180deg, var(--brass-bright), var(--brass));
   border: none;
   padding: 15px;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   cursor: pointer;
-  box-shadow: 0 0 22px -4px rgba(75, 99, 214, 0.7);
-  transition: background 0.15s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  box-shadow: var(--shadow-md);
+  transition: filter var(--t) var(--ease), box-shadow var(--t) var(--ease),
+    transform var(--t) var(--ease);
 }
 
 .submit:hover:not(:disabled) {
-  background: #3a4fb8;
-  box-shadow: 0 0 30px -2px rgba(75, 99, 214, 0.9);
+  filter: brightness(1.08);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+
+.submit:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 /* "Working", not "unavailable": keep the button legible and use a wait
@@ -251,45 +206,44 @@
 .walkin:disabled,
 .logout:disabled {
   cursor: wait;
-  opacity: 0.72;
+  opacity: 0.7;
+  transform: none;
 }
 
-.walkin {
-  display: block;
-  text-align: center;
-  margin-top: 18px;
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
-  background: none;
-  border: none;
-  cursor: pointer;
-  width: 100%;
-}
-
-.walkin:hover:not(:disabled) {
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.walkin {
+.walkin,
+.back {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
+  width: 100%;
+  margin-top: 16px;
+  font-family: var(--code);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color var(--t) var(--ease);
+}
+
+.walkin:hover:not(:disabled),
+.back:hover:not(:disabled) {
+  color: var(--brass-bright);
 }
 
 /* ---------- matched lead ---------- */
 
 .result {
-  animation: reveal 0.4s ease forwards;
+  animation: reveal 0.35s var(--ease) forwards;
 }
 
 @keyframes reveal {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -298,101 +252,105 @@
 }
 
 .resultName {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 0 0 4px;
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--ink-strong);
+  margin: 8px 0 8px;
 }
 
 .resultStatus {
   display: inline-block;
-  font-family: var(--font-mono), monospace;
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  font-family: var(--code);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #7d94f0;
-  background: rgba(125, 148, 240, 0.14);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(125, 148, 240, 0.35);
-  border-radius: 999px;
-  padding: 4px 10px;
-  margin-bottom: 20px;
+  color: var(--brass-pale);
+  background: var(--brass-ghost);
+  border: 1px solid var(--line-brass);
+  border-radius: var(--r-pill);
+  padding: 4px 11px;
+  margin-bottom: 22px;
 }
 
+/* Good news: this customer has been here before. A left rule in the status
+   colour, a tinted panel, no glow — the same shape every notice in the app
+   uses. */
 .repeatVisitNote {
   margin: 0 0 18px;
   font-size: 12.5px;
-  color: #e8b93a;
-  background: rgba(232, 185, 58, 0.1);
-  border: 1px solid rgba(232, 185, 58, 0.3);
-  border-radius: 10px;
-  padding: 10px 12px;
+  line-height: 1.55;
+  border-radius: var(--r-sm);
+  padding: 11px 13px;
+  color: var(--ok-bright);
+  background: var(--ok-ghost);
+  border: 1px solid var(--ok-line);
+  border-left: 2px solid var(--ok);
 }
 
+/* A ruled grid, not eight floating pairs. The 1px gap over a --line
+   background is what draws the rules, so there is no border to double up
+   between neighbouring cells. */
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px 18px;
+  gap: 1px;
   margin-bottom: 26px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.gridItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px 13px;
+  background: var(--surface-2);
+}
+
+.gridLabel {
+  font-family: var(--code);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.gridValue {
+  font-size: 14px;
+  color: var(--ink);
 }
 
 .deviceGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin: 20px 0;
+  margin: 22px 0;
 }
 
 .deviceOption {
   font-size: 14px;
-  color: #f4f2ec;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 10px;
-  padding: 14px 12px;
+  color: var(--ink);
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 16px 12px;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background var(--t) var(--ease), border-color var(--t) var(--ease),
+    color var(--t) var(--ease);
 }
 
-.deviceOption:hover {
-  background: rgba(232, 185, 58, 0.16);
-  border-color: rgba(232, 185, 58, 0.5);
+.deviceOption:hover:not(:disabled) {
+  color: var(--brass-pale);
+  background: var(--brass-ghost);
+  border-color: var(--brass);
 }
 
-.gridItem {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.gridLabel {
-  font-family: var(--font-mono), monospace;
-  font-size: 9.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.gridValue {
-  font-size: 14px;
-  color: #f4f2ec;
-}
-
-.back {
-  display: block;
-  text-align: center;
-  margin-top: 14px;
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
-  background: none;
-  border: none;
-  cursor: pointer;
-  width: 100%;
-}
-
-.back:hover {
-  color: rgba(255, 255, 255, 0.75);
+.deviceOption:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }

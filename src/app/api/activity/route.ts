@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getSql } from "@/lib/db";
+import { getSql, hasDb } from "@/lib/db";
 import { withJsonErrors } from "@/lib/api";
 import { isSameOrigin } from "@/lib/csrf";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
@@ -95,6 +95,11 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
     location: locationFromHeaders(req),
   };
 
+  // No DB configured means no log to write to — track() is fire-and-forget
+  // and the caller never reads this response, same reasoning as the reads
+  // below skipping themselves rather than throwing.
+  if (!hasDb()) return NextResponse.json({ ok: true, id: event.id });
+
   const sql = getSql();
   await sql`
     INSERT INTO activity_events
@@ -109,6 +114,8 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
 });
 
 export const GET = withJsonErrors(async (req: NextRequest) => {
+  if (!hasDb()) return NextResponse.json([]);
+
   const params = req.nextUrl.searchParams;
   const managerEmail = params.get("managerEmail");
   const staffEmail = params.get("staffEmail");

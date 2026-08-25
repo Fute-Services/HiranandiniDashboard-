@@ -47,9 +47,9 @@
 }
 
 .blockLabel {
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-family: var(--code);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 
@@ -62,16 +62,17 @@
   align-items: center;
   justify-content: center;
   gap: 16px;
-  background: rgba(8, 7, 5, 0.78);
+  background: var(--scrim-strong);
   backdrop-filter: blur(6px);
-  color: #f4f2ec;
-  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--brass);
+  font-family: var(--ui);
 }
 
 .overlayLabel {
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.16em;
+  font-family: var(--code);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(244, 242, 236, 0.72);
+  color: var(--ink-muted);
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSession, getSessionId, SPACE_PATH } from "@/lib/auth";
+import { DASHBOARD_PATH, getSession, getSessionId } from "@/lib/auth";
 import { actorFields, listActivity, track, type ActivityEvent, type ActivityType } from "@/lib/activity";
 import { signOut } from "@/lib/sign-out";
 import { useNavigationLock } from "@/lib/useNavigationLock";
@@ -12,14 +12,14 @@ import { getInventory, setUnitsLeft } from "@/lib/inventory";
 import { setActiveSession } from "@/lib/session";
 import { findUserByEmail, isNewJoiner } from "@/lib/users";
 import { createStaff, listStaff, type StaffUser } from "@/lib/staff";
-import { fetchWithTimeout, readJsonSafe } from "@/lib/http";
-import { portfolioGroups } from "@/data/properties";
+import { showcaseProjects } from "@/data/properties";
 import { LoadingBlock, Spinner } from "./Spinner";
 
-/** Every project across every portfolio (Alibaug + Fortune City), not just
- * Fortune City's six — the block/active grid should cover everything a
- * staff member could actually show a customer. */
-const ALL_PROJECTS = portfolioGroups.flatMap((g) => g.projects);
+/** Exactly what the showcase shelf offers — every portfolio a staff member
+ * can put in front of a customer (Alibaug, Fortune City). This has to be the
+ * same list the shelf renders from, or a block lands on a slug that is never
+ * on screen and appears to do nothing. */
+const ALL_PROJECTS = showcaseProjects;
 import styles from "./SessionReports.module.css";
 
 export function formatDuration(ms: number) {
@@ -127,6 +127,7 @@ export const TYPE_LABEL: Record<ActivityType, string> = {
   search: "Search",
   customer_profile: "Profile",
   project_open: "Project",
+  project_close: "Closed",
   property_shown: "Shown",
   tour_view: "360° Tour",
   floor_plan: "Floor Plan",
@@ -598,12 +599,6 @@ export const SearchIcon = (
   </svg>
 );
 
-const SendIcon = (
-  <svg {...iconProps}>
-    <path d="M4 12l16-8-6.5 8L20 20 4 12z" />
-  </svg>
-);
-
 export const ClockIcon = (
   <svg {...iconProps}>
     <circle cx="12" cy="12" r="9" />
@@ -1072,16 +1067,14 @@ function StyledDropdown({
   );
 }
 
-const STAFF_ROLE_OPTIONS = [
-  { value: "sales_staff", label: "Sales Staff" },
-  { value: "sales_manager", label: "Sales Manager" },
-  { value: "admin", label: "Admin" },
-];
-
 /** Admin-only "create account" form — reuses the confirm-dialog shell
  * (.confirmOverlay/.confirmCard) rather than the read-only .modal, since
  * this one actually has fields and a submit action, closer in shape to the
- * existing block-reason picker than to a report viewer. */
+ * existing block-reason picker than to a report viewer.
+ *
+ * Sales staff only — the "+ Add Staff" button this opens from was never
+ * about admin/manager accounts, and a role picker offering those just
+ * cluttered the one thing this form is for. */
 function AddStaffModal({
   managerList,
   onClose,
@@ -1094,14 +1087,14 @@ function AddStaffModal({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"sales_staff" | "sales_manager" | "admin">("sales_staff");
   const [managerEmail, setManagerEmail] = useState("");
+  const [spertoLogin, setSpertoLogin] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const submit = async () => {
     setError("");
-    if (role === "sales_staff" && !managerEmail) {
+    if (!managerEmail) {
       setError("Pick a manager for this staff member.");
       return;
     }
@@ -1110,8 +1103,9 @@ function AddStaffModal({
       name,
       email,
       password,
-      role,
-      managerEmail: role === "sales_staff" ? managerEmail : undefined,
+      role: "sales_staff",
+      managerEmail,
+      spertoLogin: spertoLogin.trim() || undefined,
     });
     setSaving(false);
     if (!result.ok) {
@@ -1124,7 +1118,7 @@ function AddStaffModal({
   return (
     <div className={styles.confirmOverlay} onClick={onClose}>
       <div className={`${styles.confirmCard} ${styles.addStaffCard}`} onClick={(e) => e.stopPropagation()}>
-        <p className={styles.confirmMessage}>Add a new admin, sales manager, or sales staff account.</p>
+        <p className={styles.confirmMessage}>Add a new sales staff account.</p>
 
         <div className={styles.addStaffFields}>
           <input
@@ -1149,22 +1143,18 @@ function AddStaffModal({
             onChange={(e) => setPassword(e.target.value)}
           />
           <StyledDropdown
-            value={role}
-            placeholder="Role"
-            options={STAFF_ROLE_OPTIONS}
-            onChange={(v) => {
-              setRole(v as "sales_staff" | "sales_manager" | "admin");
-              setManagerEmail("");
-            }}
+            value={managerEmail}
+            placeholder="Assign to manager…"
+            options={managerList.map((m) => ({ value: m.email, label: m.name }))}
+            onChange={setManagerEmail}
           />
-          {role === "sales_staff" && (
-            <StyledDropdown
-              value={managerEmail}
-              placeholder="Assign to manager…"
-              options={managerList.map((m) => ({ value: m.email, label: m.name }))}
-              onChange={setManagerEmail}
-            />
-          )}
+          <input
+            type="text"
+            className={styles.filterInput}
+            placeholder="Sperto login (optional, e.g. PDPL0349)"
+            value={spertoLogin}
+            onChange={(e) => setSpertoLogin(e.target.value)}
+          />
         </div>
 
         {error && <p className={styles.addStaffError}>{error}</p>}
@@ -1189,25 +1179,56 @@ function AddStaffModal({
   );
 }
 
-/** One entry per dashboard section — exactly one navbar button each, so no
- * two buttons ever open the same thing. */
-const VIEW_TABS = [
-  { key: "customers" as const, label: "Customer Visits" },
-  { key: "staff" as const, label: "Staff Activity" },
-  { key: "analytics" as const, label: "Reports" },
-  { key: "leads" as const, label: "Leads" },
-  // Admin-only — setting real-world unit availability is an ops function,
-  // same reasoning as the Leads tab's delete action being admin-gated.
-  { key: "inventory" as const, label: "Inventory", adminOnly: true },
-  { key: "logins" as const, label: "Login History" },
+type View = "customers" | "logins" | "staff" | "analytics" | "leads" | "inventory";
+
+/**
+ * Four sections in the navbar, not six.
+ *
+ * Six top-level buttons made the dashboard read as six unrelated tools, and
+ * two of the pairs were really one thing seen two ways: Customer Visits and
+ * Login History are both "what happened", and Leads and Inventory are both
+ * "what we maintain". Those pairs collapse into one nav button each, with a
+ * segmented switch inside the page (see SUBVIEWS) for the second view.
+ *
+ * `views` is the full set a nav button covers — the button highlights for
+ * any of them — and its first entry is what clicking it opens.
+ */
+const VIEW_TABS: { key: string; label: string; views: View[]; adminOnly?: boolean }[] = [
+  { key: "overview", label: "Overview", views: ["customers", "logins"] },
+  { key: "staff", label: "Staff", views: ["staff"] },
+  { key: "analytics", label: "Reports", views: ["analytics"] },
+  // Inventory is admin-only — setting real-world unit availability is an ops
+  // function, same reasoning as the Leads tab's delete action being
+  // admin-gated — so a sales manager just sees the Leads half.
+  { key: "leads", label: "Leads", views: ["leads", "inventory"] },
 ];
 
-/** What the page's <h1> reads per tab — the tab label alone ("Reports")
- * read as orphaned once there were six of them, so each gets a fuller
- * heading instead of the same static title regardless of which is open. */
-const VIEW_TITLES: Record<(typeof VIEW_TABS)[number]["key"], string> = {
-  customers: "Customer Visits",
-  staff: "Staff Activity",
+/** The segmented switch shown inside a section that covers two views. Keyed
+ * by every view it applies to, so the switch renders identically on both
+ * halves and simply highlights the current one. */
+const SUBVIEWS: Partial<Record<View, { view: View; label: string; adminOnly?: boolean }[]>> = {
+  customers: [
+    { view: "customers", label: "Presentations" },
+    { view: "logins", label: "Logins" },
+  ],
+  logins: [
+    { view: "customers", label: "Presentations" },
+    { view: "logins", label: "Logins" },
+  ],
+  leads: [
+    { view: "leads", label: "Leads" },
+    { view: "inventory", label: "Inventory", adminOnly: true },
+  ],
+  inventory: [
+    { view: "leads", label: "Leads" },
+    { view: "inventory", label: "Inventory", adminOnly: true },
+  ],
+};
+
+/** What the page's <h1> reads per view. */
+const VIEW_TITLES: Record<View, string> = {
+  customers: "Overview",
+  staff: "Staff",
   analytics: "Reports",
   leads: "Leads",
   inventory: "Inventory",
@@ -2547,9 +2568,10 @@ export function SessionReports({
   /** Which single section the content area shows. One navbar button per
    * section (and only one button per section), so nothing is duplicated and
    * the whole thing stays on one screen without stacking every panel. */
-  const [view, setView] = useState<"staff" | "analytics" | "customers" | "logins" | "leads" | "inventory">(
-    "customers",
-  );
+  // `View`, not a second copy of the union — the copy had already drifted
+  // once and is exactly the kind of thing that makes adding a section a
+  // three-error compile instead of a one-line change.
+  const [view, setView] = useState<View>("customers");
   /** Reports had grown to 11 cards shown all at once — now each report is
    * its own button, and clicking one opens just that report in a modal, so
    * the tab opens on a button grid instead of a wall of charts. */
@@ -2626,7 +2648,7 @@ export function SessionReports({
   const openDashboard = useCallback(async () => {
     setLeaving("showcase");
     setActiveSession(await createWalkInLead());
-    router.push(SPACE_PATH);
+    router.push(DASHBOARD_PATH);
   }, [router]);
 
   const presentations = useMemo(() => groupPresentations(events ?? []), [events]);
@@ -2907,17 +2929,41 @@ export function SessionReports({
         </button>
       )}
 
-      <div className={styles.eyebrow}>Reporting</div>
+      {/* The eyebrow says who's signed in ("Admin Dashboard" / "Sales
+          Manager") rather than the constant "Reporting", which was the same
+          word on every screen and told nobody anything. */}
+      <div className={styles.eyebrow}>{brandLabel}</div>
       <h1 className={styles.title}>{VIEW_TITLES[view] ?? title}</h1>
 
+      {/* Second half of a merged section, where there is one — the nav is
+          four buttons, so Presentations/Logins and Leads/Inventory switch
+          here instead of each owning a nav slot of its own. */}
+      {SUBVIEWS[view] && (
+        <div className={styles.subviewSwitch} role="tablist">
+          {SUBVIEWS[view]!
+            .filter((s) => !s.adminOnly || viewer?.role === "admin")
+            .map((s) => (
+              <button
+                key={s.view}
+                type="button"
+                role="tab"
+                aria-selected={view === s.view}
+                className={`${styles.subviewBtn} ${view === s.view ? styles.subviewBtnActive : ""}`}
+                onClick={() => setView(s.view)}
+              >
+                {s.label}
+              </button>
+            ))}
+        </div>
+      )}
+
       {/* Full filter bar only where it actually drives a table/chart
-          (Customer Visits, Reports). Staff Activity keeps just the staff
-          picker — that dropdown is how you select who to view, customer
-          and date filters don't apply there. Login History has neither:
-          nothing in that table is filterable by customer or project. */}
+          (Presentations, Reports). Staff keeps just the staff picker — that
+          dropdown is how you select who to view, customer and date filters
+          don't apply there. Login History has neither: nothing in that table
+          is filterable by customer or project. */}
       {(view === "customers" || view === "analytics") && (
         <>
-          <div className={styles.sectionTitle}>Search &amp; Filter</div>
           <div className={styles.filterBar}>
             {/* Staff picker only on Reports — on Customer Visits it's just
                 the search box and date range. */}
@@ -2946,7 +2992,6 @@ export function SessionReports({
 
       {view === "staff" && (
         <>
-          <div className={styles.sectionTitle}>Select Sales Staff</div>
           <div className={styles.filterBar}>
             <div className={styles.dropdownWrap} ref={staffSearchRef}>
               <div className={styles.searchInputWrap}>
@@ -3017,7 +3062,6 @@ export function SessionReports({
           but "which staff logged in on which day" is still a real question. */}
       {view === "logins" && (
         <>
-          <div className={styles.sectionTitle}>Filter by Date</div>
           <div className={styles.filterBar}>
             <DateRangePicker range={range} onChange={setRange} />
           </div>
@@ -3319,7 +3363,6 @@ export function SessionReports({
       </div>
 
       {renderDock()}
-      <ChatPanel />
     </div>
   );
 
@@ -3330,9 +3373,9 @@ export function SessionReports({
           <button
             key={t.key}
             type="button"
-            className={`${styles.dockBtn} ${view === t.key ? styles.dockBtnActive : ""}`}
-            aria-pressed={view === t.key}
-            onClick={() => setView(t.key)}
+            className={`${styles.dockBtn} ${t.views.includes(view) ? styles.dockBtnActive : ""}`}
+            aria-pressed={t.views.includes(view)}
+            onClick={() => setView(t.views[0])}
           >
             {t.label}
           </button>
@@ -3354,9 +3397,6 @@ export function SessionReports({
           )}
         </button>
         <span className={styles.dockDivider} />
-        <div className={styles.dockLabel} aria-hidden="true">
-          {brandLabel}
-        </div>
         <button
           type="button"
           className={`${styles.dockBtn} ${styles.dockBtnDanger}`}
@@ -3376,97 +3416,4 @@ export function SessionReports({
       </nav>
     );
   }
-}
-
-type ChatMessage = { id: string; role: "user" | "assistant" | "error"; text: string };
-
-/** Right-side panel, replacing the second nav copy. Talks to /api/chat,
- * which calls Groq server-side (see src/app/api/chat/route.ts) so the API
- * key never reaches the browser. */
-function ChatPanel() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
-
-  const send = async () => {
-    const text = draft.trim();
-    if (!text || sending) return;
-    const next = [...messages, { id: crypto.randomUUID(), role: "user" as const, text }];
-    setMessages(next);
-    setDraft("");
-    setSending(true);
-    try {
-      const res = await fetchWithTimeout("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: next.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text })),
-        }),
-      });
-      const data = await readJsonSafe<{ reply?: string; error?: string }>(res);
-      if (!res.ok || !data?.reply) {
-        setMessages((prev) => [
-          ...prev,
-          { id: crypto.randomUUID(), role: "error", text: data?.error ?? "Something went wrong." },
-        ]);
-        return;
-      }
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", text: data.reply! }]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: "error", text: "Network error, please try again." },
-      ]);
-    } finally {
-      setSending(false);
-    }
-  };
-
-  return (
-    <aside className={styles.chatPanel} aria-label="Assistant">
-      <div className={styles.chatHeader}>Assistant</div>
-      <div className={styles.chatMessages}>
-        {messages.length === 0 ? (
-          <p className={styles.chatEmpty}>Ask me anything about this dashboard.</p>
-        ) : (
-          messages.map((m) => (
-            <div
-              key={m.id}
-              className={`${styles.chatBubble} ${m.role !== "user" ? styles.chatBubbleAssistant : ""} ${
-                m.role === "error" ? styles.chatBubbleError : ""
-              }`}
-            >
-              {m.text}
-            </div>
-          ))
-        )}
-        {sending && (
-          <div className={`${styles.chatBubble} ${styles.chatBubbleAssistant}`}>
-            <Spinner size={11} />
-          </div>
-        )}
-      </div>
-      <div className={styles.chatInputRow}>
-        <div className={styles.chatInputWrap}>
-          <input
-            type="text"
-            className={styles.chatInput}
-            placeholder="Type a message…"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()}
-          />
-          <button
-            type="button"
-            className={styles.chatSendBtn}
-            onClick={send}
-            disabled={!draft.trim() || sending}
-            aria-label="Send"
-          >
-            {SendIcon}
-          </button>
-        </div>
-      </div>
-    </aside>
-  );
 }

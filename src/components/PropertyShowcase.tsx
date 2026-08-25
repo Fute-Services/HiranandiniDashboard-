@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Property } from "@/data/properties";
+import { projectsIn, type Property } from "@/data/properties";
 import { getSession, SESSION_START_PATH } from "@/lib/auth";
 import { getBlockedProjectsFor } from "@/lib/controls";
 import { getInventory } from "@/lib/inventory";
@@ -31,11 +31,14 @@ function formatElapsed(ms: number) {
 }
 
 /**
- * Where the Earth hands off to: the 360° VR tour plays fully sharp, always,
- * since the panorama is the visual lead. Property cards live in a frosted-glass
- * shelf along the bottom. It's a single screen, not a multi-step flow, so "End
- * Session" closes out and logs the visit (questionnaire §6) straight from
- * here, no separate feedback step required for V1.
+ * The one screen a presentation runs on: the 360° VR tour plays fully sharp
+ * behind everything, since the panorama is the visual lead, and every project
+ * sits in a shelf along the bottom. Tapping a project opens its own site
+ * full-screen in this tab (see `ProjectViewer`); × brings the showcase back.
+ *
+ * Log out is the only way off the screen — there is no separate End Session
+ * step, so one login is one customer, and signing out is what closes the
+ * presentation out in the activity log (see `leave`).
  */
 export function PropertyShowcase({ properties }: { properties: Property[] }) {
   const router = useRouter();
@@ -54,11 +57,47 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   const [inventoryNotice, setInventoryNotice] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
+  /** The meeting-note field is off by default and opened from the header —
+   * see the notes bar below for why it isn't just always on screen. */
+  const [notesOpen, setNotesOpen] = useState(false);
   const [detailsProperty, setDetailsProperty] = useState<Property | null>(null);
-  /** "End Session" doesn't close out immediately — it gates on recording how
-   * interested the customer seemed, so that signal exists for every session
-   * instead of depending on staff remembering to type a free-text note. */
-  const [showInterestGate, setShowInterestGate] = useState(false);
+  /** The project whose own site is open, full-screen, over the showcase.
+   * Null means the shelf/VR tour is what's on screen. */
+  const [viewerProperty, setViewerProperty] = useState<Property | null>(null);
+  /** Mirrors `viewerProperty` plus the moment it opened. A ref, not state,
+   * because `closeViewer` has to log the project it's closing *and* how long
+   * it was up — and reading that out of a `setState` updater would put a log
+   * write inside a function React is free to call twice. */
+  const viewerRef = useRef<{ property: Property; openedAt: number; within?: string } | null>(null);
+
+  /** `within` names the portfolio a project was opened from, when it wasn't
+   * opened off the shelf directly — a tower reached through Fortune City's
+   * details panel logs as "Ebony · Fortune City", so the timeline says where
+   * in the presentation it was reached from, not just that it was shown. */
+  const openViewer = useCallback((property: Property, within?: string) => {
+    viewerRef.current = { property, openedAt: Date.now(), within };
+    setViewerProperty(property);
+    const name = property.name || property.slug;
+    logSessionEvent(within ? `Opened ${name} · ${within}` : `Opened ${name}`, "project_open");
+  }, []);
+
+  /** Every way out of the viewer goes through here — the × button, Escape, a
+   * mid-session block, Log out — so the close event and its
+   * measured duration land exactly once however it closed. Clearing the ref
+   * first makes a second call a no-op rather than a duplicate log line. */
+  const closeViewer = useCallback((reason?: string) => {
+    const open = viewerRef.current;
+    viewerRef.current = null;
+    setViewerProperty(null);
+    if (!open) return;
+    const base = open.property.name || open.property.slug;
+    const name = open.within ? `${base} · ${open.within}` : base;
+    logSessionEvent(
+      reason ? `Closed ${name} · ${reason}` : `Closed ${name}`,
+      "project_close",
+      Date.now() - open.openedAt,
+    );
+  }, []);
   const [busy, setBusy] = useState(false);
   /** The 360° panorama is a whole third-party site in an iframe and easily
    * the slowest thing on this screen — without a marker the customer just
@@ -85,11 +124,10 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
    * a skeleton until then rather than showing every card and yanking the
    * blocked ones back out a moment later. */
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
-  /** Which of the two leave-this-screen actions is under way (both navigate,
-   * and sign-out also writes the logout event first). Self-releasing, so a
-   * navigation that never lands can't leave End Session and Log out disabled
-   * with a reload as the only way out (see lib/useNavigationLock). */
-  const [leaving, setLeaving] = useNavigationLock<"end" | "logout">();
+  /** Set while signing out, to stop a second click firing a second logout.
+   * Self-releasing, so a navigation that never lands can't leave Log out
+   * disabled with a reload as the only way out (see lib/useNavigationLock). */
+  const [leaving, setLeaving] = useNavigationLock<"logout">();
 
   useEffect(() => {
     const active = getActiveSession();
@@ -187,6 +225,9 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   // its slug shows up blocked, so mid-session blocking is actually
   // immediate, not just "can't open it again" — and say why instead of
   // letting the modal just vanish.
+  // The full-screen project viewer is shut the same way and for the same
+  // reason: a block that only hid the card would leave the blocked project's
+  // own site still filling the screen in front of the customer.
   useEffect(() => {
     setDetailsProperty((current) => {
       if (current && blockedSlugs.includes(current.slug)) {
@@ -195,7 +236,12 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
       }
       return current;
     });
-  }, [blockedSlugs]);
+    const open = viewerRef.current;
+    if (open && blockedSlugs.includes(open.property.slug)) {
+      setBlockedNotice(true);
+      closeViewer("blocked by admin");
+    }
+  }, [blockedSlugs, closeViewer]);
 
   useEffect(() => {
     if (!session) return;
@@ -206,25 +252,18 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
     return () => window.clearInterval(id);
   }, [session]);
 
-  const endSession = useCallback(() => {
-    setShowInterestGate(true);
-  }, []);
-
-  const confirmEndSession = useCallback(
-    (interest: "Highly Interested" | "Neutral" | "Not Interested" | "Follow-up Later") => {
-      logSessionEvent(interest, "interest_level");
-      setShowInterestGate(false);
-      setLeaving("end");
-      finalizeSession();
-      router.push(SESSION_START_PATH);
-    },
-    [router],
-  );
-
+  /** Log out is the only way off this screen now — there is no End Session
+   * step — so the presentation has to be closed out properly here rather
+   * than just abandoned. Order matters: both log writes are attributed to
+   * the active session, so they have to happen before finalizeSession()
+   * clears it, or they silently no-op and that project's dwell time and the
+   * presentation's final step duration are both lost. */
   const leave = useCallback(() => {
+    closeViewer("logged out");
+    finalizeSession();
     setLeaving("logout");
     void signOut();
-  }, []);
+  }, [closeViewer]);
 
   const scrollCards = useCallback((dir: 1 | -1) => {
     cardsRef.current?.scrollBy({ left: dir * 300, behavior: "smooth" });
@@ -299,28 +338,20 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
           {!isAdmin && session && (
             <button
               type="button"
+              className={styles.notesToggle}
+              onClick={() => setNotesOpen((v) => !v)}
+              aria-pressed={notesOpen}
+            >
+              Note
+            </button>
+          )}
+          {!isAdmin && session && (
+            <button
+              type="button"
               className={`${styles.busyToggle} ${busy ? styles.busyToggleActive : ""}`}
               onClick={toggleBusy}
             >
               {busy ? "Busy" : "Available"}
-            </button>
-          )}
-          {!isAdmin && (
-            <button
-              type="button"
-              className={styles.endSession}
-              onClick={endSession}
-              disabled={leaving !== null}
-              aria-busy={leaving === "end"}
-            >
-              {leaving === "end" ? (
-                <>
-                  <Spinner size={12} />
-                  Ending…
-                </>
-              ) : (
-                "End Session"
-              )}
             </button>
           )}
           <button
@@ -342,7 +373,11 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
         </div>
       </header>
 
-      {!isAdmin && session && (
+      {/* Opened from the header rather than parked permanently under it: this
+          screen is pointed at a customer, and a staff-only scratchpad sitting
+          open across the top the whole time is one more thing they can read
+          and one more thing on screen. */}
+      {!isAdmin && session && notesOpen && (
         <div className={styles.notesBar}>
           <input
             type="text"
@@ -351,9 +386,18 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addNote()}
+            autoFocus
           />
           <button type="button" className={styles.notesBtn} onClick={addNote}>
             {noteSaved ? "Saved" : "Add Note"}
+          </button>
+          <button
+            type="button"
+            className={styles.notesClose}
+            onClick={() => setNotesOpen(false)}
+            aria-label="Close notes"
+          >
+            &times;
           </button>
         </div>
       )}
@@ -371,43 +415,65 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
         <div className={styles.shelf}>
           <div className={styles.shelfLabel}>Fute Services Portfolio &middot; 2026</div>
           <div className={styles.cards} ref={cardsRef}>
-            {/* No loading placeholder here on purpose: these cards are
-                choreographed to fly in several seconds after mount anyway
-                (see .card's animation-delay), which is long past when the
-                blocked-projects poll answers — a skeleton would only ever
-                flash before the reveal it's meant to stand in for. */}
-            {properties
-              .filter((property) => !blockedSlugs.includes(property.slug))
-              .map((property, i) => (
-              <a
-                key={property.slug}
-                className={styles.card}
-                href={property.href}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() =>
-                  logSessionEvent(`Opened ${property.name || property.slug}`, "project_open")
-                }
-              >
-                <div className={styles.cardMedia}>
-                  <ImageSlot
-                    src={property.image}
-                    placeholder={`${property.name || "Property"} image`}
-                    alt={`${property.name || "Property"}, ${property.location}`}
-                  />
-                </div>
-                <div className={styles.cardBody}>
-                  <div className={styles.cardIndex}>{pad2(i + 1)}</div>
-                  <h3 className={styles.cardName}>{property.name}</h3>
-                  {typeof inventory[property.slug] === "number" && (
-                    <span className={styles.unitsLeftBadge}>
-                      Only {inventory[property.slug]} unit{inventory[property.slug] === 1 ? "" : "s"} left
-                    </span>
-                  )}
-                  <span className={styles.cardLink}>Visit&nbsp;&#8599;</span>
-                </div>
-              </a>
-            ))}
+            {!permissionsLoaded && (
+              <span className={styles.cardsLoading} role="status">
+                <Spinner size={12} />
+                Loading projects…
+              </span>
+            )}
+            {/* One row per project, not two. Each card used to be a bare link
+                off-site, with a second full-width row of "<name> Details"
+                buttons underneath repeating the same list — the same six
+                projects named twice, which is most of what made this screen
+                feel busy in front of a customer. The card is a plain element
+                now (an <a> can't legally contain a <button>) and carries both
+                actions itself. */}
+            {permissionsLoaded &&
+              properties
+                .filter((property) => !blockedSlugs.includes(property.slug))
+                .map((property, i) => (
+                  <div key={property.slug} className={styles.card}>
+                    <div className={styles.cardMedia}>
+                      <ImageSlot
+                        src={property.image}
+                        placeholder={`${property.name || "Property"} image`}
+                        alt={`${property.name || "Property"}, ${property.location}`}
+                      />
+                    </div>
+                    <div className={styles.cardBody}>
+                      <div className={styles.cardIndex}>{pad2(i + 1)}</div>
+                      <h3 className={styles.cardName}>{property.name}</h3>
+                      <div className={styles.cardLocation}>{property.location}</div>
+                      {typeof inventory[property.slug] === "number" && (
+                        <span className={styles.unitsLeftBadge}>
+                          Only {inventory[property.slug]} unit{inventory[property.slug] === 1 ? "" : "s"} left
+                        </span>
+                      )}
+                      <div className={styles.cardActions}>
+                        <button
+                          type="button"
+                          className={styles.cardDetailsBtn}
+                          onClick={() => setDetailsProperty(property)}
+                        >
+                          Details
+                        </button>
+                        {/* Opens the project's site in this tab, over the
+                            showcase — not `target="_blank"`. A new tab took the
+                            staff member out of the app in front of the
+                            customer, and the activity log lost them there: no
+                            close, no dwell, every roadmap node stuck on
+                            "Ongoing". */}
+                        <button
+                          type="button"
+                          className={styles.cardLink}
+                          onClick={() => openViewer(property)}
+                        >
+                          Open&nbsp;&#8599;
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
           </div>
         </div>
 
@@ -421,87 +487,184 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
         </button>
       </div>
 
-      {/* A second row of "Details" triggers, kept outside the anchor cards
-          above (an <a> can't nest a <button>) so opening floor plan/gallery/
-          amenities/brochure doesn't also navigate off-site. */}
-      <div className={styles.detailsDock}>
-        {!permissionsLoaded && (
-          <span className={styles.detailsLoading} role="status">
-            <Spinner size={12} />
-            Loading projects…
-          </span>
-        )}
-        {permissionsLoaded &&
-          properties
-          .filter((property) => !blockedSlugs.includes(property.slug))
-          .map((property) => (
-            <button
-              key={property.slug}
-              type="button"
-              className={styles.detailsBtn}
-              onClick={() => setDetailsProperty(property)}
-            >
-              {property.name} Details
-            </button>
-          ))}
-      </div>
+      {viewerProperty && (
+        <ProjectViewer
+          property={viewerProperty}
+          onClose={() => closeViewer()}
+          onDetails={() => {
+            const property = viewerProperty;
+            closeViewer("opened details");
+            setDetailsProperty(property);
+          }}
+        />
+      )}
 
       {detailsProperty && (
         <PropertyDetailsModal
           property={detailsProperty}
           onClose={() => setDetailsProperty(null)}
+          onOpenProject={(project) => {
+            const within = detailsProperty.name || detailsProperty.slug;
+            setDetailsProperty(null);
+            openViewer(project, within);
+          }}
         />
       )}
 
-      {showInterestGate && (
-        <div className={styles.modalBackdrop} onClick={() => setShowInterestGate(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>How interested did the customer seem?</h3>
-              <button
-                type="button"
-                className={styles.modalClose}
-                onClick={() => setShowInterestGate(false)}
-                aria-label="Close"
-              >
-                &times;
-              </button>
-            </div>
-            <div className={styles.interestOptions}>
-              {(["Highly Interested", "Neutral", "Not Interested", "Follow-up Later"] as const).map((level) => (
-                <button
-                  key={level}
-                  type="button"
-                  className={styles.interestOption}
-                  onClick={() => confirmEndSession(level)}
-                >
-                  {level}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-const DETAIL_TABS = ["floor_plan", "gallery", "amenities", "brochure_download"] as const;
+/**
+ * One project's own website, full-screen in this tab, over the showcase —
+ * with a × to come back. The alternative was `target="_blank"`, which in a
+ * showroom means the staff member is now driving a bare browser tab in front
+ * of the customer: no session header, no timer, no Log out, and nothing
+ * to click to get back but the browser's own chrome (which a kiosk may not
+ * even show). It also ended the activity log at "Opened X" — the close and
+ * the dwell time both happened somewhere this app couldn't see.
+ *
+ * Opening and closing are logged by the parent, not here, so a React that
+ * mounts effects twice can't double-log them.
+ */
+function ProjectViewer({
+  property,
+  onClose,
+  onDetails,
+}: {
+  property: Property;
+  onClose: () => void;
+  onDetails: () => void;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  /** True once the frame has had long enough that "still blank" means it
+   * isn't coming. None of these sites send X-Frame-Options or a
+   * frame-ancestors CSP today, but they're third parties who can add one
+   * without telling us — and the failure mode is a black rectangle in front
+   * of a customer. The escape hatch below is the honest answer to that. */
+  const [stalled, setStalled] = useState(false);
+
+  useEffect(() => {
+    if (loaded) return;
+    const id = window.setTimeout(() => setStalled(true), 12000);
+    return () => window.clearTimeout(id);
+  }, [loaded]);
+
+  // Escape closes, like every other overlay on this screen. Bound on the
+  // document because focus is usually inside the iframe, where React's own
+  // synthetic key events never reach.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className={styles.viewer} role="dialog" aria-label={`${property.name} website`}>
+      <header className={styles.viewerBar}>
+        <div className={styles.viewerTitleGroup}>
+          <span className={styles.viewerName}>{property.name}</span>
+          <span className={styles.viewerLocation}>{property.location}</span>
+        </div>
+        <div className={styles.viewerActions}>
+          <button type="button" className={styles.cardDetailsBtn} onClick={onDetails}>
+            Details
+          </button>
+          <button
+            type="button"
+            className={styles.viewerClose}
+            onClick={onClose}
+            aria-label={`Close ${property.name}`}
+            title="Close (Esc)"
+          >
+            &times;
+          </button>
+        </div>
+      </header>
+      <div className={styles.viewerStage}>
+        {/* The sandbox is permissive on purpose — these are real marketing
+            sites that need their own scripts, storage, forms and popups to
+            work at all. The one thing deliberately withheld is
+            `allow-top-navigation`: a site that framebusts ("if I'm in a
+            frame, escape it") would otherwise navigate the entire app away
+            mid-presentation, taking the session, the timer and the activity
+            log with it. */}
+        <iframe
+          className={styles.viewerFrame}
+          src={property.href}
+          title={`${property.name} website`}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-downloads"
+          allow="gyroscope; accelerometer; xr-spatial-tracking; fullscreen"
+          onLoad={() => setLoaded(true)}
+          onError={() => setStalled(true)}
+        />
+        {!loaded && (
+          <div className={styles.viewerLoading} role="status">
+            <Spinner size={26} />
+            <span className={styles.vrLoadingLabel}>
+              {stalled ? `${property.name} is taking a while…` : `Loading ${property.name}…`}
+            </span>
+            {stalled && (
+              <a
+                className={styles.viewerFallback}
+                href={property.href}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open in a new tab instead &#8599;
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const DETAIL_TABS = [
+  "property_shown",
+  "floor_plan",
+  "gallery",
+  "amenities",
+  "brochure_download",
+] as const;
 type DetailTab = (typeof DETAIL_TABS)[number];
 const DETAIL_TAB_LABEL: Record<DetailTab, string> = {
+  property_shown: "Projects",
   floor_plan: "Floor Plan",
   gallery: "Gallery",
   amenities: "Amenities",
   brochure_download: "Brochure",
 };
 
-/** Floor plan / gallery / amenities / brochure viewer for one project. Each
- * tab switch logs its own activity event (so the admin/manager timeline
- * shows exactly which content was shown, not just that the card was
- * opened), and the brochure tab triggers a real file download rather than
- * just claiming one happened. */
-function PropertyDetailsModal({ property, onClose }: { property: Property; onClose: () => void }) {
-  const [tab, setTab] = useState<DetailTab>("floor_plan");
+/** Projects / floor plan / gallery / amenities / brochure viewer for one
+ * portfolio. Each tab switch logs its own activity event (so the
+ * admin/manager timeline shows exactly which content was shown, not just that
+ * the card was opened), and the brochure tab triggers a real file download
+ * rather than just claiming one happened.
+ *
+ * The Projects tab is where Fortune City's six towers live now that the shelf
+ * is one card per portfolio. Opening one from here goes through the same
+ * in-app viewer as a shelf card, so it is recorded identically — with the
+ * portfolio it was reached from attached to the event.
+ */
+function PropertyDetailsModal({
+  property,
+  onClose,
+  onOpenProject,
+}: {
+  property: Property;
+  onClose: () => void;
+  onOpenProject: (project: Property) => void;
+}) {
+  const children = projectsIn(property.slug);
+  /** A portfolio that is a single project (Alibaug) has no tower list, so its
+   * Projects tab would be a permanently empty panel — drop it entirely and
+   * open on Floor Plan instead. */
+  const tabs = DETAIL_TABS.filter((t) => t !== "property_shown" || children.length > 0);
+  const [tab, setTab] = useState<DetailTab>(tabs[0]);
   /** The file itself is built locally and lands instantly, so this is a
    * confirmation rather than a spinner — a browser download that opens no
    * window otherwise gives no sign the click registered at all. */
@@ -542,7 +705,7 @@ function PropertyDetailsModal({ property, onClose }: { property: Property; onClo
           </button>
         </div>
         <div className={styles.modalTabs}>
-          {DETAIL_TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t}
               type="button"
@@ -554,6 +717,32 @@ function PropertyDetailsModal({ property, onClose }: { property: Property; onClo
           ))}
         </div>
         <div className={styles.modalBody}>
+          {tab === "property_shown" && (
+            <ul className={styles.projectList}>
+              {children.map((child) => (
+                <li key={child.slug} className={styles.projectRow}>
+                  <div className={styles.projectThumb}>
+                    <ImageSlot
+                      src={child.image}
+                      placeholder={child.name}
+                      alt={`${child.name}, ${child.location}`}
+                    />
+                  </div>
+                  <div className={styles.projectMeta}>
+                    <span className={styles.projectName}>{child.name}</span>
+                    <span className={styles.projectLocation}>{child.location}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.cardLink}
+                    onClick={() => onOpenProject(child)}
+                  >
+                    Open&nbsp;&#8599;
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           {tab === "floor_plan" && (
             <div className={styles.modalMedia}>
               <ImageSlot placeholder={`Floor plan for ${property.name} (not yet supplied)`} />

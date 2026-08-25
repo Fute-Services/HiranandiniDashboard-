@@ -12,6 +12,7 @@ export type StaffUser = {
   role: "sales_manager" | "sales_staff";
   managerEmail: string | null;
   joiningDate: string | null;
+  spertoLogin: string | null;
 };
 
 /** Every sales manager/staff account visible to the caller — admin sees
@@ -35,6 +36,10 @@ export type CreateStaffInput = {
   role: "admin" | "sales_manager" | "sales_staff";
   /** Required when role is "sales_staff". */
   managerEmail?: string;
+  /** Sperto's own login code for this account, e.g. "PDPL0349" — see
+   * src/lib/sperto-device-usage.ts. Optional; left unset skips the
+   * device-usage call for that account rather than sending a made-up value. */
+  spertoLogin?: string;
 };
 
 export async function createStaff(input: CreateStaffInput): Promise<{ ok: boolean; error?: string }> {

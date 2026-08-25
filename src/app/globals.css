@@ -1,22 +1,152 @@
+/*
+ * ============================================================================
+ * Fute Services — design tokens
+ * ============================================================================
+ *
+ * One palette for the whole product. Before this, the login/session screens
+ * ran on an indigo accent and the reports/showcase screens ran on a saturated
+ * orange, so moving between them felt like moving between two apps — and both
+ * leaned on glow and gradient to carry the "premium" that neither actually
+ * had.
+ *
+ * The scheme now is a single one: a near-black graphite ground, warm ivory
+ * type, and brass used sparingly — primary actions, active states, the brand
+ * mark, and the one number on a card that matters. Everything structural is
+ * neutral. Gold is expensive because there is very little of it; a screen
+ * where every panel glows is not a premium screen, it is a busy one.
+ *
+ * Component stylesheets should reference these tokens rather than hex values,
+ * so re-skinning is a change here and nowhere else.
+ */
+
 :root {
-  --bg: oklch(0.986 0.004 95);
-  --ink: oklch(0.2 0.01 95);
-  --ink-muted: oklch(0.6 0.01 95);
-  --ink-dim: oklch(0.55 0.01 95);
-  --line: oklch(0.9 0.004 95);
-  --line-soft: oklch(0.92 0.004 95);
-  --line-strong: oklch(0.82 0.006 95);
-  --dot: oklch(0.86 0.005 95);
-  --slot-bg: oklch(0.955 0.004 95);
-  --link: oklch(0.55 0.12 255);
-  --link-hover: oklch(0.45 0.14 255);
-  --accent: oklch(0.58 0.17 28);
-  --accent-soft: oklch(0.58 0.17 28 / 0.14);
-  --accent-glow: oklch(0.62 0.2 28 / 0.55);
-  --accent-strong: oklch(0.62 0.21 28 / 0.7);
+  /* ---------------------------------------------------------------- type */
+
+  /* `--font-sans`, `--font-display` and `--font-mono` are set on <html> by
+     next/font (see layout.tsx) and hold the loaded family name only. These
+     add the fallback stacks, and alias the names the existing stylesheets
+     already ask for — so the type change didn't have to touch ~130
+     declarations across 13 files. */
+  --ui: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --serif: var(--font-display), "Iowan Old Style", Georgia, serif;
+  --code: var(--font-mono), ui-monospace, "SFMono-Regular", monospace;
+  --font-grotesk: var(--ui);
+  --font-label: var(--ui);
+  --font-jetbrains: var(--code);
+
+  /* ------------------------------------------------------------- surface */
+
+  /* A single ramp from the page ground up to the highest floating panel.
+     Each step is a real, opaque colour rather than white-at-N%-opacity —
+     translucent stacks drift in tint as they nest, which is how the old
+     modals ended up a slightly different grey from the cards behind them. */
+  --surface-0: #0a0b0c; /* page ground */
+  --surface-1: #101214; /* section / rail */
+  --surface-2: #16181b; /* card */
+  --surface-3: #1d2024; /* raised card, input */
+  --surface-4: #262a2f; /* popover, modal, active row */
+
+  /* For panels that sit over live content (the VR tour, a project's own
+     site) and must let a little of it through without turning milky. */
+  --scrim: rgba(8, 9, 10, 0.72);
+  --scrim-strong: rgba(8, 9, 10, 0.92);
+  --scrim-deep: rgba(6, 7, 8, 0.96);
+
+  /* --------------------------------------------------------------- ink */
+
+  --ink: #f2efe8; /* warm ivory, not #fff — pure white on near-black
+                     vibrates and reads cheap at display sizes */
+  --ink-strong: #fbf9f5;
+  --ink-muted: rgba(242, 239, 232, 0.68);
+  --ink-dim: rgba(242, 239, 232, 0.46);
+  --ink-faint: rgba(242, 239, 232, 0.3);
+  /* Ink for the few surfaces that are actually light (image placeholders,
+     brass buttons), where the ivory above would be invisible. */
+  --ink-inverse: #14140f;
+
+  /* ------------------------------------------------------------- hairline */
+
+  --line: rgba(242, 239, 232, 0.09);
+  --line-strong: rgba(242, 239, 232, 0.16);
+  --line-brass: rgba(194, 160, 89, 0.32);
+
+  /* --------------------------------------------------------------- brass */
+
+  /* The one accent. Desaturated on purpose: a fully saturated gold is
+     costume jewellery, and this sits next to photography of real buildings. */
+  --brass: #c2a059;
+  --brass-bright: #d9be84;
+  --brass-pale: #ebdcb8;
+  --brass-deep: #96793c;
+  --brass-ghost: rgba(194, 160, 89, 0.12);
+  --brass-ghost-strong: rgba(194, 160, 89, 0.2);
+  --brass-shadow: rgba(194, 160, 89, 0.28);
+
+  /* -------------------------------------------------------------- status */
+
+  /* Kept muted for the same reason as the accent — a dashboard where the
+     status chips are brighter than the content is a dashboard nobody reads. */
+  --ok: #57a577;
+  --ok-bright: #8fd0a7;
+  --ok-ghost: rgba(87, 165, 119, 0.14);
+  --ok-line: rgba(87, 165, 119, 0.34);
+
+  --warn: #d99a45;
+  --warn-bright: #edbc7c;
+  --warn-ghost: rgba(217, 154, 69, 0.13);
+  --warn-line: rgba(217, 154, 69, 0.34);
+
+  --bad: #cf5f4e;
+  --bad-bright: #eb9587;
+  --bad-ghost: rgba(207, 95, 78, 0.13);
+  --bad-line: rgba(207, 95, 78, 0.36);
+
+  /* Neutral-cool, for informational chips only. Deliberately a slate teal:
+     the brief was explicitly no violet anywhere in this product. */
+  --info: #7ba0ac;
+  --info-ghost: rgba(123, 160, 172, 0.13);
+  --info-line: rgba(123, 160, 172, 0.32);
+
+  /* -------------------------------------------------------------- shadow */
+
+  /* Depth comes from shadow + a top highlight hairline, not from a coloured
+     glow. Nothing in this product should look like it is emitting light. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 16px -6px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 18px 40px -18px rgba(0, 0, 0, 0.7);
+  --shadow-xl: 0 32px 80px -28px rgba(0, 0, 0, 0.8);
+  --edge-top: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  /* -------------------------------------------------------------- radius */
+
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --r-pill: 999px;
+
+  /* -------------------------------------------------------------- motion */
+
+  /* One easing curve everywhere. Mixed curves are a large part of why an
+     interface feels assembled rather than designed. */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --t-fast: 120ms;
+  --t: 180ms;
+  --t-slow: 320ms;
+
+  /* --------------------------------------------------- light-surface set */
+
+  /* The handful of genuinely light surfaces left (image placeholder slots).
+     Named separately so nothing tries to reuse the dark ramp for them. */
+  --paper: #f2efe8;
+  --paper-dim: #e6e2d8;
+  --paper-line: #d6d1c4;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -24,22 +154,99 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
-  /* Root-level fallback: without this, any component that forgets to set
-     its own font-family (as EarthPortal did) silently renders in the
-     browser's default serif instead of the app's intended sans. */
-  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface-0);
+  color: var(--ink);
+  /* Root-level fallback: without this, any component that forgets to set its
+     own font-family silently renders in the browser's default serif. */
+  font-family: var(--ui);
+  /* Grotesk-era screens were set at default rendering and looked chalky on
+     the dark ground; this is what keeps ivory-on-graphite crisp. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Presentation screens are fixed-height and drive their own scrolling; a
+   rubber-band on the document behind them exposes the ground colour. */
+body {
+  overscroll-behavior: none;
 }
 
 a {
-  color: var(--link);
+  color: var(--brass-bright);
   text-decoration: none;
+  transition: color var(--t) var(--ease);
 }
 
 a:hover {
-  color: var(--link-hover);
+  color: var(--brass-pale);
 }
 
-button {
+button,
+input,
+select,
+textarea {
   font-family: inherit;
+  color: inherit;
+}
+
+/* One focus ring for the entire product, on the accent, and only for keyboard
+   users. Several components had grown their own — different colours, widths
+   and offsets — and a couple had none at all. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+::selection {
+  background: var(--brass-ghost-strong);
+  color: var(--ink-strong);
+}
+
+/* Dark scrollbars. The default light ones cut a bright stripe down the side
+   of every scrollable panel, which on a screen pointed at a customer is the
+   single most obvious "unfinished" tell there is. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(242, 239, 232, 0.18) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(242, 239, 232, 0.14);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: var(--r-pill);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(242, 239, 232, 0.26);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Number-heavy UI: timers, counts and IDs must not reflow as their digits
+   change. Applied at the root so every mono run gets it for free. */
+:where(.mono, code, kbd, samp) {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getSql } from "@/lib/db";
+import { getSql, hasDb } from "@/lib/db";
 import { withJsonErrors } from "@/lib/api";
 import { isSameOrigin } from "@/lib/csrf";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
@@ -34,6 +34,7 @@ type StaffUser = {
   role: "sales_manager" | "sales_staff";
   managerEmail: string | null;
   joiningDate: string | null;
+  spertoLogin: string | null;
 };
 
 /** Staff+manager directory for the reports dashboard — admin accounts are
@@ -46,17 +47,30 @@ async function allStaffAndManagers(): Promise<StaffUser[]> {
     role: u.role as "sales_manager" | "sales_staff",
     managerEmail: u.managerEmail ?? null,
     joiningDate: u.joiningDate ?? null,
+    spertoLogin: u.spertoLogin ?? null,
   }));
+  // No DB configured means no admin-created accounts to add — the demo
+  // roster is just the static array below.
+  if (!hasDb()) return fromStatic;
+
   const sql = getSql();
   const rows = (await sql`
-    SELECT email, name, role, manager_email, joining_date FROM users WHERE role != 'admin'
-  `) as { email: string; name: string; role: string; manager_email: string | null; joining_date: string | null }[];
+    SELECT email, name, role, manager_email, joining_date, sperto_login FROM users WHERE role != 'admin'
+  `) as {
+    email: string;
+    name: string;
+    role: string;
+    manager_email: string | null;
+    joining_date: string | null;
+    sperto_login: string | null;
+  }[];
   const fromDb: StaffUser[] = rows.map((r) => ({
     email: r.email,
     name: r.name,
     role: r.role as "sales_manager" | "sales_staff",
     managerEmail: r.manager_email,
     joiningDate: r.joining_date,
+    spertoLogin: r.sperto_login,
   }));
   return [...fromStatic, ...fromDb];
 }
@@ -97,14 +111,16 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
   }
 
   const body = await req.json();
-  const { name, email: rawEmail, password, role, managerEmail } = body as {
+  const { name, email: rawEmail, password, role, managerEmail, spertoLogin: rawSpertoLogin } = body as {
     name?: string;
     email?: string;
     password?: string;
     role?: string;
     managerEmail?: string;
+    spertoLogin?: string;
   };
   const email = rawEmail?.trim().toLowerCase();
+  const spertoLogin = rawSpertoLogin?.trim() || null;
 
   if (!name?.trim()) return NextResponse.json({ error: "Name required" }, { status: 400 });
   if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 });
@@ -130,8 +146,8 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
 
   const sql = getSql();
   await sql`
-    INSERT INTO users (email, password_hash, name, role, manager_email, joining_date, created_at)
-    VALUES (${email}, ${hashPassword(password)}, ${name.trim()}, ${role}, ${normalizedManagerEmail}, ${new Date().toISOString()}, ${Date.now()})
+    INSERT INTO users (email, password_hash, name, role, manager_email, joining_date, created_at, sperto_login)
+    VALUES (${email}, ${hashPassword(password)}, ${name.trim()}, ${role}, ${normalizedManagerEmail}, ${new Date().toISOString()}, ${Date.now()}, ${spertoLogin})
   `;
 
   return NextResponse.json({ ok: true });

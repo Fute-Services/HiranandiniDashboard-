@@ -26,12 +26,24 @@ const FORTUNE_CITY_AMENITIES = [
   "24x7 Security",
 ];
 
+const ALIBAUG_AMENITIES = [
+  "Private Beach Access",
+  "Infinity Pool",
+  "Wellness Spa",
+  "Landscaped Estate",
+  "Concierge",
+  "24x7 Security",
+];
+
 /**
  * The 6 top-level destinations on hiranandanifortunecity.com's own VR-tour
  * menu (The Arena, Elena, Ebony, Golden Willows, Club House, Quality). Name,
  * link and image are pulled from that site's (and its two linked microsites',
- * Elena/Ebony) own bundled data/assets. The carousel derives its geometry
- * from this list's length, so adding or removing entries is safe.
+ * Elena/Ebony) own bundled data/assets.
+ *
+ * These are no longer the shelf itself — the showcase shows one card per
+ * portfolio (see `showcaseProjects`) and these hang underneath Fortune City
+ * as its tower list. Adding or removing entries is safe.
  */
 export const properties: Property[] = [
   {
@@ -88,14 +100,29 @@ export const properties: Property[] = [
 ];
 
 /**
- * Top-level portfolio groups the space/Earth-approach screen (EarthPortal)
- * browses: pick a location first, then a project within it — rather than
- * every project from every location in one flat list.
+ * A top-level destination in the portfolio: one location, one website, and
+ * (sometimes) a set of projects inside it.
+ *
+ * A group is itself openable — `href` is the portfolio's own site, which is
+ * what the showcase's full-screen viewer loads. That is the difference from
+ * before: Fortune City used to exist only as its six towers, so
+ * hiranandanifortunecity.com itself was never something a staff member could
+ * put on screen, and nothing about "showed them Fortune City" reached the
+ * activity log. Now it opens in the app like Alibaug does, and is recorded
+ * the same way.
  */
 export type PortfolioGroup = {
   slug: string;
   name: string;
   location: string;
+  /** The portfolio's own site, opened in the in-app viewer. */
+  href: string;
+  image?: string;
+  amenities?: string[];
+  /** One line under the name on the card. */
+  blurb?: string;
+  /** The individual projects inside, listed in the details panel. Empty for a
+   * portfolio that is a single project. */
   projects: Property[];
 };
 
@@ -104,24 +131,45 @@ export const portfolioGroups: PortfolioGroup[] = [
     slug: "alibaug",
     name: "Alibaug",
     location: "Alibaug, Maharashtra",
-    projects: [
-      {
-        slug: "hiranandani-sands",
-        name: "Alibaug",
-        location: "Alibaug, Maharashtra",
-        href: "https://hiranandanisands.in/",
-        // Their own site is a fully client-rendered app with no
-        // discoverable static photo asset, so this is a locally-hosted
-        // brand card (title + tagline) rather than a project photo — same
-        // "no CRM/content API yet" gap the amenities comment above notes.
-        image: "/brand/alibaug-sands.png",
-      },
-    ],
+    href: "https://hiranandanisands.in/",
+    // Their own site is a fully client-rendered app with no discoverable
+    // static photo asset, so this is a locally-hosted brand card (title +
+    // tagline) rather than a project photo — the same "no CRM/content API
+    // yet" gap the amenities comment above notes.
+    image: "/brand/alibaug-sands.png",
+    blurb: "Hiranandani Sands · coastal estate",
+    amenities: ALIBAUG_AMENITIES,
+    projects: [],
   },
   {
     slug: "fortune-city",
     name: "Fortune City",
     location: "Hiranandani Fortune City",
+    href: "https://hiranandanifortunecity.com",
+    image: "https://hiranandanigoldenwillows.com/assets/galleryy/Zenia01.webp",
+    blurb: "Integrated township · 6 projects",
+    amenities: FORTUNE_CITY_AMENITIES,
     projects: properties,
   },
 ];
+
+/**
+ * What the showcase shelf actually offers, and the single source of truth for
+ * "what can a staff member put in front of a customer" — which is why the
+ * admin block list and the unit-availability grid read from this too. When
+ * those read the tower list instead, blocking "Elena" hid nothing, because
+ * Elena was never a card on the shelf.
+ */
+export const showcaseProjects: Property[] = portfolioGroups.map((g) => ({
+  slug: g.slug,
+  name: g.name,
+  location: g.location,
+  href: g.href,
+  image: g.image,
+  amenities: g.amenities,
+}));
+
+/** The projects inside a portfolio, by the portfolio's slug. */
+export function projectsIn(slug: string): Property[] {
+  return portfolioGroups.find((g) => g.slug === slug)?.projects ?? [];
+}

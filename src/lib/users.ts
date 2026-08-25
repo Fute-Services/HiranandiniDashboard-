@@ -32,6 +32,11 @@ export type User = {
    * existing staff below since their actual join dates aren't on file here;
    * set it when adding a real new hire. */
   joiningDate?: string;
+  /** Sperto's own login code for this account (e.g. "PDPL0349"), used as
+   * sales_manager_login on the device-usage calls (src/lib/sperto-device-usage.ts).
+   * Unset for the demo accounts below; a session for an account with no code
+   * on file just skips that call rather than sending a made-up value. */
+  spertoLogin?: string;
 };
 
 /** True for the first 30 days after `joiningDate` — unset means "not known
@@ -69,6 +74,10 @@ export const USERS: User[] = [
     name: "Sales Staff",
     role: "sales_staff",
     managerEmail: "manager@futeservices.com",
+    // Wired to a real Sperto login code so the device-usage integration
+    // (src/lib/sperto-device-usage.ts) is exercisable end-to-end via this
+    // demo account, not just skipped for lack of one on file.
+    spertoLogin: "PDPL0349",
   },
   {
     email: "aditya@futeservices.com",
@@ -100,4 +109,13 @@ export function findUser(email: string, password: string): User | null {
 export function findUserByEmail(email: string): User | null {
   const normalized = email.trim().toLowerCase();
   return USERS.find((u) => u.email === normalized) ?? null;
+}
+
+/** Looks a static demo account up by its Sperto Sales ID (e.g. "PDPL0349")
+ * rather than email — see /api/login's Sales ID sign-in. Admin-created
+ * accounts have their own sperto_login column in the `users` table, checked
+ * separately since that array doesn't cover them (src/app/api/users/route.ts). */
+export function findUserBySpertoLogin(spertoLogin: string): User | null {
+  const normalized = spertoLogin.trim().toLowerCase();
+  return USERS.find((u) => u.spertoLogin?.toLowerCase() === normalized) ?? null;
 }

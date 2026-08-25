@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getSql } from "@/lib/db";
+import { getSql, hasDb } from "@/lib/db";
 import { withJsonErrors } from "@/lib/api";
 import { isSameOrigin } from "@/lib/csrf";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
@@ -97,6 +97,14 @@ function levenshtein(a: string, b: string): number {
 }
 
 export const GET = withJsonErrors(async (req: NextRequest) => {
+  // No DB configured means no real lead directory yet — callers (lib/leads.ts's
+  // findLead) already fall back to the dummy customer directory on an empty
+  // result, same as they do on a network failure.
+  if (!hasDb()) {
+    if (req.nextUrl.searchParams.get("all") === "1") return NextResponse.json({ leads: [] });
+    return NextResponse.json({ exact: null, similar: [] });
+  }
+
   const sql = getSql();
 
   if (req.nextUrl.searchParams.get("all") === "1") {

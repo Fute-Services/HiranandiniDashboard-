@@ -4,31 +4,28 @@ import {
   ADMIN_PATH,
   AUTH_COOKIE,
   DASHBOARD_PATH,
-  INTRO_PATH,
   landingPathForRole,
   LOGIN_PATH,
   MANAGER_PATH,
-  MY_ACTIVITY_PATH,
   SESSION_START_PATH,
-  SPACE_PATH,
 } from "@/lib/auth";
 import { verifySessionToken } from "@/lib/session-token";
 
 /**
- * Gate every page behind the login, except the intro splash and the login
- * page itself, which stay public. An unauthenticated request to anything else
- * is bounced to the login; an already-authenticated request to the login page
- * lands wherever that role's flow starts (see `landingPathForRole`).
+ * Gate every page behind the login, which is the only public page. An
+ * unauthenticated request to anything else is bounced there; an
+ * already-authenticated request to the login page lands wherever that role's
+ * flow starts (see `landingPathForRole`).
  *
  * There are three roles, so there are three separate areas. If a signed-in
  * user hits a route outside their own area, they get bounced to their own
  * landing page, same as if they weren't authed for it at all:
  * - admin: `/admin/dashboard` only, and sees every session and every role.
  * - sales_manager: `/manager/dashboard`, plus the client-presentation flow
- *   (`/session/start`, `/space`, `/dashboard`) to preview projects the same
- *   way a sales staff member would. They just don't get logged as "sales
- *   staff" on the resulting session (see `PropertyShowcase`'s `endSession`).
- * - sales_staff: the client-presentation flow (`/session/start`, `/space`,
+ *   (`/session/start`, `/dashboard`) to preview projects the same way a sales
+ *   staff member would. They just don't get logged as "sales staff" on the
+ *   resulting session (see `PropertyShowcase`'s `endSession`).
+ * - sales_staff: the client-presentation flow (`/session/start`,
  *   `/dashboard`) only, with no reporting access.
  *
  * The matcher below already spares Next internals and static assets, so this
@@ -53,7 +50,6 @@ export async function proxy(req: NextRequest) {
   // route), not our session cookie.
   const isPublicPage =
     isLoginPage ||
-    pathname === INTRO_PATH ||
     pathname === "/api/login" ||
     pathname === "/api/logout" ||
     pathname.startsWith("/api/cron/");
@@ -74,10 +70,7 @@ export async function proxy(req: NextRequest) {
     const isAdminOnlyPage = pathname.startsWith(ADMIN_PATH);
     const isManagerOnlyPage = pathname.startsWith(MANAGER_PATH);
     const isStaffOnlyPage =
-      pathname.startsWith(SESSION_START_PATH) ||
-      pathname.startsWith(SPACE_PATH) ||
-      pathname.startsWith(DASHBOARD_PATH) ||
-      pathname.startsWith(MY_ACTIVITY_PATH);
+      pathname.startsWith(SESSION_START_PATH) || pathname.startsWith(DASHBOARD_PATH);
 
     const outsideOwnArea =
       isAdminOnlyPage ||

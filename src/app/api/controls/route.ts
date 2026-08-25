@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getSql } from "@/lib/db";
+import { getSql, hasDb } from "@/lib/db";
 import { withJsonErrors } from "@/lib/api";
 import { isSameOrigin } from "@/lib/csrf";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
@@ -28,6 +28,12 @@ export const GET = withJsonErrors(async (req: NextRequest) => {
   const email = req.nextUrl.searchParams.get("email");
   if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
   const sessionId = req.nextUrl.searchParams.get("sessionId");
+
+  // No DB configured means nobody's ever been kicked/blocked/suspended —
+  // the same "not controlled" defaults a brand-new account gets below.
+  if (!hasDb()) {
+    return NextResponse.json({ kicked: false, blockedProjects: [], loginSuspended: false, sessionInvalid: false });
+  }
 
   const sql = getSql();
   const rows = (await sql`

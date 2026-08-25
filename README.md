@@ -37,6 +37,62 @@ project settings, not in that file.
 root, treated it as a plain static folder, and there's no `index.html` there to
 serve.
 
+## The sales staff flow
+
+Four screens, in order:
+
+1. **`/login`** — Sales ID + Customer ID, one step. Admin and sales managers
+   sign in with email + password behind the "Admin / Manager login" link.
+2. **`/session/start`** — the customer's details, looked up from the Customer
+   ID typed on the login screen, then the device picker.
+3. **`/dashboard`** — the 360° VR tour and property showcase.
+
+There is no intro splash, no Earth transition and no separate customer-search
+screen; the lookup is folded into the login.
+
+## Dummy data, and where the real API plugs in
+
+The staff flow runs end-to-end with **no database and no API credentials**.
+Customer lookups fall back to `src/data/customers.ts`, a fixed list of five
+customers (`LEAD-1001` … `LEAD-1005`, each also findable by phone number).
+
+To wire up the client's real customer API, change **one file**: point
+`findDummyCustomer` in `src/data/customers.ts` at the API, or delete the
+fallback in `src/lib/leads.ts`'s `findLead` and let its existing `/api/leads`
+call be the only path. Nothing else in the flow reads that file.
+
+Test accounts: `admin@futeservices.com` / `admin123`,
+`manager@futeservices.com` / `manager123`, and the staff accounts
+`staff@futeservices.com`, `aditya@futeservices.com`,
+`sneha@futeservices.com` (all `staff123`).
+
+Staff sign in with **email and no password**: the email is checked against
+Sperto, the client's CRM, and one they don't have is a rejection (see
+[docs/sperto.md](docs/sperto.md)). Without `SPERTO_BASE_URL` and
+`SPERTO_API_KEY` set, that check falls back to the staff accounts listed
+above, so the flow still runs locally with no credentials at all.
+
+The next screen asks for the **Lead ID** (or the customer's phone number) and
+the device being presented on, then the showcase opens.
+
+### Environment
+
+| Variable | Needed for |
+|---|---|
+| `SESSION_SECRET` | Required. Signs the session cookie `proxy.ts` verifies. |
+| `DATABASE_URL` | Optional for the demo. Required for the reporting dashboards. |
+| `SPERTO_BASE_URL` | The CRM that verifies staff emails at login, and that logs device usage (see below). Unset locally. |
+| `SPERTO_API_KEY` | Server-side only — never reaches the browser. Unset locally. |
+| `SPERTO_DEVICE_USAGE_API_KEY` | Separate key for the device-usage log (`docs/sperto.md`'s second integration). Server-side only. |
+| `CRON_SECRET` | Authorises `/api/cron/*`. Vercel sets this itself. |
+
+Optional: `SPERTO_TIMEOUT_MS` (default 8000).
+
+### Tests
+
+`npm test` runs the Vitest suite — the Sperto client's quirk handling (errors
+on HTTP 200, JSON labelled `text/html`, api_key never echoed back out).
+
 ## Layout
 
 | Path | What it is |

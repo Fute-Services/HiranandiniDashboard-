@@ -1,43 +1,41 @@
+/*
+ * The empty/loading state behind every property image.
+ *
+ * It used to be a near-white slot with a bright diagonal sheen sweeping across
+ * it every 4.5 seconds. On a dark presentation screen that is a white rectangle
+ * flashing at the customer, and once six of them were on a shelf together the
+ * sweeps fell in and out of sync with each other. It is a dark slot now, and
+ * the shimmer only runs while an image is genuinely still coming down.
+ */
 .slot {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(
-      120% 80% at 50% 0%,
-      oklch(0.98 0.004 95) 0%,
-      var(--slot-bg) 60%
-    );
+  background: var(--surface-3);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
 }
 
-/* Slow diagonal sheen so empty slots feel alive rather than dead white boxes.
-   Only shows while there's no image (the <img> sits above and covers it). */
-.slot::after {
+/* Still fetching: a slow, low-contrast shimmer, which is a loading state
+   rather than decoration. It is applied only to `.slotLoading`, so a slot
+   that will never receive an image sits still. */
+.slotLoading::after {
   content: "";
   position: absolute;
   inset: -50%;
   background: linear-gradient(
     115deg,
-    transparent 40%,
-    oklch(1 0 0 / 0.55) 50%,
-    transparent 60%
+    transparent 42%,
+    rgba(242, 239, 232, 0.07) 50%,
+    transparent 58%
   );
   transform: translateX(-30%);
-  animation: sheen 4.5s ease-in-out infinite;
+  animation: sheen 2.4s ease-in-out infinite;
   pointer-events: none;
 }
 
-/* Once a real image has actually arrived, kill the sheen — it belongs on
-   empty slots and on slots still waiting for their image, nothing else. */
-.slot:has(.imageLoaded)::after {
-  display: none;
-}
-
-/* Still fetching: keep the sheen running as a loading shimmer, and don't let
-   a half-painted image show through underneath it. */
+/* Don't let a half-painted image show through underneath the shimmer. */
 .slotLoading .image {
   opacity: 0;
 }
@@ -55,7 +53,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .slot::after {
+  .slotLoading::after {
     animation: none;
     opacity: 0;
   }
@@ -67,7 +65,7 @@
   object-fit: cover;
   display: block;
   opacity: 0;
-  transition: opacity 0.35s ease;
+  transition: opacity 0.35s var(--ease);
 }
 
 /* Fades in when the image is decoded, so the handover from shimmer to photo
@@ -83,11 +81,12 @@
 }
 
 .placeholder {
-  font-family: var(--font-mono), monospace;
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  font-family: var(--code);
+  font-size: 10px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--ink-muted);
+  line-height: 1.6;
+  color: var(--ink-faint);
   text-align: center;
   padding: 0 16px;
 }

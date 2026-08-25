@@ -21,7 +21,7 @@ Real-world use mein admin, sales staff, aur sales manager ke saath jo dikkatein 
 - "Use this lead" click hone par `lead_merged` activity event log hota hai (naya `ActivityType`, `SessionReports.tsx` mein "Merged Lead" label ke saath dikhta hai) — audit trail ke liye.
 - **Important caveat:** `LEADS` abhi bhi ek hardcoded mock array hai (`src/lib/leads.ts`), koi Postgres `leads` table nahi hai — ye asli CRM/Sperto API integration ka wait kar raha hai. Isliye ye feature abhi **detection + audit-log** tak hi hai; do records ka **real merge/persist** (data combine karke ek row banana) tab hi possible hoga jab leads ek real DB table mein migrate ho jayein.
 
-### 1.2 Customer ka interest track na hona ✅ Implemented
+### 1.2 Customer ka interest track na hona ⚠️ Implemented tha, ab hata diya gaya
 **Dikkat:** Staff sirf free-text notes likhta hai, jo skip bhi ho sakta hai — pata nahi chalta customer serious tha ya nahi.
 
 **Solve karne ke steps:**
@@ -30,7 +30,17 @@ Real-world use mein admin, sales staff, aur sales manager ke saath jo dikkatein 
 3. Free-text note ko optional add-on rakho, mandatory na banao.
 4. Reports tab mein interest-level ka breakdown bhi dikhao (kitne % highly interested the).
 
-**Kya implement hua:** `PropertyShowcase.tsx` mein "End Session" click hote hi ek gate-modal khulta hai (4 options: Highly Interested / Neutral / Not Interested / Follow-up Later) — koi option select kiye bina session end nahi hoti. Selection `interest_level` activity event ke roop mein log hoti hai. Admin/Manager Reports tab mein naya "Customer Interest Level" chart add hua.
+**Kya implement hua tha:** `PropertyShowcase.tsx` mein "End Session" click hote hi ek gate-modal khulta tha (4 options: Highly Interested / Neutral / Not Interested / Follow-up Later) — koi option select kiye bina session end nahi hoti thi. Selection `interest_level` activity event ke roop mein log hoti thi. Admin/Manager Reports tab mein "Customer Interest Level" chart iss data par bana tha.
+
+**⚠️ Ab kya hai:** "End Session" button hi hata diya gaya hai (staff ke request par — flow simple karne ke liye). Ab presentation se nikalne ka ek hi raasta hai: **Log out**, aur agla customer lene ke liye dobara login (Sales ID + Customer ID) karna padta hai.
+
+Iska seedha matlab:
+
+- Koi bhi `interest_level` event ab **log nahi hota** — is requirement ka data collection band hai.
+- Reports tab ka "Customer Interest Level" card ab hamesha *"No interest level recorded yet."* dikhayega. Card toota nahi hai, bas khali hai.
+- `interest_level` ActivityType aur `buildInterestBreakdown()` code mein maujood hain, isliye wapas laana chhota kaam hai: gate-modal aur "End Session" button dobara jodo, baaki chain already jagah par hai.
+
+Ye requirement dobara chahiye to isse **re-open** samjho, "done" nahi.
 
 ### 1.3 Privacy / data sensitivity ✅ Implemented
 **Dikkat:** Phone number, budget, family size — sab plain data ke roop mein store/dikh raha hai.

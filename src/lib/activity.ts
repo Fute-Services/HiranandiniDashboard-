@@ -2,7 +2,7 @@
  * Full sales-staff activity log (questionnaire "Admin & Sales Manager
  * Activity Tracking" goal): every login, search, customer lookup, and
  * project/property interaction, streamed live to `/api/activity` as it
- * happens rather than buffered until "End Session" (so a walkthrough is
+ * happens rather than buffered until sign-out (so a walkthrough is
  * captured even if the tab closes early). Backed by the same in-memory
  * server store pattern as `src/lib/controls.ts` (no DB yet) — see that
  * file's comment for why this has to be server-side rather than
@@ -20,6 +20,12 @@ export type ActivityType =
   | "search"
   | "customer_profile"
   | "project_open"
+  /** The staff member shut a project's site and came back to the showcase.
+   * Its own type, not a second `project_open`/`property_shown`: it isn't
+   * another thing shown to the customer, it's the end of one — and it's the
+   * only event carrying a *measured* dwell time for that project rather than
+   * the roadmap's inferred gap-to-next-event. */
+  | "project_close"
   | "property_shown"
   | "tour_view"
   | "floor_plan"

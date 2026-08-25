@@ -1,153 +1,76 @@
 /*
- * Login screen. Colours are the design's exact hex values rather than the
- * site's oklch tokens: the design leans warmer (paper #f4f1ea, sage accents)
- * than the showcase page, so matching it pixel-for-pixel means hardcoding.
- * The page behind the card is a dark starfield; the card itself is a dark
- * glass panel (blurred, translucent) so it reads as part of the same scene
- * rather than a bright paper card dropped on top of it. The blue accent
- * (#4b63d6) is kept as-is throughout, since it already matches the nebula glow.
+ * Login screen.
+ *
+ * This used to be an animated starfield — two drifting, twinkling star layers
+ * behind a violet-glowing glass card. It read as a screensaver, and the violet
+ * matched nothing else in the product. It is now a still, dark room: a
+ * graphite ground, one slow diagonal light fall, a faint architectural grid,
+ * and a single brass hairline along the top of the card. Nothing moves except
+ * on interaction.
+ *
+ * All colour comes from the tokens in globals.css.
  */
+
 .page {
   position: relative;
   height: 100vh;
   height: 100dvh;
   width: 100%;
   overflow: hidden;
-  background-color: #05060e;
-  /* Just the nebula glows + base gradient here; the stars themselves live on
-     the ::before/::after layers below so they can drift and twinkle
-     independently without disturbing this static backdrop. All three layers
-     are sized to the full page (100% 100%) rather than a fixed px box, since a
-     fixed size only covers part of a wide viewport and the glow's edge shows
-     up as a hard seam, like two panels stitched together. */
+  background-color: var(--surface-0);
+  /* One soft light fall from the upper left and a slight warm lift at the
+     lower right — the two things that stop a flat near-black from looking
+     like an unpainted div, without becoming a gradient in its own right. */
   background-image:
-    radial-gradient(650px circle at 12% 15%, rgba(99, 82, 217, 0.28), transparent 60%),
-    radial-gradient(550px circle at 88% 82%, rgba(56, 130, 199, 0.22), transparent 60%),
-    linear-gradient(160deg, #05060e 0%, #0a0a1e 45%, #11102a 100%);
-  background-repeat: no-repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, 100% 100%;
-  animation: twinkle 6s ease-in-out infinite;
+    radial-gradient(900px 620px at 14% -6%, rgba(242, 239, 232, 0.055), transparent 62%),
+    radial-gradient(760px 560px at 92% 106%, rgba(194, 160, 89, 0.05), transparent 60%);
+  background-repeat: no-repeat;
   display: flex;
   flex-direction: column;
-  color: #1a1a17;
-  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
+  color: var(--ink);
+  font-family: var(--ui);
 }
 
 /*
- * Two independent star layers instead of one: different sizes, drift speeds,
- * directions and twinkle timings so they never fall into visual sync. A
- * single layer pulsing together would read as a blinking screen, not a sky.
- * Shared positioning/stacking lives here; each pseudo-element's own stars,
- * tile size and animation are set below.
+ * A single faint grid, the scale of a site plan. It sits under the card and
+ * fades out toward the edges so it never reads as a hard-edged texture tile.
  */
-.page::before,
+.page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(242, 239, 232, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(242, 239, 232, 0.028) 1px, transparent 1px);
+  background-size: 72px 72px;
+  -webkit-mask-image: radial-gradient(circle at 50% 45%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(circle at 50% 45%, #000 0%, transparent 78%);
+}
+
+/* A vignette on top of the grid, so the corners fall away and the eye is
+   pushed to the card rather than to the texture. */
 .page::after {
   content: "";
   position: absolute;
-  /* Oversized by 10% on every side so the drift animation's translate never
-     exposes a bare edge while the layer is mid-pan. */
-  inset: -10% -10%;
+  inset: 0;
   z-index: 0;
   pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 40%, transparent 42%, rgba(0, 0, 0, 0.55) 100%);
 }
 
-/* Dim, distant star layer: small dots, slow 130s drift down-left, slow
-   4.5s flicker. */
-.page::before {
-  background-image:
-    radial-gradient(1.2px 1.2px at 20% 30%, rgba(255, 255, 255, 0.7), transparent 60%),
-    radial-gradient(1px 1px at 65% 15%, rgba(255, 255, 255, 0.55), transparent 60%),
-    radial-gradient(1.2px 1.2px at 40% 70%, rgba(255, 255, 255, 0.65), transparent 60%),
-    radial-gradient(1px 1px at 85% 55%, rgba(255, 255, 255, 0.5), transparent 60%);
-  background-repeat: repeat;
-  background-size: 260px 260px;
-  animation: drift-back 130s linear infinite, twinkle-back 4.5s ease-in-out infinite;
-}
-
-/* Brighter, closer star layer: bigger dots, faster 80s drift up-right (the
-   opposite direction from ::before, for a parallax cross-current rather than
-   both layers sliding the same way), quicker 3.2s flicker. */
-.page::after {
-  background-image:
-    radial-gradient(1.8px 1.8px at 15% 25%, rgba(255, 255, 255, 0.95), transparent 60%),
-    radial-gradient(1.4px 1.4px at 55% 60%, rgba(255, 255, 255, 0.85), transparent 60%),
-    radial-gradient(1.8px 1.8px at 80% 20%, rgba(255, 255, 255, 0.9), transparent 60%),
-    radial-gradient(1.4px 1.4px at 30% 85%, rgba(255, 255, 255, 0.75), transparent 60%),
-    radial-gradient(1.6px 1.6px at 92% 75%, rgba(255, 255, 255, 0.8), transparent 60%);
-  background-repeat: repeat;
-  background-size: 340px 340px;
-  animation: drift-front 80s linear infinite, twinkle-front 3.2s ease-in-out infinite;
-}
-
-/* Both pseudo-elements sit at z-index: 0 and, in source order, land after
-   these two. Without lifting the real content to z-index: 1, the ::after
-   star layer would paint on top of the card and header. */
+/* Both pseudo-elements sit at z-index 0 and, in source order, land after the
+   real content. Without lifting it, the vignette would paint over the card. */
 .header,
 .main {
   position: relative;
   z-index: 1;
 }
 
-@keyframes twinkle {
-  0%,
-  100% {
-    background-color: #05060e;
-  }
-  50% {
-    background-color: #07081a;
-  }
-}
-
-@keyframes twinkle-back {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes twinkle-front {
-  0%,
-  100% {
-    opacity: 0.65;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes drift-back {
-  from {
-    transform: translate(0, 0);
-  }
-  to {
-    /* Exactly one tile's width/height, so the repeating pattern loops with
-       no visible seam. */
-    transform: translate(-260px, -260px);
-  }
-}
-
-@keyframes drift-front {
-  from {
-    transform: translate(0, 0);
-  }
-  to {
-    transform: translate(340px, -340px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .page,
-  .page::before,
-  .page::after {
-    animation: none;
-  }
-}
-
 .mono {
-  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-family: var(--code);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- card ---------- */
@@ -165,61 +88,52 @@
 .card {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.05fr 1fr;
   width: 100%;
-  max-width: 980px;
-  /* Translucent dark glass over the starfield, blurred so the stars behind
-     it soften into a glow instead of showing through crisp. */
-  background: rgba(13, 13, 24, 0.72);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  /* Slow breathing glow instead of a flat shadow, so the card reads as a lit
-     object in the scene rather than a paper cutout dropped on top of it. */
-  animation: card-glow 5s ease-in-out infinite;
+  max-width: 1000px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-xl), var(--edge-top);
   overflow: hidden;
 }
 
-@keyframes card-glow {
-  0%,
-  100% {
-    box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.65),
-      0 0 55px -18px rgba(75, 99, 214, 0.4),
-      0 0 0 1px rgba(75, 99, 214, 0.12);
-  }
-  50% {
-    box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.65),
-      0 0 85px -14px rgba(75, 99, 214, 0.65),
-      0 0 0 1px rgba(75, 99, 214, 0.25);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .card {
-    animation: none;
-    box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.65),
-      0 0 60px -18px rgba(75, 99, 214, 0.45);
-  }
+/* The one piece of brass on the screen that isn't a control: a hairline
+   across the top edge, brightest at the centre. It does the job the old
+   pulsing violet glow was trying to do — mark the card as the subject — in
+   one static pixel instead of an infinite animation. */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--brass) 28%,
+    var(--brass-pale) 50%,
+    var(--brass) 72%,
+    transparent
+  );
+  opacity: 0.72;
+  pointer-events: none;
 }
 
 /* ---------- left panel ---------- */
 
 .aside {
   position: relative;
-  padding: 44px 48px;
+  padding: 52px 52px 46px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  /* A faint warm wash (not the old solid paper colour) keeps this panel
-     reading as the "brand" side, while still sitting on the same dark glass
-     as the form panel. */
-  background: linear-gradient(165deg, rgba(232, 185, 58, 0.1), rgba(13, 13, 24, 0) 60%);
-  background-image:
-    linear-gradient(165deg, rgba(232, 185, 58, 0.1), rgba(13, 13, 24, 0) 60%),
-    radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px);
-  background-size: auto, 20px 20px;
-  min-height: 440px;
+  gap: 40px;
+  /* Fractionally lighter than the form half, so the card reads as two rooms
+     rather than one panel with a line drawn down it. */
+  background:
+    linear-gradient(168deg, rgba(194, 160, 89, 0.06), transparent 58%),
+    var(--surface-1);
+  min-height: 470px;
 }
 
 .asideTop {
@@ -229,85 +143,93 @@
 }
 
 .eyebrow {
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  color: #9591a6;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  color: var(--ink-dim);
 }
 
 .welcome {
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  color: #7d94f0;
-  margin-bottom: 18px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  color: var(--brass);
+  margin-bottom: 22px;
 }
 
+/* Set in the display serif, uppercase and widely tracked. A geometric sans at
+   64px was the loudest single thing on the screen and said "software"; this
+   says "estate", which is what is actually being sold. */
 .title {
-  font-size: 64px;
-  font-weight: 700;
-  line-height: 0.95;
-  letter-spacing: -0.02em;
-  margin-bottom: 20px;
-  color: #f4f2ec;
+  font-family: var(--serif);
+  font-size: 62px;
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: 0.03em;
+  margin: 0 0 22px;
+  color: var(--ink-strong);
 }
 
 .lede {
-  font-size: 15px;
-  line-height: 1.6;
-  color: #b6b2c4;
-  max-width: 300px;
+  font-size: 14.5px;
+  font-weight: 300;
+  line-height: 1.65;
+  color: var(--ink-muted);
+  max-width: 320px;
+  margin: 0;
 }
 
 .asideFoot {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .rule {
   height: 1px;
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--line-strong);
 }
 
 .stats {
   display: flex;
-  gap: 28px;
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  color: #8f8ba0;
+  gap: 30px;
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  color: var(--ink-dim);
 }
 
 /* ---------- form panel ---------- */
 
 .form {
-  padding: 44px 48px;
+  padding: 52px 52px 46px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-height: 440px;
-  /* A hairline seam against the aside panel, since both now sit on the same
-     translucent card background rather than two contrasting solid fills. */
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  min-height: 470px;
+  border-left: 1px solid var(--line);
 }
 
 .formEyebrow {
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  color: #8f8ba0;
-  margin-bottom: 8px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  color: var(--brass);
+  margin-bottom: 10px;
 }
 
 .formTitle {
-  font-size: 30px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  margin-bottom: 36px;
-  color: #f4f2ec;
+  font-family: var(--serif);
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  margin: 0 0 34px;
+  color: var(--ink-strong);
 }
 
 .fields {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 20px;
 }
 
 .field {
@@ -317,28 +239,40 @@
 }
 
 .label {
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  color: #9591a6;
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  color: var(--ink-dim);
 }
 
 .input {
-  font-family: var(--font-grotesk, "Space Grotesk"), system-ui, sans-serif;
+  font-family: var(--ui);
   font-size: 15px;
-  color: #f4f2ec;
+  color: var(--ink);
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  transition: border-color var(--t) var(--ease), background var(--t) var(--ease),
+    box-shadow var(--t) var(--ease);
 }
 
 .input::placeholder {
-  color: rgba(244, 242, 236, 0.35);
+  color: var(--ink-faint);
 }
 
+.input:hover:not(:focus) {
+  border-color: var(--line-strong);
+}
+
+/* Brass hairline + a tight ring rather than the global focus outline: these
+   inputs are the only place on the screen a soft glow is warranted, because
+   it is the one control the eye needs to find without looking. */
 .input:focus {
   outline: none;
-  border-color: #4b63d6;
+  border-color: var(--brass);
+  background: var(--surface-4);
+  box-shadow: 0 0 0 3px var(--brass-ghost);
 }
 
 .inputWrap {
@@ -364,26 +298,22 @@
   height: 34px;
   background: none;
   border: none;
-  border-radius: 8px;
-  color: #9591a6;
+  border-radius: var(--r-sm);
+  color: var(--ink-dim);
   cursor: pointer;
-  transition: color 0.15s;
+  transition: color var(--t) var(--ease);
 }
 
 .eye:hover {
-  color: #7d94f0;
-}
-
-.eye:focus-visible {
-  outline: 2px solid #4b63d6;
-  outline-offset: 1px;
+  color: var(--brass-bright);
 }
 
 .error {
   font-size: 11px;
-  letter-spacing: 0.06em;
-  color: #ff7a6b;
-  margin-top: -6px;
+  letter-spacing: 0.05em;
+  line-height: 1.5;
+  color: var(--bad-bright);
+  margin: -4px 0 0;
 }
 
 /* Shown once, right after a manager/admin force-logs a staff member out —
@@ -391,59 +321,101 @@
    unexplained redirect. */
 .notice {
   font-size: 12px;
-  line-height: 1.5;
-  color: #f2b73b;
-  background: rgba(242, 183, 59, 0.1);
-  border: 1px solid rgba(242, 183, 59, 0.3);
-  border-radius: 8px;
-  padding: 10px 12px;
+  line-height: 1.55;
+  color: var(--warn-bright);
+  background: var(--warn-ghost);
+  border: 1px solid var(--warn-line);
+  border-left: 2px solid var(--warn);
+  border-radius: var(--r-sm);
+  padding: 11px 13px;
+  margin: 0 0 18px;
 }
 
+
+/* The one filled control in the product: solid brass, dark ink. Everything
+   else is a hairline button, which is what lets this one carry weight without
+   a glow behind it. */
 .submit {
-  margin-top: 6px;
+  margin-top: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  color: #ffffff;
-  background: #4b63d6;
+  font-family: var(--code);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: var(--ink-inverse);
+  background: linear-gradient(180deg, var(--brass-bright), var(--brass));
   border: none;
   padding: 16px;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   cursor: pointer;
-  box-shadow: 0 0 22px -4px rgba(75, 99, 214, 0.7);
-  transition: background 0.15s, box-shadow 0.2s, transform 0.15s;
+  box-shadow: var(--shadow-md);
+  transition: filter var(--t) var(--ease), box-shadow var(--t) var(--ease),
+    transform var(--t) var(--ease);
 }
 
 .submit:hover:not(:disabled) {
-  background: #3a4fb8;
-  box-shadow: 0 0 30px -2px rgba(75, 99, 214, 0.9);
+  filter: brightness(1.08);
+  box-shadow: var(--shadow-lg);
   transform: translateY(-1px);
 }
 
-/* Sign-in in flight (or a demo sign-in holding the card): keep the button
-   readable rather than greying it out to nothing, and use a wait cursor so
-   the state reads as "working", not "unavailable". */
-.submit:disabled,
-.demoButton:disabled {
+.submit:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.97);
+}
+
+/* Sign-in in flight: keep the button readable rather than greying it out to
+   nothing, and use a wait cursor so the state reads as "working", not
+   "unavailable". */
+.submit:disabled {
   cursor: wait;
-  opacity: 0.72;
+  opacity: 0.7;
   transform: none;
 }
 
 .arrow {
-  font-size: 14px;
+  font-size: 13px;
 }
 
-/* ---------- demo mode ---------- */
+/* ---------- staff / admin toggle ---------- */
 
+/* Deliberately quiet: sales staff use this screen dozens of times a day and
+   admins a handful, so the other door is a text link, not a second button
+   competing with the one everybody actually presses. */
+.switchMode {
+  align-self: flex-start;
+  margin-top: 20px;
+  padding: 4px 0;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ink-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color var(--t) var(--ease);
+}
+
+.switchMode:hover:not(:disabled) {
+  color: var(--brass-bright);
+}
+
+.switchMode:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+/* ---------- demo accounts ---------- */
+
+/* A ruled label, so the three buttons below read as a separate aside rather
+   than as more of the form. */
 .demoDivider {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 24px 0 16px;
+  margin: 22px 0 14px;
 }
 
 .demoDivider::before,
@@ -451,13 +423,13 @@
   content: "";
   flex: 1;
   height: 1px;
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--line);
 }
 
 .demoLabel {
-  font-size: 10px;
+  font-size: 9.5px;
   letter-spacing: 0.2em;
-  color: rgba(244, 242, 236, 0.4);
+  color: var(--ink-dim);
   white-space: nowrap;
 }
 
@@ -467,31 +439,55 @@
   gap: 8px;
 }
 
+/* Hairline buttons in the brass accent — visibly a different kind of control
+   from the one filled Sign In above, which is the only thing that should read
+   as the real way in. */
 .demoButton {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   text-align: left;
-  font-family: var(--font-jetbrains), ui-monospace, monospace;
   font-size: 11px;
-  letter-spacing: 0.08em;
-  color: #f4f2ec;
-  background: rgba(255, 147, 48, 0.06);
-  border: 1px solid rgba(255, 147, 48, 0.35);
-  border-radius: 10px;
-  padding: 10px 14px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  background: var(--brass-ghost);
+  border: 1px solid var(--brass-ghost-strong);
+  border-radius: var(--r-sm);
+  padding: 9px 13px;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background var(--t) var(--ease), border-color var(--t) var(--ease);
 }
 
 .demoButton:hover:not(:disabled) {
-  background: rgba(255, 147, 48, 0.14);
-  border-color: rgba(255, 147, 48, 0.6);
+  background: var(--brass-ghost-strong);
+  border-color: var(--brass);
+}
+
+.demoButton:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.demoIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .demoName {
-  color: #ff9330;
+  color: var(--brass-bright);
+}
+
+/* The actual id to type if somebody would rather use the form. Dim on
+   purpose: it is reference, not the thing to press. */
+.demoEmail {
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .demoPending {
@@ -503,25 +499,24 @@
 .demoRole {
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: #7d94f0;
-  font-size: 10px;
+  font-size: 9.5px;
+  color: var(--ink-muted);
   white-space: nowrap;
   flex-shrink: 0;
-  padding-top: 1px;
 }
 
 /* ---------- responsive ---------- */
 
-@media (max-width: 760px) {
+@media (max-width: 860px) {
   .card {
     grid-template-columns: 1fr;
-    max-width: 460px;
+    max-width: 470px;
   }
 
   .aside {
     min-height: 0;
-    padding: 40px 36px;
-    gap: 28px;
+    padding: 42px 38px 36px;
+    gap: 30px;
   }
 
   .title {
@@ -530,12 +525,23 @@
 
   .form {
     min-height: 0;
-    padding: 40px 36px;
+    padding: 38px;
+    border-left: none;
+    border-top: 1px solid var(--line);
   }
 }
 
 @media (max-width: 520px) {
   .main {
-    padding: 12px 20px 40px;
+    padding: 12px 18px 40px;
+  }
+
+  .aside,
+  .form {
+    padding: 32px 26px;
+  }
+
+  .title {
+    font-size: 40px;
   }
 }

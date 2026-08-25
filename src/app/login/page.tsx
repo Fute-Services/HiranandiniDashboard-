@@ -1,30 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { JetBrains_Mono } from "next/font/google";
-import { landingPathForRole, login } from "@/lib/auth";
+import { landingPathForRole, login, type LoginCredentials } from "@/lib/auth";
 import { actorFields, track } from "@/lib/activity";
 import { useNavigationLock } from "@/lib/useNavigationLock";
-import { USERS, type User } from "@/lib/users";
+import type { Role } from "@/lib/users";
 import { Spinner } from "@/components/Spinner";
 import styles from "./login.module.css";
-
-// The design sets its mono labels in JetBrains Mono; the rest of the site uses
-// Space Mono, so pull this one in locally rather than adding it site-wide.
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-jetbrains",
-  display: "swap",
-});
-
-// One demo button per role, not one per account — USERS has multiple
-// sales_staff accounts (real login credentials, still used by seed data and
-// existing activity), but "DEMO MODE" only needs to show what each role's
-// dashboard looks like.
-const DEMO_USERS = (["admin", "sales_manager", "sales_staff"] as const).map(
-  (role) => USERS.find((u) => u.role === role)!,
-);
 
 const Eye = (
   <svg
@@ -61,18 +43,54 @@ const EyeOff = (
   </svg>
 );
 
+/**
+ * One screen, two doors.
+ *
+ * "staff" is the one that matters and the one that's shown first: a sales
+ * staff member types their email and nothing else. The server checks it
+ * against Sperto, the client's CRM (see src/app/api/login/route.ts) — an email
+ * Sperto doesn't have is a rejection, which is what makes a password
+ * unnecessary on a screen a customer is standing in front of. The lead is
+ * asked for on the next screen, `/session/start`.
+ *
+ * "admin" is the email + password form, kept behind a link because admins and
+ * sales managers get the reporting dashboards and those are worth a real
+ * credential. It is deliberately not Sperto-gated: an outage at the CRM must
+ * not lock an admin out of their own dashboard.
+ */
+type Mode = "staff" | "admin";
+
+/**
+ * One-click sign-in for showing the app around, one button per role.
+ *
+ * These go through the ordinary doors — the staff one sends its email exactly
+ * as the form does, the other two send the real password — so there is no
+ * bypass in `/api/login` for a demo to walk through. The credentials are the
+ * published demo accounts (README, `src/lib/users.ts`); they are worth nothing
+ * beyond a demo instance.
+ *
+ * Once Sperto is configured, the staff button only works if Sperto knows that
+ * address — which is correct: at that point Sperto owns the staff list, and a
+ * demo button that could talk its way past it would not be demonstrating this
+ * app's login at all. Delete this block for the client's own deployment.
+ */
+const DEMO_ACCOUNTS: { email: string; password?: string; name: string; role: string }[] = [
+  { email: "staff@futeservices.com", name: "Sales Staff", role: "sales staff" },
+];
+
 export default function LoginPage() {
+  const [mode, setMode] = useState<Mode>("staff");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [signedOutNotice, setSignedOutNotice] = useState<"kicked" | "replaced" | null>(null);
-  /** Which sign-in is in flight: the form itself, or one of the demo
-   * buttons (by email). Everything on the card is disabled while it's set,
-   * so a slow network can't turn into three parallel logins — and it
-   * self-releases, so a sign-in that never resolves gives the card back
-   * instead of freezing it (see lib/useNavigationLock). */
-  const [pending, setPending] = useNavigationLock<"form" | string>();
+  /** Which sign-in is in flight — "signin" for the form, or a demo account's
+   * email. Everything on the card is disabled meanwhile, so a slow network
+   * can't turn into two parallel logins — and it self-releases, so a sign-in
+   * that never resolves gives the card back instead of freezing it (see
+   * lib/useNavigationLock). */
+  const [pending, setPending] = useNavigationLock<string>();
   /** `pending` drives what the card *shows*, and it lets go on its own if a
    * sign-in never resolves — which is what keeps a dropped request from
    * freezing the card, but also means it can't be the thing that guarantees
@@ -107,20 +125,27 @@ export default function LoginPage() {
     };
   }, []);
 
-  // Password verification happens server-side (src/app/api/login/route.ts) —
-  // this just relays the form and shows whatever the server actually said
-  // (e.g. a suspended account gets its own clear message, not a generic
-  // "wrong password").
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function switchMode(next: Mode) {
+    if (pending) return;
+    setMode(next);
+    setError("");
+  }
+
+  // Credential checking happens server-side (src/app/api/login/route.ts) —
+  // this just relays what was typed and shows whatever the server actually
+  // said (e.g. a suspended account gets its own clear message, not a generic
+  // "wrong password"). Shared by the form and the demo buttons so the two
+  // cannot drift apart on the one flow where getting it wrong strands
+  // somebody on a disabled card.
+  async function attemptSignIn(credentials: LoginCredentials, lockKey: string) {
     if (pending || requestInFlight.current) return;
     requestInFlight.current = true;
-    setPending("form");
+    setPending(lockKey);
     // login() already reports every failure as `ok: false`; the try is for
     // anything after it (tracking, the redirect) so a throw there can't
     // strand the button in "SIGNING IN…" with no way back.
     try {
-      const result = await login(email, { password });
+      const result = await login(credentials);
       if (!result.ok) {
         setError(result.error);
         setPending(null);
@@ -138,31 +163,13 @@ export default function LoginPage() {
     }
   }
 
-  // Demo mode: one click into any of the three roles, no credentials to
-  // remember while showing this around. Goes through the same server-side
-  // /api/login endpoint (with `demo: true`, skipping the password check),
-  // so there's nothing role-specific screens need to handle differently.
-  async function signInAs(user: User) {
-    if (pending || requestInFlight.current) return;
-    requestInFlight.current = true;
-    setPending(user.email);
-    try {
-      const result = await login(user.email, { demo: true });
-      if (result.ok) {
-        afterSignIn(result);
-      } else {
-        setError(result.error);
-        setPending(null);
-      }
-    } catch {
-      setError("Something went wrong signing in. Please try again.");
-      setPending(null);
-    } finally {
-      requestInFlight.current = false;
-    }
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    // Staff send the email alone — Sperto is what verifies it, server-side.
+    void attemptSignIn(mode === "admin" ? { email, password } : { email }, "signin");
   }
 
-  function afterSignIn(session: { role: User["role"]; name: string; email: string; sessionId: string }) {
+  function afterSignIn(session: { role: Role; name: string; email: string; sessionId: string }) {
     track({
       sessionId: session.sessionId,
       type: "login",
@@ -186,8 +193,10 @@ export default function LoginPage() {
     window.location.replace(landingPathForRole(session.role));
   }
 
+  const isStaff = mode === "staff";
+
   return (
-    <div className={`${styles.page} ${jetbrains.variable}`}>
+    <div className={styles.page}>
       <main className={styles.main}>
         <div className={styles.card}>
           <section className={styles.aside}>
@@ -217,9 +226,11 @@ export default function LoginPage() {
 
           <section className={styles.form}>
             <div className={`${styles.mono} ${styles.formEyebrow}`}>
-              SIGN&nbsp;IN&nbsp;↗
+              {isStaff ? "SALES STAFF ↗" : "ADMIN / MANAGER ↗"}
             </div>
-            <h2 className={styles.formTitle}>Log in to your account</h2>
+            <h2 className={styles.formTitle}>
+              {isStaff ? "Start a presentation" : "Log in to your account"}
+            </h2>
 
             {signedOutNotice === "kicked" && (
               <p className={styles.notice} role="status">
@@ -231,54 +242,80 @@ export default function LoginPage() {
                 You were signed out because your account was logged in on another device.
               </p>
             )}
-
             <form className={styles.fields} onSubmit={onSubmit}>
-              <label className={styles.field}>
-                <span className={`${styles.mono} ${styles.label}`}>
-                  EMAIL&nbsp;ADDRESS
-                </span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (error) setError("");
-                  }}
-                  placeholder="you@futeservices.com"
-                  autoComplete="email"
-                  required
-                  className={styles.input}
-                />
-              </label>
-
-              <label className={styles.field}>
-                <span className={`${styles.mono} ${styles.label}`}>
-                  PASSWORD
-                </span>
-                <div className={styles.inputWrap}>
+              {isStaff ? (
+                <label className={styles.field}>
+                  <span className={`${styles.mono} ${styles.label}`}>
+                    EMAIL&nbsp;OR&nbsp;SALES&nbsp;ID
+                  </span>
+                  {/* type="text", not "email" — a Sales ID like "PDPL0349" has no
+                      "@", and the browser's own email validation would block
+                      submitting it before this ever reaches /api/login, which
+                      is what actually tells the two apart (see that route's
+                      resolveEmailFromSalesId). */}
                   <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
+                    type="text"
+                    value={email}
                     onChange={(e) => {
-                      setPassword(e.target.value);
+                      setEmail(e.target.value);
                       if (error) setError("");
                     }}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
+                    placeholder="you@futeservices.com or PDPL0349"
+                    autoComplete="username"
                     required
-                    className={`${styles.input} ${styles.inputPassword}`}
+                    className={styles.input}
                   />
-                  <button
-                    type="button"
-                    className={styles.eye}
-                    onClick={() => setShowPassword((v) => !v)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                    aria-pressed={showPassword}
-                  >
-                    {showPassword ? EyeOff : Eye}
-                  </button>
-                </div>
-              </label>
+                </label>
+              ) : (
+                <>
+                  <label className={styles.field}>
+                    <span className={`${styles.mono} ${styles.label}`}>
+                      EMAIL&nbsp;ADDRESS
+                    </span>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (error) setError("");
+                      }}
+                      placeholder="you@futeservices.com"
+                      autoComplete="email"
+                      required
+                      className={styles.input}
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span className={`${styles.mono} ${styles.label}`}>
+                      PASSWORD
+                    </span>
+                    <div className={styles.inputWrap}>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          if (error) setError("");
+                        }}
+                        placeholder="••••••••"
+                        autoComplete="current-password"
+                        required
+                        className={`${styles.input} ${styles.inputPassword}`}
+                      />
+                      <button
+                        type="button"
+                        className={styles.eye}
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        aria-pressed={showPassword}
+                      >
+                        {showPassword ? EyeOff : Eye}
+                      </button>
+                    </div>
+                  </label>
+                </>
+              )}
 
               {error && (
                 <p className={`${styles.mono} ${styles.error}`} role="alert">
@@ -286,47 +323,72 @@ export default function LoginPage() {
                 </p>
               )}
 
+              {/* Disabled for any sign-in in flight, but only *spinning* for
+                  its own — a demo button's spinner belongs on that button. */}
               <button
                 type="submit"
                 className={`${styles.mono} ${styles.submit}`}
                 disabled={pending !== null}
-                aria-busy={pending === "form"}
+                aria-busy={pending === "signin"}
               >
-                {pending === "form" ? (
+                {pending === "signin" ? (
                   <>
                     <Spinner size={14} />
                     SIGNING&nbsp;IN…
                   </>
                 ) : (
                   <>
-                    SIGN&nbsp;IN&nbsp;<span className={styles.arrow}>↗</span>
+                    {isStaff ? "CONTINUE" : "SIGN IN"}&nbsp;
+                    <span className={styles.arrow}>↗</span>
                   </>
                 )}
               </button>
             </form>
 
+            <button
+              type="button"
+              className={`${styles.mono} ${styles.switchMode}`}
+              onClick={() => switchMode(isStaff ? "admin" : "staff")}
+              disabled={pending !== null}
+            >
+              {isStaff ? "Admin / Manager login →" : "← Back to sales staff login"}
+            </button>
+
+            {/* All three shown in both modes: the point of these is to reach
+                any role in one tap, and hiding two of them behind the door
+                switch would make that two taps for no reason. */}
             <div className={styles.demoDivider}>
-              <span className={styles.demoLabel}>DEMO&nbsp;MODE</span>
+              <span className={`${styles.mono} ${styles.demoLabel}`}>DEMO&nbsp;ACCOUNTS</span>
             </div>
             <div className={styles.demoButtons}>
-              {DEMO_USERS.map((user) => (
+              {DEMO_ACCOUNTS.map((account) => (
                 <button
-                  key={user.email}
+                  key={account.email}
                   type="button"
-                  className={styles.demoButton}
-                  onClick={() => signInAs(user)}
+                  className={`${styles.mono} ${styles.demoButton}`}
+                  onClick={() =>
+                    void attemptSignIn(
+                      account.password
+                        ? { email: account.email, password: account.password }
+                        : { email: account.email },
+                      account.email,
+                    )
+                  }
                   disabled={pending !== null}
-                  aria-busy={pending === user.email}
+                  aria-busy={pending === account.email}
                 >
-                  <span className={styles.demoName}>{user.name}</span>
+                  <span className={styles.demoIdentity}>
+                    <span className={styles.demoName}>{account.name}</span>
+                    <span className={styles.demoEmail}>{account.email}</span>
+                  </span>
                   <span className={styles.demoRole}>
-                    {pending === user.email ? (
+                    {pending === account.email ? (
                       <span className={styles.demoPending}>
                         <Spinner size={11} />
                         SIGNING IN…
                       </span>
                     ) : (
-                      user.role.replace("_", " ")
+                      account.role
                     )}
                   </span>
                 </button>

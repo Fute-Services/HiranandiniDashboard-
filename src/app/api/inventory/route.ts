@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getSql } from "@/lib/db";
+import { getSql, hasDb } from "@/lib/db";
 import { withJsonErrors } from "@/lib/api";
 import { isSameOrigin } from "@/lib/csrf";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
@@ -23,6 +23,10 @@ async function requireAdmin(req: NextRequest): Promise<boolean> {
 }
 
 export const GET = withJsonErrors(async () => {
+  // No fabricated numbers either way — "not configured" and "configured but
+  // nothing entered yet" both mean the urgency note just doesn't show.
+  if (!hasDb()) return NextResponse.json({ inventory: {} });
+
   const sql = getSql();
   const rows = (await sql`SELECT slug, units_left FROM property_inventory`) as {
     slug: string;

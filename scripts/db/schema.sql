@@ -80,5 +80,13 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL,
   manager_email TEXT,
   joining_date TEXT,
-  created_at BIGINT NOT NULL
+  created_at BIGINT NOT NULL,
+  -- Sperto's own login code for this account (e.g. "PDPL0349"), distinct from
+  -- our email-based identity — required as sales_manager_login on the
+  -- device-usage calls in src/lib/sperto-device-usage.ts. Null until an admin
+  -- enters it; a session with no code on file simply skips that call.
+  sperto_login TEXT
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS sperto_login TEXT;
+
