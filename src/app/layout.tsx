@@ -37,9 +37,9 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fute Services | Property Index",
+  title: "Hiranandani Dashboard | Property Index",
   description:
-    "A showcase of the Fute Services property portfolio. Browse each property and continue to its own site.",
+    "A showcase of the Hiranandani property portfolio. Browse each property and continue to its own site.",
 };
 
 export default function RootLayout({

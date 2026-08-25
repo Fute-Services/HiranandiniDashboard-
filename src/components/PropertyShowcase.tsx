@@ -413,7 +413,7 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
         </button>
 
         <div className={styles.shelf}>
-          <div className={styles.shelfLabel}>Fute Services Portfolio &middot; 2026</div>
+          <div className={styles.shelfLabel}>Hiranandani Portfolio &middot; 2026</div>
           <div className={styles.cards} ref={cardsRef}>
             {!permissionsLoaded && (
               <span className={styles.cardsLoading} role="status">

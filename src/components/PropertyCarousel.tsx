@@ -289,7 +289,7 @@ export function PropertyCarousel({ properties }: { properties: Property[] }) {
             <div className={styles.diamond} />
             <span className={styles.brandName}>Property Index</span>
           </div>
-          <h1 className={styles.title}>FUTE SERVICES</h1>
+          <h1 className={styles.title}>HIRANANDANI DASHBOARD</h1>
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element -- raw <img> to match ImageSlot; the logo is a bundled asset, so no optimisation is needed */}
         <img
@@ -297,7 +297,7 @@ export function PropertyCarousel({ properties }: { properties: Property[] }) {
           src="/brand/hiranandani.png"
           width={142}
           height={66}
-          alt="Fute Services"
+          alt="Hiranandani Dashboard"
           // No logo asset yet, so hide the broken image until /brand/hiranandani.png is added.
           onError={(e) => {
             e.currentTarget.style.display = "none";
@@ -310,7 +310,7 @@ export function PropertyCarousel({ properties }: { properties: Property[] }) {
               &nbsp;/&nbsp;{pad2(count)}
             </span>
           </div>
-          <div className={styles.tagline}>Fute Services Portfolio &middot; 2026</div>
+          <div className={styles.tagline}>Hiranandani Portfolio &middot; 2026</div>
         </div>
       </header>
 

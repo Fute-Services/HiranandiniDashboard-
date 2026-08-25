@@ -61,10 +61,10 @@ To wire up the client's real customer API, change **one file**: point
 fallback in `src/lib/leads.ts`'s `findLead` and let its existing `/api/leads`
 call be the only path. Nothing else in the flow reads that file.
 
-Test accounts: `admin@futeservices.com` / `admin123`,
-`manager@futeservices.com` / `manager123`, and the staff accounts
-`staff@futeservices.com`, `aditya@futeservices.com`,
-`sneha@futeservices.com` (all `staff123`).
+Test accounts: `admin@hiranandani.com` / `admin123`,
+`manager@hiranandani.com` / `manager123`, and the staff accounts
+`staff@hiranandani.com`, `aditya@hiranandani.com`,
+`sneha@hiranandani.com` (all `staff123`).
 
 Staff sign in with **email and no password**: the email is checked against
 Sperto, the client's CRM, and one they don't have is a rejection (see

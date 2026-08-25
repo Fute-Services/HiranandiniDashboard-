@@ -75,7 +75,7 @@ type Mode = "staff" | "admin";
  * app's login at all. Delete this block for the client's own deployment.
  */
 const DEMO_ACCOUNTS: { email: string; password?: string; name: string; role: string }[] = [
-  { email: "staff@futeservices.com", name: "Sales Staff", role: "sales staff" },
+  { email: "staff@hiranandani.com", name: "Sales Staff", role: "sales staff" },
 ];
 
 export default function LoginPage() {
@@ -209,7 +209,7 @@ export default function LoginPage() {
               <div className={`${styles.mono} ${styles.welcome}`}>
                 WELCOME&nbsp;BACK
               </div>
-              <h1 className={styles.title}>FUTE SERVICES</h1>
+              <h1 className={styles.title}>HIRANANDANI DASHBOARD</h1>
               <p className={styles.lede}>
                 Sign in to manage your property portfolio, track projects and
                 access secure documents.
@@ -260,7 +260,7 @@ export default function LoginPage() {
                       setEmail(e.target.value);
                       if (error) setError("");
                     }}
-                    placeholder="you@futeservices.com or PDPL0349"
+                    placeholder="you@hiranandani.com or PDPL0349"
                     autoComplete="username"
                     required
                     className={styles.input}
@@ -279,7 +279,7 @@ export default function LoginPage() {
                         setEmail(e.target.value);
                         if (error) setError("");
                       }}
-                      placeholder="you@futeservices.com"
+                      placeholder="you@hiranandani.com"
                       autoComplete="email"
                       required
                       className={styles.input}

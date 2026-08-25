@@ -162,7 +162,11 @@
    says "estate", which is what is actually being sold. */
 .title {
   font-family: var(--serif);
-  font-size: 62px;
+  /* 50px, not the 62px this was tuned at — "HIRANANDANI DASHBOARD" is half
+     again as long as the old "FUTE SERVICES", and 62px pushed it past the
+     aside's width. Wraps to two lines at this size instead of one, which
+     reads fine for a tight-leading display serif like this. */
+  font-size: 50px;
   font-weight: 400;
   line-height: 0.98;
   letter-spacing: 0.03em;
@@ -520,7 +524,7 @@
   }
 
   .title {
-    font-size: 48px;
+    font-size: 40px;
   }
 
   .form {
@@ -542,6 +546,6 @@
   }
 
   .title {
-    font-size: 40px;
+    font-size: 34px;
   }
 }
