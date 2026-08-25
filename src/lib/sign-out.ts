@@ -1,6 +1,6 @@
 import { logLogout } from "./activity";
 import { clearSessionCookies, LOGIN_PATH } from "./auth";
-import { clearActiveSession } from "./session";
+import { finalizeSession } from "./session";
 
 /**
  * The one way out of a session, shared by every sign-out point (the showcase,
@@ -35,7 +35,16 @@ import { clearActiveSession } from "./session";
 export async function signOut(redirectTo: string = LOGIN_PATH): Promise<void> {
   try {
     logLogout();
-    clearActiveSession();
+    // finalizeSession rather than clearActiveSession: this is the only exit
+    // every sign-out shares, and Sperto's "OUT" — with the session's
+    // per-project times on it — has to go out on all of them, not just the
+    // showcase's Log out button. An idle timeout or a force-logout ends the
+    // presentation just as finally, and used to end it with Sperto still
+    // believing the customer was in the room. finalizeSession sends at most
+    // one "OUT" per presentation, so the showcase calling it first (to close
+    // its timeline out while the session is still readable) and this call
+    // arriving second is not a duplicate.
+    finalizeSession();
     await clearSessionCookies();
   } catch {
     // Best-effort: the httpOnly auth cookie is what actually ends the

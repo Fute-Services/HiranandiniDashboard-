@@ -15,10 +15,20 @@ import styles from "./SessionStart.module.css";
  * The one screen between the login and the presentation: find the customer,
  * pick the device, go.
  *
- * The staff member types the Lead ID (or the customer's phone number) here,
- * checks the name that comes back matches the person in front of them, taps a
- * device, and they're in the showcase. A miss — a typo, an ID that isn't on
- * file yet — is recoverable inline rather than by signing in again.
+ * The staff member types the Lead ID (or the customer's phone number), the
+ * name that comes back is shown on the device question itself so they can
+ * check it's the person in front of them, they tap a device, and they're in
+ * the showcase. Two taps from Lead ID to presentation. A miss — a typo, an
+ * ID that isn't on file yet — is recoverable inline rather than by signing
+ * in again.
+ *
+ * There used to be a full customer-profile card in between (budget, tower,
+ * family size, loan) with its own Start Session button. It was a page the
+ * staff member read past with a customer standing over their shoulder, and
+ * everything on it is already in the CRM the details came from — so it is
+ * gone, and confirming the name moved onto the device step. Nothing else
+ * about the flow changed: the lookup, the lead claim, the activity log and
+ * the walk-in path are all as they were.
  */
 export function SessionStart() {
   const router = useRouter();
@@ -61,6 +71,9 @@ export function SessionStart() {
       if (lead) {
         setMatch(lead);
         setError("");
+        // Straight to the device question — the profile card that used to
+        // sit here is gone (see this component's note above).
+        setPickingDevice(true);
         logActivity("customer_profile", `Opened profile for ${lead.name}`, lead);
       } else {
         setMatch(null);
@@ -135,11 +148,19 @@ export function SessionStart() {
           </div>
         ) : pickingDevice && match ? (
           <div className={styles.result}>
-            <div className={styles.eyebrow}>One More Thing</div>
-            <h2 className={styles.resultName}>Which device are you presenting on?</h2>
+            <div className={styles.eyebrow}>Customer Found</div>
+            <h2 className={styles.resultName}>{match.name}</h2>
+            <span className={styles.resultStatus}>{match.leadStatus}</span>
+            {match.previousVisits > 0 && (
+              <p className={styles.repeatVisitNote}>
+                This customer has visited {match.previousVisits} time
+                {match.previousVisits > 1 ? "s" : ""} before — high intent.
+              </p>
+            )}
             <p className={styles.lede}>
-              This is what shows up in reports as &quot;what device sells the most&quot; — pick the
-              one you&apos;re actually holding.
+              Which device are you presenting on? This is what shows up in reports as
+              &quot;what device sells the most&quot; — pick the one you&apos;re actually
+              holding.
             </p>
             <div className={styles.deviceGrid}>
               {DEVICE_TYPES.map((d) => (
@@ -157,71 +178,8 @@ export function SessionStart() {
             <button
               type="button"
               className={styles.back}
-              onClick={() => setPickingDevice(false)}
-              disabled={leaving !== null}
-            >
-              Back
-            </button>
-          </div>
-        ) : match ? (
-          <div className={styles.result}>
-            <div className={styles.eyebrow}>Customer Found</div>
-            <h2 className={styles.resultName}>{match.name}</h2>
-            <span className={styles.resultStatus}>{match.leadStatus}</span>
-            {match.previousVisits > 0 && (
-              <p className={styles.repeatVisitNote}>
-                This customer has visited {match.previousVisits} time{match.previousVisits > 1 ? "s" : ""} before — high intent.
-              </p>
-            )}
-
-            <div className={styles.grid}>
-              <div className={styles.gridItem}>
-                <span className={styles.gridLabel}>Lead ID</span>
-                <span className={styles.gridValue}>{match.leadId}</span>
-              </div>
-              <div className={styles.gridItem}>
-                <span className={styles.gridLabel}>Phone</span>
-                <span className={styles.gridValue}>{match.phone || "—"}</span>
-              </div>
-              <div className={styles.gridItem}>
-                <span className={styles.gridLabel}>Budget</span>
-                <span className={styles.gridValue}>{match.budget || "—"}</span>
-              </div>
-              <div className={styles.gridItem}>
-                <span className={styles.gridLabel}>Preferred Project</span>
-                <span className={styles.gridValue}>{match.preferredProject || "—"}</span>
-              </div>
-              <div className={styles.gridItem}>
-                <span className={styles.gridLabel}>Interested Tower</span>
-                <span className={styles.gridValue}>{match.interestedTower || "—"}</span>
-              </div>
-              <div className={styles.gridItem}>
-                <span className={styles.gridLabel}>Previous Visits</span>
-                <span className={styles.gridValue}>{match.previousVisits}</span>
-              </div>
-              <div className={styles.gridItem}>
-                <span className={styles.gridLabel}>Family Size</span>
-                <span className={styles.gridValue}>{match.familySize || "—"}</span>
-              </div>
-              <div className={styles.gridItem}>
-                <span className={styles.gridLabel}>Loan Required</span>
-                <span className={styles.gridValue}>{match.loanRequirement ? "Yes" : "No"}</span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className={styles.submit}
-              onClick={() => setPickingDevice(true)}
-              disabled={leaving !== null}
-            >
-              Start Session&nbsp;&#8599;
-            </button>
-
-            <button
-              type="button"
-              className={styles.back}
               onClick={() => {
+                setPickingDevice(false);
                 setMatch(null);
                 setError("");
               }}

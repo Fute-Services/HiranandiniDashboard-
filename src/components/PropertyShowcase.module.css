@@ -350,276 +350,108 @@
   border-color: var(--bad-line);
 }
 
-/* ---------- bottom shelf ---------- */
+/* ---------- project rail ---------- */
 
-/* The dock centres the whole group (nav button, shelf, nav button) as one unit
-   at the bottom of the screen, so the buttons sit just outside the shelf's
-   edges rather than inside it. */
-.dock {
+/* Right edge, vertically centred, over the panorama — the same place
+   Hiranandani's own Fortune City site puts its tower menu, because that is
+   where a staff member presenting this already reaches. Sized for a thumb on
+   a showroom tablet rather than a mouse. */
+.rail {
   position: fixed;
-  left: 50%;
-  bottom: 24px;
+  right: 22px;
+  top: 50%;
   z-index: 2;
   display: flex;
-  align-items: center;
-  gap: 14px;
-  max-width: calc(100vw - 32px);
+  flex-direction: column;
+  gap: 9px;
+  width: 210px;
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+  /* The rail scrolls if the list ever outgrows the screen; the scrollbar
+     itself is hidden, because a visible one over a panorama in front of a
+     customer reads as chrome. */
+  scrollbar-width: none;
   opacity: 0;
-  transform: translate(-50%, 20px);
-  animation: dock-in 0.7s var(--ease) 0.2s forwards;
+  transform: translate(14px, -50%);
+  animation: rail-in 0.65s var(--ease) 0.2s forwards;
 }
 
-@keyframes dock-in {
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
+.rail::-webkit-scrollbar {
+  display: none;
 }
 
-@keyframes content-in {
+@keyframes rail-in {
   to {
     opacity: 1;
-    transform: none;
+    transform: translate(0, -50%);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .header {
-    animation: none;
+  .rail {
     opacity: 1;
-    transform: none;
-  }
-
-  .dock {
+    transform: translate(0, -50%);
     animation: none;
-    opacity: 1;
-    transform: translate(-50%, 0);
   }
 }
 
-/* Sized to its content rather than a full-width bar (a full-width bar leaves
-   big empty panels either side of the cards on any wide screen). The blur is
-   real frosted glass over a live panorama; the brass hairline along the top
-   ties it to the login card and the modal. */
-.shelf {
-  position: relative;
-  min-width: 0;
-  padding: 12px 17px 13px;
-  background: var(--scrim);
-  backdrop-filter: blur(24px) saturate(140%);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-xl);
-  box-shadow: var(--shadow-xl);
-}
-
-.shelf::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 1px;
-  border-radius: var(--r-xl) var(--r-xl) 0 0;
-  background: linear-gradient(90deg, transparent, var(--brass) 50%, transparent);
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-.shelfLabel {
+/* Near-opaque ivory rather than the app's dark chrome: this sits on a photo
+   that is mostly bright sky, and the dark treatment used elsewhere in the app
+   disappeared into the landscape half the time the panorama rotated. */
+.railItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 13px 16px;
   font-family: var(--code);
-  font-size: 8px;
-  font-weight: 500;
-  letter-spacing: 0.24em;
+  font-size: 11px;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: var(--ink-dim);
-  margin-bottom: 9px;
-}
-
-/* Round glass buttons flanking the shelf, same language as it. Scroll the
-   cards track by a fixed step rather than a full page-width jump. */
-.navButton {
-  flex: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink);
-  font-size: 14px;
-  background: var(--scrim);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--line-strong);
-  box-shadow: var(--shadow-md);
+  color: var(--ink-inverse);
+  background: rgba(248, 246, 241, 0.93);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 6px;
   cursor: pointer;
-  transition: background var(--t) var(--ease), border-color var(--t) var(--ease),
-    color var(--t) var(--ease), transform var(--t-fast) var(--ease);
+  text-align: center;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.18);
+  transition:
+    background var(--t) var(--ease),
+    transform var(--t) var(--ease);
 }
 
-.navButton:hover {
-  background: var(--brass-ghost);
-  border-color: var(--brass);
-  color: var(--brass-pale);
+.railItem:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: translateX(-3px);
 }
 
-.navButton:active {
-  transform: scale(0.92);
+.railItem:active {
+  transform: translateX(-1px);
 }
 
-/* Centred and evenly spaced when everything fits (the common case); once the
-   row genuinely can't fit, it scrolls horizontally with snap points rather
-   than wrapping to a second row, which would double the shelf's height and
-   eat into the scene above it. */
-.cards {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  max-width: 1180px;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  padding: 2px 2px 4px;
+/* Which project is on screen right now, for the staff member's benefit —
+   the viewer covers the rail while it is open, but this is what the rail
+   comes back to. */
+.railItemActive {
+  background: rgba(255, 255, 255, 1);
+  border-color: var(--ink-inverse);
 }
 
-.card {
-  position: relative;
-  flex: none;
-  scroll-snap-align: start;
-  /* Wider than the old 172px: the shelf carries one card per portfolio now
-     rather than six towers, so each one can show a real image and a location
-     line instead of a 66px sliver and a truncated name. */
-  width: 176px;
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  /* Near-opaque, not translucent glass. Behind this shelf is a live 360°
-     panorama — bright sky, white towers, high-contrast foliage — and small
-     text drawn over a few percent of white simply disappeared into it. The
-     shelf's own tint and blur weren't enough, and backdrop-filter is the first
-     thing to drop out on a weak GPU (exactly the kiosks and showroom tablets
-     this runs on), so the card carries its own background rather than
-     depending on one. */
-  background: rgba(16, 18, 20, 0.94);
-  border: 1px solid var(--line-strong);
-  box-shadow: var(--shadow-lg);
-  opacity: 0;
-  transform: translateY(14px);
-  animation: card-in 0.5s var(--ease) forwards;
-  transition: transform var(--t) var(--ease), border-color var(--t) var(--ease),
-    box-shadow var(--t) var(--ease);
+.railName {
+  display: block;
 }
 
-/* A short stagger. These used to start at 6.7s because the showcase was
-   reached through an Earth-approach transition and the cards were
-   choreographed to land after it. That screen is gone — the showcase opens
-   directly from the device picker — so the wait was just an empty shelf the
-   staff member had to stand in front of. */
-.card:nth-child(1) { animation-delay: 0.1s; }
-.card:nth-child(2) { animation-delay: 0.18s; }
-.card:nth-child(3) { animation-delay: 0.26s; }
-.card:nth-child(4) { animation-delay: 0.34s; }
-.card:nth-child(5) { animation-delay: 0.42s; }
-.card:nth-child(6) { animation-delay: 0.5s; }
-
-@keyframes card-in {
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.card:hover {
-  transform: translateY(-4px);
-  border-color: var(--line-brass);
-  box-shadow: var(--shadow-xl);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .card {
-    animation: none;
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.cardMedia {
-  position: relative;
-  height: 90px;
-  flex: none;
-  border-bottom: 1px solid var(--line);
-}
-
-/* Keeps the card name legible over the top of a bright render, without
-   dimming the image itself the way a flat overlay would. */
-.cardMedia::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 0;
-  height: 55%;
-  background: linear-gradient(180deg, transparent, rgba(10, 11, 12, 0.72));
-  pointer-events: none;
-}
-
-.cardBody {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 9px 10px 10px;
-}
-
-.cardIndex {
-  font-family: var(--code);
-  font-size: 8px;
-  letter-spacing: 0.18em;
-  color: var(--brass);
-}
-
-.cardName {
-  margin: 4px 0 0;
-  font-family: var(--serif);
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  color: var(--ink-strong);
-  line-height: 1.15;
-}
-
-.cardLocation {
-  margin-top: 2px;
-  font-size: 10px;
-  font-weight: 300;
-  color: var(--ink-dim);
-  line-height: 1.35;
-}
-
-.unitsLeftBadge {
-  display: inline-block;
-  margin-top: 6px;
-  font-family: var(--code);
+/* Real, admin-entered availability only (see lib/inventory.ts) — a project
+   with nothing on file simply shows no line here rather than a made-up one. */
+.railUnits {
   font-size: 8px;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--warn-bright);
-  background: var(--warn-ghost);
-  border: 1px solid var(--warn-line);
-  border-radius: var(--r-pill);
-  padding: 2px 7px;
-  width: fit-content;
+  color: #8a6d1f;
 }
 
-/* Stacked, not side by side. Side by side, the two actions read as equals and
-   each got about 70px — which is what made Open, the one the whole screen
-   exists for, look like small print next to Details. Open is the primary and
-   gets the full card width; Details sits above it as the secondary. */
-.cardActions {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-  margin-top: auto;
-  padding-top: 9px;
-}
-
+/* The one surviving piece of the old card actions: Details is now the
+   viewer's header button (see ProjectViewer), not a shelf card's. */
 .cardDetailsBtn {
   font-family: var(--code);
   font-size: 8.5px;
@@ -642,53 +474,11 @@
   background: var(--brass-ghost);
 }
 
-/* The card's primary action, and a <button> rather than an <a> — it opens the
-   project in this tab instead of navigating away. A solid fill, because as
-   bare text on a translucent card over a sunlit panorama it was invisible,
-   which is the one thing this button cannot be. */
-.cardLink {
-  font-family: var(--code);
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-inverse);
-  background: linear-gradient(180deg, var(--brass-bright), var(--brass));
-  border: none;
-  border-radius: var(--r-pill);
-  padding: 8px 10px;
-  cursor: pointer;
+.railLoading {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 6px;
-  white-space: nowrap;
-  box-shadow: var(--shadow-md);
-  transition: filter var(--t) var(--ease), gap var(--t) var(--ease),
-    transform var(--t-fast) var(--ease);
-}
-
-.cardLink:hover {
-  filter: brightness(1.08);
-  gap: 10px;
-}
-
-.cardLink:active {
-  transform: scale(0.98);
-}
-
-/* Shown in place of the cards while the blocked-projects check is still out,
-   so an empty shelf never reads as "this staff member has no projects". */
-.cardsLoading {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-family: var(--code);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  padding: 14px;
   color: var(--ink-dim);
-  padding: 30px 40px;
 }
 
 @media (max-width: 560px) {
@@ -696,16 +486,19 @@
     padding: 20px 18px 0;
   }
 
-  .shelf {
-    padding: 10px 13px 12px;
+  /* Narrower and tighter to the edge, so the rail leaves the panorama room
+     to breathe on a phone-sized screen rather than covering a third of it. */
+  .rail {
+    right: 12px;
+    width: 140px;
+    gap: 7px;
+    max-height: calc(100vh - 150px);
   }
 
-  .cards {
-    justify-content: flex-start;
-  }
-
-  .card {
-    width: 150px;
+  .railItem {
+    padding: 10px 10px;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
   }
 
   .customer {

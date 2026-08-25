@@ -183,6 +183,9 @@ session starts and ends:
 ```
 POST {SPERTO_BASE_URL}/api_record_device_usage.php
 { "api_key", "device_id", "lead_id", "sales_manager_login", "type": "IN"|"OUT", "page_url" }
+
+# and on "OUT" only, when at least one project was opened:
+{ ..., "project_time": { "Fortune City": 300, "Alibaug": 240 } }
 ```
 
 | Concern | Where |
@@ -190,6 +193,7 @@ POST {SPERTO_BASE_URL}/api_record_device_usage.php
 | The only code that talks to this endpoint | `src/lib/sperto-device-usage.ts` |
 | Server-side route the client actually calls | `src/app/api/session/device-usage/route.ts` |
 | Where it fires | `src/lib/session.ts` — `setActiveSession` ("IN"), `finalizeSession` ("OUT") |
+| Per-project seconds accumulator | `src/lib/project-time.ts` (tests: `project-time.test.ts`) |
 
 ```
 Start Session  ──▶  setActiveSession(lead, deviceType)
@@ -216,6 +220,7 @@ Fields, and where each comes from:
 | `sales_manager_login` | `users.sperto_login` column, set per account by an admin (Staff → Add Account) | added — unset for most existing accounts, so those sessions skip the call rather than send a made-up login |
 | `type` | `"IN"` / `"OUT"` | confirmed (client's call) |
 | `page_url` | `window.location.href` at the moment the call fires | assumed — the client's own example payload just used their CRM's own URL |
+| `project_time` | `src/lib/project-time.ts`, keyed by project name from `src/data/properties.ts` | **custom field — not in their docs.** See below |
 
 If a signed-in account has no `sperto_login` on file, the route no-ops
 (`{ok:true, skipped:...}`) rather than sending a made-up value — same
@@ -228,3 +233,45 @@ from starting or ending.
 2. Each real staff member's Sperto login code, entered via Staff → Add
    Account's "Sperto login" field (or a DB update on `users.sperto_login` for
    existing accounts).
+3. **Confirmation that `project_time` is stored on their side** — see the
+   next section.
+
+### `project_time`: per-project viewing time
+
+Sent once per presentation, on the "OUT" call, as `{ "<project name>":
+<seconds> }` for every project the customer actually opened.
+
+`api_record_device_usage.php`'s published fields do **not** include
+`project_time`. It is a custom field the client asked for, and Sperto's
+backend has to be reading and storing it for any of this to reach the CRM.
+Their server ignores unknown fields silently, so a Sperto side that hasn't
+added it yet is indistinguishable from success here — **confirm with them,
+don't assume.** Nothing on our side changes either way; the field is already
+being sent.
+
+What the accumulator (`src/lib/project-time.ts`) guarantees, each covered by
+a test in `project-time.test.ts`:
+
+| Rule | How |
+|---|---|
+| Only projects that were actually opened appear | keys are created on open; a project rounding to 0s is dropped rather than sent as `0` |
+| Reopening adds, never duplicates | totals are keyed by project name, so A (3 min) + A (2 min) = one `300` |
+| Two projects never run at once | `startProjectTimer` banks the previous project's time before starting the next — this is the "stop previous, start new" navigation case |
+| Background tabs don't accrue time | `visibilitychange` pauses and resumes the running clock |
+| A refresh doesn't invent time | state lives in `sessionStorage` (same lifetime as the active session); the showcase closes the dangling clock on mount, keeping the time up to the reload |
+| The project on screen at logout is counted | `getProjectTimeSeconds()` banks the running clock before reading |
+| Exactly one "OUT" per presentation | a `sessionStorage` claim flag in `session.ts` — the showcase's Log out and `signOut()` both call `finalizeSession`, and only the first one sends |
+| One customer's time never lands on the next | `setActiveSession` clears both the totals and the OUT flag |
+
+Times are held in milliseconds and converted to whole seconds once, at send
+time — rounding each visit separately would lose up to half a second per open,
+which on a project opened a dozen times is a visible undercount.
+
+The route re-validates the map server-side (`sanitizeProjectTime`) before
+forwarding: it arrives from the browser, and non-numeric, negative or
+empty-keyed entries are dropped rather than passed into the client's CRM.
+
+Note that "OUT" now fires on **every** way a session ends — the showcase's Log
+out, an idle timeout, and an admin force-logout — because `signOut()` calls
+`finalizeSession()`. Before this, only the Log out button reported "OUT", so
+an idled-out session left Sperto believing the customer was still in the room.

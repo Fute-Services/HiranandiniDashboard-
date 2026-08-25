@@ -58,6 +58,20 @@ export type DeviceUsageParams = {
   salesManagerLogin: string;
   type: "IN" | "OUT";
   pageUrl: string;
+  /**
+   * Seconds the customer spent in each project they actually opened, keyed
+   * by project name (see lib/project-time.ts). Sent on OUT only, and left
+   * out of the body entirely when empty — a presentation where nothing was
+   * opened should send no `project_time` at all rather than an empty object.
+   *
+   * Not in Sperto's published docs for this endpoint: it is a custom field
+   * their backend has to be storing against the visit for any of this to
+   * reach the CRM. Their server ignores fields it doesn't know silently and
+   * answers 200 either way (see sperto.ts's note on that), so a Sperto side
+   * that hasn't added it yet looks exactly like success from here. Worth
+   * confirming with them rather than assuming.
+   */
+  projectTime?: Record<string, number>;
 };
 
 /** Fire-and-forget: never throws, and a failure here (network, bad
@@ -84,6 +98,9 @@ export async function recordDeviceUsage(params: DeviceUsageParams): Promise<void
           sales_manager_login: params.salesManagerLogin,
           type: params.type,
           page_url: params.pageUrl,
+          ...(params.type === "OUT" && params.projectTime && Object.keys(params.projectTime).length > 0
+            ? { project_time: params.projectTime }
+            : {}),
         }),
         cache: "no-store",
       },

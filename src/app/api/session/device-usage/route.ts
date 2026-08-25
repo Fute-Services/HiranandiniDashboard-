@@ -23,6 +23,27 @@ import { recordDeviceUsage } from "@/lib/sperto-device-usage";
  * presentation session is allowed to start or end.
  */
 
+/**
+ * The per-project seconds map comes straight off the browser, so it is
+ * treated as untrusted shape rather than as the `Record<string, number>` the
+ * client meant to send: anything that isn't a finite positive number under a
+ * non-empty key is dropped. A malformed entry costs one project's time in a
+ * report; forwarding it verbatim would put whatever the browser said into
+ * the client's CRM. Returns undefined when nothing survives, so the outgoing
+ * body omits `project_time` entirely rather than sending `{}`.
+ */
+function sanitizeProjectTime(input: unknown): Record<string, number> | undefined {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return undefined;
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    const name = key.trim();
+    if (!name) continue;
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) continue;
+    out[name] = Math.round(value);
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 async function spertoLoginFor(email: string): Promise<string | null> {
   const staticUser = USERS.find((u) => u.email === email);
   if (staticUser) return staticUser.spertoLogin ?? null;
@@ -48,11 +69,12 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
   if (!payload) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
   const body = await req.json();
-  const { leadId, deviceType, type, pageUrl } = body as {
+  const { leadId, deviceType, type, pageUrl, projectTime } = body as {
     leadId?: string;
     deviceType?: DeviceType | null;
     type?: "IN" | "OUT";
     pageUrl?: string;
+    projectTime?: unknown;
   };
 
   if (!leadId || (type !== "IN" && type !== "OUT")) {
@@ -61,6 +83,8 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
   if (deviceType != null && !DEVICE_TYPES.includes(deviceType)) {
     return NextResponse.json({ error: "Invalid deviceType" }, { status: 400 });
   }
+
+  const cleanProjectTime = sanitizeProjectTime(projectTime);
 
   const salesManagerLogin = await spertoLoginFor(payload.email);
   if (!salesManagerLogin) {
@@ -73,6 +97,7 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
     salesManagerLogin,
     type,
     pageUrl: pageUrl?.trim() || req.nextUrl.origin,
+    projectTime: cleanProjectTime,
   });
 
   return NextResponse.json({ ok: true });

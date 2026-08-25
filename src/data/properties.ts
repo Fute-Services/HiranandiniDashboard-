@@ -173,3 +173,53 @@ export const showcaseProjects: Property[] = portfolioGroups.map((g) => ({
 export function projectsIn(slug: string): Property[] {
   return portfolioGroups.find((g) => g.slug === slug)?.projects ?? [];
 }
+
+/**
+ * A project that can be tapped straight off the showcase's side rail, plus
+ * which portfolio it belongs to.
+ *
+ * `portfolioSlug` exists because the admin block list and the unit-
+ * availability grid are both keyed by *portfolio* (see `showcaseProjects` —
+ * an admin blocks "Fortune City", never "Elena" individually). The rail
+ * lists towers, so it has to be able to ask "is my portfolio blocked?" —
+ * without this, blocking Fortune City would leave all six of its towers
+ * still tappable on the rail.
+ */
+export type RailProject = Property & { portfolioSlug: string };
+
+/**
+ * The showcase's side rail: every project a customer can actually be taken
+ * into, as one flat list, mirroring the rail Hiranandani's own Fortune City
+ * site shows over its panorama (The Arena, Elena, Ebony, Golden Willows,
+ * Club House, Quality) with Alibaug added to it.
+ *
+ * Flat, and ours, for one reason: that site's rail lives inside a
+ * cross-origin iframe, so the app cannot see which of those buttons a
+ * customer tapped and cannot add anything to it. Time spent would all land
+ * under "Fortune City" and Sperto's project_time would never name a single
+ * tower. Rendering our own rail over the tour is what makes "they opened
+ * Elena for four minutes" a thing we can actually report.
+ *
+ * Portfolios that are a single project (Alibaug) contribute themselves;
+ * portfolios with towers contribute the towers, not the portfolio — one
+ * "Fortune City" button next to its own six towers is the same destination
+ * listed twice. Multi-project portfolios come first so the towers of the
+ * estate on screen lead, and standalone destinations follow.
+ */
+export const railProjects: RailProject[] = [...portfolioGroups]
+  .sort((a, b) => b.projects.length - a.projects.length)
+  .flatMap((group) =>
+    group.projects.length > 0
+      ? group.projects.map((project) => ({ ...project, portfolioSlug: group.slug }))
+      : [
+          {
+            slug: group.slug,
+            name: group.name,
+            location: group.location,
+            href: group.href,
+            image: group.image,
+            amenities: group.amenities,
+            portfolioSlug: group.slug,
+          },
+        ],
+  );

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { projectsIn, type Property } from "@/data/properties";
+import { portfolioGroups, projectsIn, type Property, type RailProject } from "@/data/properties";
 import { getSession, SESSION_START_PATH } from "@/lib/auth";
 import { getBlockedProjectsFor } from "@/lib/controls";
 import { getInventory } from "@/lib/inventory";
@@ -13,6 +13,7 @@ import {
   recordStepEnter,
   type ActiveSession,
 } from "@/lib/session";
+import { startProjectTimer, stopProjectTimer } from "@/lib/project-time";
 import { signOut } from "@/lib/sign-out";
 import { useNavigationLock } from "@/lib/useNavigationLock";
 import { ImageSlot } from "./ImageSlot";
@@ -42,7 +43,6 @@ function formatElapsed(ms: number) {
  */
 export function PropertyShowcase({ properties }: { properties: Property[] }) {
   const router = useRouter();
-  const cardsRef = useRef<HTMLDivElement>(null);
   const [session, setSession] = useState<ActiveSession | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -79,6 +79,13 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
     setViewerProperty(property);
     const name = property.name || property.slug;
     logSessionEvent(within ? `Opened ${name} · ${within}` : `Opened ${name}`, "project_open");
+    // Sperto's project_time is keyed on the bare project name, without the
+    // "· Fortune City" suffix the timeline uses: opening Ebony off the shelf
+    // and opening it through Fortune City's panel are the same project to a
+    // CRM, and splitting them would report two half-length visits instead of
+    // one. Reopening adds to the same key rather than making a second entry
+    // (see lib/project-time.ts).
+    startProjectTimer(name);
   }, []);
 
   /** Every way out of the viewer goes through here — the × button, Escape, a
@@ -90,6 +97,11 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
     viewerRef.current = null;
     setViewerProperty(null);
     if (!open) return;
+    // Stops the project_time clock however the viewer was closed — ×,
+    // Escape, an admin block mid-session, or Log out — since every one of
+    // those routes through here. Opening another project stops it too, via
+    // startProjectTimer, so the two can never both be running.
+    stopProjectTimer();
     const base = open.property.name || open.property.slug;
     const name = open.within ? `${base} · ${open.within}` : base;
     logSessionEvent(
@@ -137,6 +149,13 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
     }
     setSession(active);
     setIsAdmin(getSession()?.role === "admin");
+    // A reload lands here with no viewer open, but project_time is kept in
+    // sessionStorage and survives the reload — so a project that was on
+    // screen when the tablet was refreshed still has its clock running, with
+    // nothing left on screen to ever stop it. Close it out here: the time up
+    // to the reload is real viewing time and is kept; everything after it
+    // would have been invented.
+    stopProjectTimer();
     recordStepEnter("presentation");
     logSessionEvent("360° VR tour opened", "tour_view");
   }, [router]);
@@ -170,7 +189,13 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
       if (prev) {
         const changedSlug = Object.keys(inv).find((slug) => inv[slug] !== prev[slug]);
         if (changedSlug) {
-          const name = properties.find((p) => p.slug === changedSlug)?.name ?? changedSlug;
+          // Keyed by portfolio, and `properties` is now a flat list of towers —
+          // so this reads the portfolio list rather than looking up a slug
+          // that isn't in it and falling back to the raw "fortune-city".
+          const name =
+            portfolioGroups.find((g) => g.slug === changedSlug)?.name ??
+            properties.find((p) => p.slug === changedSlug)?.name ??
+            changedSlug;
           const val = inv[changedSlug];
           setInventoryNotice(
             val === null || val === undefined
@@ -237,7 +262,11 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
       return current;
     });
     const open = viewerRef.current;
-    if (open && blockedSlugs.includes(open.property.slug)) {
+    if (
+      open &&
+      (blockedSlugs.includes(open.property.slug) ||
+        blockedSlugs.includes((open.property as RailProject).portfolioSlug ?? open.property.slug))
+    ) {
       setBlockedNotice(true);
       closeViewer("blocked by admin");
     }
@@ -265,10 +294,6 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
     void signOut();
   }, [closeViewer]);
 
-  const scrollCards = useCallback((dir: 1 | -1) => {
-    cardsRef.current?.scrollBy({ left: dir * 300, behavior: "smooth" });
-  }, []);
-
   /** Meeting notes, logged as their own "notes" activity event so the
    * admin/manager timeline shows exactly what a sales staff member wrote
    * down about the customer, alongside what was shown and when. */
@@ -285,6 +310,26 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
    * event — the only in-app signal a "Busy" state (vs. the inferred
    * Online/In Meeting/Offline) can honestly come from, since nothing else
    * in this app generates that distinction on its own. */
+  /** Which portfolio a rail entry belongs to. Both the admin block list and
+   * the unit-availability grid are keyed by portfolio — an admin blocks
+   * "Fortune City", never "Elena" on its own (see SessionReports' ALL_PROJECTS
+   * and data/properties.ts's RailProject) — so a rail of towers has to ask
+   * about its portfolio rather than about itself. Falls back to the project's
+   * own slug for a portfolio that is a single project, like Alibaug, where
+   * the two are the same thing. */
+  const portfolioOf = useCallback(
+    (property: Property) => (property as RailProject).portfolioSlug ?? property.slug,
+    [],
+  );
+
+  /** Blocking Fortune City has to take its six towers off the rail with it,
+   * which is the whole reason portfolioOf exists — checking only the tower's
+   * own slug would leave every one of them still tappable. */
+  const visibleProjects = properties.filter(
+    (property) =>
+      !blockedSlugs.includes(property.slug) && !blockedSlugs.includes(portfolioOf(property)),
+  );
+
   const toggleBusy = useCallback(() => {
     const next = !busy;
     setBusy(next);
@@ -402,90 +447,47 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
         </div>
       )}
 
-      <div className={styles.dock}>
-        <button
-          type="button"
-          className={styles.navButton}
-          onClick={() => scrollCards(-1)}
-          aria-label="Scroll left"
-        >
-          &#8592;
-        </button>
+      {/* The project rail, over the tour on the right — deliberately the
+          same place, and close to the same look, as the rail Hiranandani's
+          own Fortune City site draws over this panorama. That one is inside a
+          cross-origin iframe: the app cannot see which of its buttons a
+          customer tapped, cannot add Alibaug to it, and would have to book
+          every minute spent in it against "Fortune City". This one is ours,
+          so tapping Elena opens Elena and starts Elena's timer, and Sperto's
+          project_time can name the tower (see lib/project-time.ts).
 
-        <div className={styles.shelf}>
-          <div className={styles.shelfLabel}>Hiranandani Portfolio &middot; 2026</div>
-          <div className={styles.cards} ref={cardsRef}>
-            {!permissionsLoaded && (
-              <span className={styles.cardsLoading} role="status">
-                <Spinner size={12} />
-                Loading projects…
-              </span>
-            )}
-            {/* One row per project, not two. Each card used to be a bare link
-                off-site, with a second full-width row of "<name> Details"
-                buttons underneath repeating the same list — the same six
-                projects named twice, which is most of what made this screen
-                feel busy in front of a customer. The card is a plain element
-                now (an <a> can't legally contain a <button>) and carries both
-                actions itself. */}
-            {permissionsLoaded &&
-              properties
-                .filter((property) => !blockedSlugs.includes(property.slug))
-                .map((property, i) => (
-                  <div key={property.slug} className={styles.card}>
-                    <div className={styles.cardMedia}>
-                      <ImageSlot
-                        src={property.image}
-                        placeholder={`${property.name || "Property"} image`}
-                        alt={`${property.name || "Property"}, ${property.location}`}
-                      />
-                    </div>
-                    <div className={styles.cardBody}>
-                      <div className={styles.cardIndex}>{pad2(i + 1)}</div>
-                      <h3 className={styles.cardName}>{property.name}</h3>
-                      <div className={styles.cardLocation}>{property.location}</div>
-                      {typeof inventory[property.slug] === "number" && (
-                        <span className={styles.unitsLeftBadge}>
-                          Only {inventory[property.slug]} unit{inventory[property.slug] === 1 ? "" : "s"} left
-                        </span>
-                      )}
-                      <div className={styles.cardActions}>
-                        <button
-                          type="button"
-                          className={styles.cardDetailsBtn}
-                          onClick={() => setDetailsProperty(property)}
-                        >
-                          Details
-                        </button>
-                        {/* Opens the project's site in this tab, over the
-                            showcase — not `target="_blank"`. A new tab took the
-                            staff member out of the app in front of the
-                            customer, and the activity log lost them there: no
-                            close, no dwell, every roadmap node stuck on
-                            "Ongoing". */}
-                        <button
-                          type="button"
-                          className={styles.cardLink}
-                          onClick={() => openViewer(property)}
-                        >
-                          Open&nbsp;&#8599;
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className={styles.navButton}
-          onClick={() => scrollCards(1)}
-          aria-label="Scroll right"
-        >
-          &#8594;
-        </button>
-      </div>
+          It replaced the bottom card shelf rather than joining it. The shelf
+          listed the same projects a second time, one drill-down further away,
+          under a customer's nose. */}
+      <nav className={styles.rail} aria-label="Projects">
+        {!permissionsLoaded && (
+          <span className={styles.railLoading} role="status">
+            <Spinner size={12} />
+          </span>
+        )}
+        {permissionsLoaded &&
+          visibleProjects.map((property) => {
+            const units = inventory[portfolioOf(property)];
+            return (
+              <button
+                key={property.slug}
+                type="button"
+                className={`${styles.railItem} ${
+                  viewerProperty?.slug === property.slug ? styles.railItemActive : ""
+                }`}
+                onClick={() => openViewer(property)}
+                aria-current={viewerProperty?.slug === property.slug ? "true" : undefined}
+              >
+                <span className={styles.railName}>{property.name}</span>
+                {typeof units === "number" && (
+                  <span className={styles.railUnits}>
+                    {units} left
+                  </span>
+                )}
+              </button>
+            );
+          })}
+      </nav>
 
       {viewerProperty && (
         <ProjectViewer

@@ -2,6 +2,7 @@ import { actorFields, track, type ActivityType } from "./activity";
 import { getSession, getSessionId } from "./auth";
 import { fetchWithTimeout } from "./http";
 import type { Lead } from "./leads";
+import { clearProjectTime, getProjectTimeSeconds } from "./project-time";
 
 export type StepEvent = {
   step: string;
@@ -82,16 +83,66 @@ function writeRaw(value: string) {
  * never depend on this succeeding, same reasoning as `track()` in
  * lib/activity.ts. `keepalive` lets the "OUT" call survive the page unload
  * that immediately follows logout. */
-function recordDeviceUsage(lead: Lead, deviceType: DeviceType | null, type: "IN" | "OUT") {
+function recordDeviceUsage(
+  lead: Lead,
+  deviceType: DeviceType | null,
+  type: "IN" | "OUT",
+  projectTime?: Record<string, number>,
+) {
   try {
     fetchWithTimeout("/api/session/device-usage", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ leadId: lead.leadId, deviceType, type, pageUrl: window.location.href }),
+      body: JSON.stringify({
+        leadId: lead.leadId,
+        deviceType,
+        type,
+        pageUrl: window.location.href,
+        ...(projectTime && Object.keys(projectTime).length > 0 ? { projectTime } : {}),
+      }),
       keepalive: true,
     }).catch(() => {});
   } catch {
     // best-effort; ignore
+  }
+}
+
+/**
+ * Set the moment an "OUT" is fired, so a second one can't be.
+ *
+ * Logging out reaches finalizeSession more than once on the ordinary path —
+ * the showcase's Log out calls it directly, to close the timeline out while
+ * the session is still readable, and signOut() then calls it again so every
+ * other exit (idle timeout, force-logout, the dashboards) reports the
+ * session closed too. Both calls used to be harmless repeats. An "OUT"
+ * carrying project_time is not harmless twice: Sperto would see the same
+ * visit closed two or three times over, with the times counted each time.
+ *
+ * A sessionStorage flag rather than a module-level boolean, because signOut
+ * leaves by hard navigation (see lib/sign-out.ts) and that tears the module
+ * down mid-flight. The storage entry survives it, and dies with the tab
+ * along with everything else about the presentation.
+ */
+const OUT_SENT_KEY = "futeservices_device_usage_out_sent";
+
+/** True if this call is the one that gets to send the "OUT". */
+function claimOutSend(): boolean {
+  try {
+    if (sessionStorage.getItem(OUT_SENT_KEY)) return false;
+    sessionStorage.setItem(OUT_SENT_KEY, "1");
+  } catch {
+    // Storage unavailable (locked-down kiosk profile, same case readRaw
+    // guards against): better a possible duplicate OUT than a presentation
+    // that never reports itself closed at all.
+  }
+  return true;
+}
+
+function clearOutSent() {
+  try {
+    sessionStorage.removeItem(OUT_SENT_KEY);
+  } catch {
+    // Best-effort, same as the write above.
   }
 }
 
@@ -106,6 +157,11 @@ export function setActiveSession(lead: Lead, deviceType: DeviceType | null = nul
     deviceType,
   };
   writeRaw(JSON.stringify(session));
+  // A new presentation starts from zero on both counts: the previous
+  // customer's project times must never be attributed to this one, and this
+  // session needs its own "OUT" still available to send.
+  clearProjectTime();
+  clearOutSent();
   recordDeviceUsage(lead, deviceType, "IN");
 }
 
@@ -211,6 +267,13 @@ export function finalizeSession() {
     const now = Date.now();
     trackForSession(session, "step", `Left "${session.currentStep}"`, now - session.currentStepEnteredAt);
   }
-  recordDeviceUsage(session.lead, session.deviceType, "OUT");
+  // The one place per-project time reaches Sperto — accumulated all session
+  // (lib/project-time.ts) and sent only here, once. getProjectTimeSeconds
+  // banks the still-running timer first, so whatever project was on screen
+  // when Log out was pressed is counted rather than dropped.
+  if (claimOutSend()) {
+    recordDeviceUsage(session.lead, session.deviceType, "OUT", getProjectTimeSeconds());
+  }
+  clearProjectTime();
   clearActiveSession();
 }
