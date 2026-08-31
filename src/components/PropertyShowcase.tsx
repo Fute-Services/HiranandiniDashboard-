@@ -13,7 +13,7 @@ import {
   recordStepEnter,
   type ActiveSession,
 } from "@/lib/session";
-import { startProjectTimer, stopProjectTimer } from "@/lib/project-time";
+import { readOpenProject, startProjectTimer, stopProjectTimer } from "@/lib/project-time";
 import { signOut } from "@/lib/sign-out";
 import { useNavigationLock } from "@/lib/useNavigationLock";
 import { ImageSlot } from "./ImageSlot";
@@ -46,6 +46,9 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   const [session, setSession] = useState<ActiveSession | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
+  /** The project on screen and its running total, for the header's
+   * per-project timer. Null whenever the shelf/VR tour is what's showing. */
+  const [openProject, setOpenProject] = useState<{ project: string; ms: number } | null>(null);
   const [blockedSlugs, setBlockedSlugs] = useState<string[]>([]);
   /** Manually admin-entered, real unit-availability counts (see
    * lib/inventory.ts) — a project absent here just shows no urgency note,
@@ -60,7 +63,6 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
   /** The meeting-note field is off by default and opened from the header —
    * see the notes bar below for why it isn't just always on screen. */
   const [notesOpen, setNotesOpen] = useState(false);
-  const [detailsProperty, setDetailsProperty] = useState<Property | null>(null);
   /** The project whose own site is open, full-screen, over the showcase.
    * Null means the shelf/VR tour is what's on screen. */
   const [viewerProperty, setViewerProperty] = useState<Property | null>(null);
@@ -243,24 +245,13 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
     return () => window.clearTimeout(id);
   }, [inventoryNotice]);
 
-  // A block that lands while that exact project's details modal is already
-  // open wouldn't otherwise do anything — blockedSlugs only filters the
-  // card/button lists a staff member picks from, not a modal already
-  // rendered from a click made before the block. Force it shut the moment
-  // its slug shows up blocked, so mid-session blocking is actually
-  // immediate, not just "can't open it again" — and say why instead of
-  // letting the modal just vanish.
-  // The full-screen project viewer is shut the same way and for the same
-  // reason: a block that only hid the card would leave the blocked project's
-  // own site still filling the screen in front of the customer.
+  // A block that lands mid-presentation has to take the project off the
+  // screen, not just off the rail: blockedSlugs only filters the button list
+  // a staff member picks from, so a project opened before the block would
+  // otherwise keep filling the screen in front of the customer. Shut it the
+  // moment its slug shows up blocked, and say why rather than letting it
+  // just vanish.
   useEffect(() => {
-    setDetailsProperty((current) => {
-      if (current && blockedSlugs.includes(current.slug)) {
-        setBlockedNotice(true);
-        return null;
-      }
-      return current;
-    });
     const open = viewerRef.current;
     if (
       open &&
@@ -280,6 +271,20 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
     }, 1000);
     return () => window.clearInterval(id);
   }, [session]);
+
+  /** The per-project clock shown next to the session timer. Polled rather
+   * than derived from `viewerProperty`, because the authoritative timer lives
+   * in sessionStorage (src/lib/project-time.ts) and pauses itself when the
+   * tab is backgrounded — recomputing it here from React state would show
+   * time the OUT call is never going to report. Keyed on `viewerProperty` so
+   * it re-reads the instant a project opens or closes instead of up to a
+   * second later. */
+  useEffect(() => {
+    const tick = () => setOpenProject(readOpenProject());
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [viewerProperty]);
 
   /** Log out is the only way off this screen now — there is no End Session
    * step — so the presentation has to be closed out properly here rather
@@ -380,6 +385,19 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
         </div>
         <div className={styles.headerRight}>
           {session && <span className={styles.timer}>{formatElapsed(elapsedMs)}</span>}
+          {/* The per-project clock, next to the whole-presentation one. This
+              is the number that actually reaches Sperto as `project_time` on
+              logout, so showing it live is what lets a staff member see what
+              is being recorded rather than find out afterwards. */}
+          {openProject && (
+            <span
+              className={styles.projectTimer}
+              title={`Time on ${openProject.project} this presentation`}
+            >
+              <span className={styles.projectTimerName}>{openProject.project}</span>
+              {formatElapsed(openProject.ms)}
+            </span>
+          )}
           {!isAdmin && session && (
             <button
               type="button"
@@ -490,27 +508,7 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
       </nav>
 
       {viewerProperty && (
-        <ProjectViewer
-          property={viewerProperty}
-          onClose={() => closeViewer()}
-          onDetails={() => {
-            const property = viewerProperty;
-            closeViewer("opened details");
-            setDetailsProperty(property);
-          }}
-        />
-      )}
-
-      {detailsProperty && (
-        <PropertyDetailsModal
-          property={detailsProperty}
-          onClose={() => setDetailsProperty(null)}
-          onOpenProject={(project) => {
-            const within = detailsProperty.name || detailsProperty.slug;
-            setDetailsProperty(null);
-            openViewer(project, within);
-          }}
-        />
+        <ProjectViewer property={viewerProperty} onClose={() => closeViewer()} />
       )}
 
     </div>
@@ -532,11 +530,9 @@ export function PropertyShowcase({ properties }: { properties: Property[] }) {
 function ProjectViewer({
   property,
   onClose,
-  onDetails,
 }: {
   property: Property;
   onClose: () => void;
-  onDetails: () => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   /** True once the frame has had long enough that "still blank" means it
@@ -571,9 +567,6 @@ function ProjectViewer({
           <span className={styles.viewerLocation}>{property.location}</span>
         </div>
         <div className={styles.viewerActions}>
-          <button type="button" className={styles.cardDetailsBtn} onClick={onDetails}>
-            Details
-          </button>
           <button
             type="button"
             className={styles.viewerClose}

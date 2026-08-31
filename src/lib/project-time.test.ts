@@ -3,6 +3,7 @@ import {
   clearProjectTime,
   getProjectTimeSeconds,
   pauseProjectTimer,
+  readOpenProject,
   resumeProjectTimer,
   startProjectTimer,
   stopProjectTimer,
@@ -155,6 +156,58 @@ describe("clearProjectTime", () => {
     seconds(120);
     clearProjectTime();
     expect(getProjectTimeSeconds()).toEqual({});
+  });
+});
+
+/**
+ * The header's live per-project clock. What matters is that it agrees with
+ * what the OUT call will eventually send — a timer that reads differently
+ * from the recorded value is worse than no timer, because a staff member
+ * would trust it.
+ */
+describe("readOpenProject", () => {
+  it("is null when no project is open", () => {
+    expect(readOpenProject()).toBeNull();
+    startProjectTimer("Elena");
+    stopProjectTimer();
+    expect(readOpenProject()).toBeNull();
+  });
+
+  it("counts the running clock for the project on screen", () => {
+    startProjectTimer("Elena");
+    seconds(45);
+    expect(readOpenProject()).toEqual({ project: "Elena", ms: 45_000 });
+  });
+
+  it("continues a reopened project's total rather than restarting it", () => {
+    startProjectTimer("Elena");
+    seconds(180);
+    startProjectTimer("Ebony");
+    seconds(60);
+    startProjectTimer("Elena");
+    seconds(120);
+    // 3 min before, 2 min now — the same 300s getProjectTimeSeconds reports.
+    expect(readOpenProject()).toEqual({ project: "Elena", ms: 300_000 });
+    expect(getProjectTimeSeconds().Elena).toBe(300);
+  });
+
+  it("holds steady while the tab is backgrounded", () => {
+    startProjectTimer("Elena");
+    seconds(30);
+    pauseProjectTimer();
+    seconds(600);
+    expect(readOpenProject()).toEqual({ project: "Elena", ms: 30_000 });
+    resumeProjectTimer();
+    seconds(10);
+    expect(readOpenProject()).toEqual({ project: "Elena", ms: 40_000 });
+  });
+
+  it("does not bank time, so ticking it every second cannot inflate the total", () => {
+    startProjectTimer("Elena");
+    seconds(10);
+    for (let i = 0; i < 20; i++) readOpenProject();
+    seconds(10);
+    expect(getProjectTimeSeconds()).toEqual({ Elena: 20 });
   });
 });
 

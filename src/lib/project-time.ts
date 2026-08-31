@@ -142,6 +142,28 @@ export function getProjectTimeSeconds(): Record<string, number> {
   return out;
 }
 
+/**
+ * Which project is on screen right now, and how long this presentation has
+ * spent on it in total — banked time plus whatever the running clock has
+ * earned since. Reopening a project therefore continues its count rather
+ * than restarting it, matching what `getProjectTimeSeconds` will eventually
+ * send.
+ *
+ * Read-only, unlike every other function here: the header ticks this once a
+ * second, and banking on each tick would rewrite sessionStorage sixty times
+ * a minute for a number nothing has asked to be durable yet. Returns null
+ * when no project is open, and holds its total steady while the timer is
+ * paused (a backgrounded tab), since `since` is null for exactly that case.
+ */
+export function readOpenProject(): { project: string; ms: number } | null {
+  const state = read();
+  const open = state.open;
+  if (!open) return null;
+  const banked = state.totals[open.project] ?? 0;
+  const running = open.since === null ? 0 : Math.max(0, Date.now() - open.since);
+  return { project: open.project, ms: banked + running };
+}
+
 /** Wipe the slate for a new presentation, so one customer's times can never
  *  be attributed to the next. */
 export function clearProjectTime() {

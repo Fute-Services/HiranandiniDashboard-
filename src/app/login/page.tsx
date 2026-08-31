@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { landingPathForRole, login, type LoginCredentials } from "@/lib/auth";
+import {
+  landingPathForRole,
+  login,
+  REPORTING_ENABLED,
+  type LoginCredentials,
+} from "@/lib/auth";
 import { actorFields, track } from "@/lib/activity";
+import { railProjects } from "@/data/properties";
 import { useNavigationLock } from "@/lib/useNavigationLock";
 import type { Role } from "@/lib/users";
 import { Spinner } from "@/components/Spinner";
@@ -218,7 +224,11 @@ export default function LoginPage() {
             <div className={styles.asideFoot}>
               <div className={styles.rule} />
               <div className={`${styles.mono} ${styles.stats}`}>
-                <span>06&nbsp;PROJECTS</span>
+                {/* Counted off the rail rather than typed, because this drifted
+                    once already: it read "06" while the showcase had been
+                    offering seven for a while. Adding a project to
+                    data/properties.ts now updates this on its own. */}
+                <span>{String(railProjects.length).padStart(2, "0")}&nbsp;PROJECTS</span>
                 <span>2026&nbsp;EDITION</span>
               </div>
             </div>
@@ -345,14 +355,21 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <button
-              type="button"
-              className={`${styles.mono} ${styles.switchMode}`}
-              onClick={() => switchMode(isStaff ? "admin" : "staff")}
-              disabled={pending !== null}
-            >
-              {isStaff ? "Admin / Manager login →" : "← Back to sales staff login"}
-            </button>
+            {/* The password door is the only way to reach the admin and
+                manager dashboards, and those are out of scope for this
+                release (see auth.ts's REPORTING_ENABLED). Hidden rather than
+                removed: /api/login refuses both roles anyway, so this is the
+                cosmetic half of the same switch. */}
+            {REPORTING_ENABLED && (
+              <button
+                type="button"
+                className={`${styles.mono} ${styles.switchMode}`}
+                onClick={() => switchMode(isStaff ? "admin" : "staff")}
+                disabled={pending !== null}
+              >
+                {isStaff ? "Admin / Manager login →" : "← Back to sales staff login"}
+              </button>
+            )}
 
             {/* All three shown in both modes: the point of these is to reach
                 any role in one tap, and hiding two of them behind the door
