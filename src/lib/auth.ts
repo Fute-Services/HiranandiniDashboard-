@@ -30,8 +30,23 @@ export const ADMIN_PATH = "/admin/dashboard";
 /** Sales-manager-only reporting dashboard, scoped to their own team's sessions. */
 export const MANAGER_PATH = "/manager/dashboard";
 
-/** Where a freshly signed-in (or already-authed) user of this role lands. */
+/**
+ * Whether the admin and sales-manager reporting dashboards are part of the
+ * shipped app. They are out of scope for this release, but the pages,
+ * components and API routes all stay in the codebase — this flag is the only
+ * thing keeping them off the running app, in three places:
+ * `proxy.ts` bounces both routes, `/api/login` refuses both roles, and the
+ * login page hides the password door. Flip it to `true` to bring the whole
+ * thing back at once; nothing else has to change.
+ */
+export const REPORTING_ENABLED = false;
+
+/** Where a freshly signed-in (or already-authed) user of this role lands.
+ * With reporting off, every role lands in the staff flow — an admin cookie
+ * issued before the flag was flipped would otherwise be sent to a page
+ * `proxy.ts` immediately bounces, which is a redirect loop, not a lockout. */
 export function landingPathForRole(role: Role): string {
+  if (!REPORTING_ENABLED) return SESSION_START_PATH;
   if (role === "admin") return ADMIN_PATH;
   if (role === "sales_manager") return MANAGER_PATH;
   return SESSION_START_PATH;

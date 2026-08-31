@@ -7,6 +7,7 @@ import {
   landingPathForRole,
   LOGIN_PATH,
   MANAGER_PATH,
+  REPORTING_ENABLED,
   SESSION_START_PATH,
 } from "@/lib/auth";
 import { verifySessionToken } from "@/lib/session-token";
@@ -63,6 +64,16 @@ export async function proxy(req: NextRequest) {
   if (isAuthed && isLoginPage && role) {
     const url = req.nextUrl.clone();
     url.pathname = landingPathForRole(role);
+    return NextResponse.redirect(url);
+  }
+
+  // Reporting is out of scope for this release (see auth.ts's
+  // REPORTING_ENABLED). Both dashboards still exist as pages, so this is what
+  // takes them off the app — and it has to sit above the role checks below,
+  // which an admin skips entirely.
+  if (!REPORTING_ENABLED && (pathname.startsWith(ADMIN_PATH) || pathname.startsWith(MANAGER_PATH))) {
+    const url = req.nextUrl.clone();
+    url.pathname = role ? landingPathForRole(role) : LOGIN_PATH;
     return NextResponse.redirect(url);
   }
 

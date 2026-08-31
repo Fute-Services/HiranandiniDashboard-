@@ -5,6 +5,7 @@ import {
   AUTH_MAX_AGE,
   EMAIL_COOKIE,
   NAME_COOKIE,
+  REPORTING_ENABLED,
   ROLE_COOKIE,
   SESSION_ID_COOKIE,
 } from "@/lib/auth";
@@ -194,6 +195,23 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
       return NextResponse.json({ error: "That email isn't set up for staff sign-in." }, { status: 401 });
     }
     user = found;
+  }
+
+  // Reporting is out of scope for this release (see auth.ts's
+  // REPORTING_ENABLED), so the two roles whose only destination was a
+  // reporting dashboard have nowhere to sign in to. Refused here rather than
+  // let through and bounced by proxy.ts: a session that lands on the staff
+  // flow under an "admin" role would be logged and attributed as an admin
+  // running presentations, which never happened.
+  //
+  // Deliberately after the password check, not before — answering "not
+  // available" to a wrong password would confirm the account exists to
+  // someone who hasn't proven they own it.
+  if (!REPORTING_ENABLED && user.role !== "sales_staff") {
+    return NextResponse.json(
+      { error: "Admin and manager sign-in isn't available. Use a sales staff account." },
+      { status: 403 },
+    );
   }
 
   const sessionId = crypto.randomUUID();

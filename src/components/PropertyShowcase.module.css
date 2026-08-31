@@ -139,6 +139,13 @@
   animation: content-in 0.6s var(--ease) 0.15s forwards;
 }
 
+@keyframes content-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .leftGroup {
   display: flex;
   align-items: center;
@@ -201,6 +208,7 @@
  * a four-item header looked like four separate widgets.
  */
 .timer,
+.projectTimer,
 .notesToggle,
 .busyToggle,
 .signout {
@@ -225,6 +233,27 @@
   letter-spacing: 0.1em;
   color: var(--brass-pale);
   border-color: var(--line-brass);
+}
+
+/* Deliberately quieter than .timer: two brass pills side by side read as one
+   control, and the session clock is the one a staff member glances at most. */
+.projectTimer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+}
+
+/* The project name can be long ("Golden Willows") and sits next to the Notes,
+   Busy and Log out controls, which must not be pushed off a tablet's header. */
+.projectTimerName {
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
 }
 
 .notesToggle,
@@ -391,6 +420,12 @@
   .rail {
     opacity: 1;
     transform: translate(0, -50%);
+    animation: none;
+  }
+
+  .header {
+    opacity: 1;
+    transform: translateY(0);
     animation: none;
   }
 }
