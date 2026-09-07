@@ -206,7 +206,8 @@ Ye requirement dobara chahiye to isse **re-open** samjho, "done" nahi.
 **4.2.5 Repeat-visit customers ko priority dena ✅ Implemented**
 - "Previous Visits" field already leads mein hai — jo customer 2nd/3rd baar aa raha hai, unhe staff ke liye highlight karo: "This customer has visited 2 times before, high intent".
 - Staff ko pata chalega ye lead zyada serious hai, extra effort lagayein.
-- **Kya implement hua:** `SessionStart.tsx` ke "Customer Found" card mein ab `previousVisits > 0` hone par ek highlighted note dikhta hai: "This customer has visited N times before — high intent."
+- **Kya implement hua tha:** `SessionStart.tsx` ke "Customer Found" card mein ab `previousVisits > 0` hone par ek highlighted note dikhta hai: "This customer has visited N times before — high intent."
+- **Reverted (2026-09-07):** Ye note ab session-start screen pe nahi dikhta. Wo screen customer ke saamne hoti hai, aur "high intent" ek internal sales judgement hai — uske subject ko dikhana galat hai. Isi wajah se customer ka naam aur lead-status pill bhi device step se hata diye gaye; ab wahan sirf "Pick your device" question hai. `previousVisits` ka data leads aur reports mein waise hi available hai — sirf is customer-facing screen pe render nahi hota.
 
 **4.2.6 WhatsApp/SMS integration se turant follow-up** — *Deferred to Version 2*
 - Presentation khatam hone ke turant baad customer ko ek automatic WhatsApp message jaye (jo dikhaya gaya uska summary + brochure link).
