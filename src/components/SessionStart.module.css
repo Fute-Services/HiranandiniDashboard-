@@ -251,43 +251,17 @@
   }
 }
 
-.resultName {
+/* The device step carries no customer detail at all — this screen faces the
+   customer, so the name, the lead status and the visit history that used to
+   sit here are gone. What is left is an instruction, so it reads as a heading
+   rather than as a record about the person standing there. */
+.resultTitle {
   font-family: var(--serif);
   font-size: 30px;
   font-weight: 400;
   letter-spacing: 0.01em;
   color: var(--ink-strong);
-  margin: 8px 0 8px;
-}
-
-.resultStatus {
-  display: inline-block;
-  font-family: var(--code);
-  font-size: 9.5px;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--brass-pale);
-  background: var(--brass-ghost);
-  border: 1px solid var(--line-brass);
-  border-radius: var(--r-pill);
-  padding: 4px 11px;
-  margin-bottom: 22px;
-}
-
-/* Good news: this customer has been here before. A left rule in the status
-   colour, a tinted panel, no glow — the same shape every notice in the app
-   uses. */
-.repeatVisitNote {
-  margin: 0 0 18px;
-  font-size: 12.5px;
-  line-height: 1.55;
-  border-radius: var(--r-sm);
-  padding: 11px 13px;
-  color: var(--ok-bright);
-  background: var(--ok-ghost);
-  border: 1px solid var(--ok-line);
-  border-left: 2px solid var(--ok);
+  margin: 8px 0 14px;
 }
 
 /* A ruled grid, not eight floating pairs. The 1px gap over a --line

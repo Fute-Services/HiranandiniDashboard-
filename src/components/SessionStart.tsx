@@ -15,20 +15,21 @@ import styles from "./SessionStart.module.css";
  * The one screen between the login and the presentation: find the customer,
  * pick the device, go.
  *
- * The staff member types the Lead ID (or the customer's phone number), the
- * name that comes back is shown on the device question itself so they can
- * check it's the person in front of them, they tap a device, and they're in
- * the showcase. Two taps from Lead ID to presentation. A miss — a typo, an
- * ID that isn't on file yet — is recoverable inline rather than by signing
- * in again.
+ * The staff member types the Lead ID (or the customer's phone number), taps a
+ * device, and they're in the showcase. Two taps from Lead ID to presentation.
+ * A miss — a typo, an ID that isn't on file yet — is recoverable inline rather
+ * than by signing in again.
  *
- * There used to be a full customer-profile card in between (budget, tower,
- * family size, loan) with its own Start Session button. It was a page the
- * staff member read past with a customer standing over their shoulder, and
- * everything on it is already in the CRM the details came from — so it is
- * gone, and confirming the name moved onto the device step. Nothing else
- * about the flow changed: the lookup, the lead claim, the activity log and
- * the walk-in path are all as they were.
+ * Nothing about the matched customer is drawn on this screen. There used to be
+ * a full profile card (budget, tower, family size, loan), and after that just
+ * the name, the lead status pill and a "visited N times before — high intent"
+ * note on the device step. This screen is held facing the customer, so all of
+ * it read back to them as a file the shop keeps on them; the lead status in
+ * particular is an internal sales judgement, not something to show its subject.
+ * Every one of those details is already in the CRM they came from, so the
+ * device step now shows only the question it is asking. The lookup itself is
+ * unchanged: the match still drives the lead claim, the activity log and the
+ * session, it is just never rendered.
  */
 export function SessionStart() {
   const router = useRouter();
@@ -148,15 +149,8 @@ export function SessionStart() {
           </div>
         ) : pickingDevice && match ? (
           <div className={styles.result}>
-            <div className={styles.eyebrow}>Customer Found</div>
-            <h2 className={styles.resultName}>{match.name}</h2>
-            <span className={styles.resultStatus}>{match.leadStatus}</span>
-            {match.previousVisits > 0 && (
-              <p className={styles.repeatVisitNote}>
-                This customer has visited {match.previousVisits} time
-                {match.previousVisits > 1 ? "s" : ""} before — high intent.
-              </p>
-            )}
+            <div className={styles.eyebrow}>Session Starting</div>
+            <h2 className={styles.resultTitle}>Pick your device</h2>
             <p className={styles.lede}>
               Which device are you presenting on? This is what shows up in reports as
               &quot;what device sells the most&quot; — pick the one you&apos;re actually
@@ -185,7 +179,7 @@ export function SessionStart() {
               }}
               disabled={leaving !== null}
             >
-              This isn&apos;t the right customer
+              Go back
             </button>
           </div>
         ) : (
@@ -193,7 +187,7 @@ export function SessionStart() {
             <div className={styles.eyebrow}>Search Customer</div>
             <h1 className={styles.title}>Which customer is this?</h1>
             <p className={styles.lede}>
-              Enter the Lead ID or phone number to pull up their details.
+              Enter the Lead ID or phone number to start the session.
             </p>
 
             <form onSubmit={onRetry}>
