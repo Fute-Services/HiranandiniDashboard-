@@ -6,6 +6,7 @@ import { withJsonErrors } from "@/lib/api";
 import { isSameOrigin } from "@/lib/csrf";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 import type { ActivityEvent, ActivityType } from "@/lib/activity";
+import { appendEvent, eventCount, listEvents, storageKind } from "@/lib/activity-store";
 
 /** Hard cap so a single response can never grow unbounded as history piles
  * up over weeks/months — applied regardless of which filters are set,
@@ -16,10 +17,22 @@ const MAX_ROWS = 5000;
 /**
  * Append-only activity log: every login, search, and project/property
  * interaction a sales staff member generates (the "Admin & Sales Manager
- * Activity Tracking" goal). Backed by Postgres (see scripts/db/schema.sql —
- * `activity_events`, seeded via scripts/db/seed.mjs). This route only ever
- * GETs or POSTs a new entry — there is deliberately no PATCH/DELETE handler,
- * so sales staff have no path to edit or erase their own history.
+ * Activity Tracking" goal). This route only ever GETs or POSTs a new entry —
+ * there is deliberately no PATCH/DELETE handler, so sales staff have no path
+ * to edit or erase their own history.
+ *
+ * Two backends, same shape. With `DATABASE_URL` set it is Postgres (see
+ * scripts/db/schema.sql — `activity_events`, seeded via scripts/db/seed.mjs).
+ * Without it — the app's normal configuration, since the whole staff flow is
+ * designed to run with no database and no credentials — it is the
+ * server-side file store in `src/lib/activity-store.ts`. Neither the client
+ * nor the dashboards can tell the difference; only `GET ?storage=1` reports
+ * which one is live.
+ *
+ * It used to be Postgres or nothing: no database meant every POST was
+ * answered `{ ok: true }` and discarded, and every GET answered `[]`, so a
+ * whole walkthrough looked recorded from the browser and was in fact never
+ * written anywhere.
  */
 
 type Row = {
@@ -95,10 +108,13 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
     location: locationFromHeaders(req),
   };
 
-  // No DB configured means no log to write to — track() is fire-and-forget
-  // and the caller never reads this response, same reasoning as the reads
-  // below skipping themselves rather than throwing.
-  if (!hasDb()) return NextResponse.json({ ok: true, id: event.id });
+  // No DB configured is the ordinary case, not a degraded one: the event
+  // goes to the server-side file store instead. Same append-only contract,
+  // same event, no credentials needed.
+  if (!hasDb()) {
+    appendEvent(event);
+    return NextResponse.json({ ok: true, id: event.id });
+  }
 
   const sql = getSql();
   await sql`
@@ -114,8 +130,6 @@ export const POST = withJsonErrors(async (req: NextRequest) => {
 });
 
 export const GET = withJsonErrors(async (req: NextRequest) => {
-  if (!hasDb()) return NextResponse.json([]);
-
   const params = req.nextUrl.searchParams;
   const managerEmail = params.get("managerEmail");
   const staffEmail = params.get("staffEmail");
@@ -123,6 +137,20 @@ export const GET = withJsonErrors(async (req: NextRequest) => {
   const project = params.get("project")?.toLowerCase();
   const from = params.get("from") ? Number(params.get("from")) : null;
   const to = params.get("to") ? Number(params.get("to")) : null;
+
+  // Diagnostic, not part of the log: answers "where is this actually being
+  // written, and has anything landed?" without anyone having to find the
+  // file. Deliberately reports the same for both backends.
+  if (params.get("storage")) {
+    return NextResponse.json({
+      backend: hasDb() ? "postgres" : storageKind(),
+      count: hasDb() ? null : eventCount(),
+    });
+  }
+
+  if (!hasDb()) {
+    return NextResponse.json(listEvents({ managerEmail, staffEmail, leadId, project, from, to }));
+  }
 
   const conditions: string[] = [];
   const values: unknown[] = [];
