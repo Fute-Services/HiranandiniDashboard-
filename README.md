@@ -7,6 +7,11 @@ from Claude Design.
 
 ```bash
 npm install
+
+# Required before the first run — the login mints a signed session cookie
+# and refuses to sign anything without a key (see Environment below).
+node -e 'console.log("SESSION_SECRET=" + require("crypto").randomBytes(32).toString("base64url"))' > .env.local
+
 npm run dev      # http://localhost:3000
 npm run build
 ```
@@ -23,8 +28,11 @@ Importing the Hiranandani dashboard repo for the first time:
 1. Vercel → Add New → Project → import the repo.
 2. **Root Directory → Edit → select `web`.** Everything else auto-detects
    (framework Next.js, `next build`, output `.next`).
-3. Deploy. No environment variables are needed yet — the property data is
-   hardcoded and there's no API.
+3. Set `SESSION_SECRET` in the project settings (Settings → Environment
+   Variables) before the first deploy. The login throws without it, so the
+   build succeeds and every sign-in then 500s. Everything else in the
+   Environment table below is optional — see it for what each one unlocks.
+4. Deploy.
 
 Pushes to `master` then deploy to production; other branches get preview URLs.
 
@@ -80,13 +88,54 @@ the device being presented on, then the showcase opens.
 | Variable | Needed for |
 |---|---|
 | `SESSION_SECRET` | Required. Signs the session cookie `proxy.ts` verifies. |
-| `DATABASE_URL` | Optional for the demo. Required for the reporting dashboards. |
+| `DATABASE_URL` | Optional. Without it the activity log writes to a file instead — see "Where the activity log is stored". |
+| `ACTIVITY_LOG_DIR` | Optional. Overrides where that file lives. |
 | `SPERTO_BASE_URL` | The CRM that verifies staff emails at login, and that logs device usage (see below). Unset locally. |
 | `SPERTO_API_KEY` | Server-side only — never reaches the browser. Unset locally. |
 | `SPERTO_DEVICE_USAGE_API_KEY` | Separate key for the device-usage log (`docs/sperto.md`'s second integration). Server-side only. |
 | `CRON_SECRET` | Authorises `/api/cron/*`. Vercel sets this itself. |
 
 Optional: `SPERTO_TIMEOUT_MS` (default 8000).
+
+### Where the activity log is stored
+
+Every tracked event — login, search, customer lookup, project open/close,
+property shown, step timings, logout (the full `ActivityType` list is in
+`src/lib/activity.ts`) — is POSTed live to `/api/activity` as it happens. That
+route has two backends and the rest of the app cannot tell them apart:
+
+- **`DATABASE_URL` set** → Postgres, table `activity_events`
+  (`scripts/db/schema.sql`).
+- **`DATABASE_URL` unset** → a JSON file at `.data/activity.json`, written by
+  `src/lib/activity-store.ts`. No database, no credentials, no setup. This is
+  the default, and it is gitignored.
+
+Both are append-only: the route has a GET and a POST and deliberately no
+PATCH or DELETE, so sales staff have no path to edit or erase their own
+history. The file store keeps the most recent 5000 events and writes
+atomically (temp file + rename), so a process killed mid-write leaves the
+previous complete log rather than a truncated one.
+
+To see what has been recorded:
+
+```bash
+curl 'http://localhost:3000/api/activity?storage=1'   # which backend, how many events
+curl 'http://localhost:3000/api/activity'             # the events themselves
+cat .data/activity.json                               # or straight off disk
+```
+
+Both endpoints need a signed-in session — `proxy.ts` bounces unauthenticated
+requests to `/login`. The same filters work on either backend: `staffEmail`,
+`managerEmail`, `leadId`, `project` (substring of the label or lead name),
+`from`, `to`.
+
+**Deployment caveat.** Vercel's filesystem is read-only outside `/tmp`, so a
+deployed instance falls back to the temp directory: the log survives warm
+invocations on one instance, and does not survive a cold start or reach a
+second instance. `?storage=1` reports which situation is live — `file`
+(durable), `temp` (ephemeral) or `memory` (nothing writable). For a deployment
+where the history has to be permanent and shared across instances, set
+`DATABASE_URL`; that is the only thing the Postgres path is needed for.
 
 ### Tests
 

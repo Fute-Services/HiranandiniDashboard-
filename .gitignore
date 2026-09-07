@@ -9,3 +9,6 @@ next-env.d.ts
 .claude/
 .vercel
 .env*
+
+# Activity log store when running without DATABASE_URL (src/lib/activity-store.ts)
+.data/
