@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/icon.png" />
+    <title>Hiranandani Dashboard | Property Index</title>
+    <meta
+      name="description"
+      content="A showcase of the Hiranandani property portfolio. Browse each property and continue to its own site."
+    />
+
+    <!--
+      Three typefaces, each with one job — a single grotesk gave headlines,
+      body copy and data the same voice, which is most of what made every
+      screen read as one flat wall of text.
+
+      Display is a serif on purpose: this is a product shown to someone buying
+      a home, and a geometric sans headline reads like a developer tool. The
+      serif carries the "estate" register; Inter does the actual work; the mono
+      is for IDs, timers and counts, where tabular figures matter more than
+      character.
+
+      Loaded from Google Fonts directly rather than through a build-time font
+      pipeline. `--font-display` / `--font-sans` / `--font-mono` are the names
+      the stylesheets already ask for, so they are declared once in
+      src/index.css against these families.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

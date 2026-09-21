@@ -2,34 +2,41 @@
   "name": "hiranandani-showcase-web",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "concurrently -n web,api -c cyan,magenta \"vite\" \"npm:dev:server\"",
+    "dev:web": "vite",
+    "dev:server": "node --env-file=.env.local server/index.js",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node --env-file=.env.local server/index.js",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate": "node --env-file=.env.local scripts/db/migrate.mjs",
-    "db:seed": "node --env-file=.env.local scripts/db/seed.mjs"
+    "db:seed": "node --env-file=.env.local scripts/db/seed.mjs",
+    "docs:flow": "node scripts/docs/flow-pdf.cjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
-    "@sentry/nextjs": "^10.69.0",
-    "@vercel/analytics": "^2.0.1",
+    "@sentry/react": "^10.19.0",
     "@vercel/blob": "^2.6.1",
-    "next": "16.3.4",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.1.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "server-only": "^0.0.1"
+    "react-router-dom": "^7.9.4"
   },
   "devDependencies": {
-    "@types/node": "^22.19.0",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
+    "@eslint/js": "^9.39.5",
+    "@vitejs/plugin-react": "^5.1.0",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.5",
-    "eslint-config-next": "^16.3.4",
-    "typescript": "5.7.2",
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "pdfkit": "^0.20.2",
+    "vite": "^7.2.1",
     "vitest": "^4.1.10"
   }
 }

@@ -1,14 +1,9 @@
 node_modules/
-.next/
-out/
-build/
-.env*.local
-*.tsbuildinfo
-next-env.d.ts
+dist/
 .DS_Store
 .claude/
 .vercel
 .env*
 
-# Activity log store when running without DATABASE_URL (src/lib/activity-store.ts)
+# Activity log store when running without DATABASE_URL (server/lib/activity-store.js)
 .data/
