@@ -38,13 +38,21 @@ API from the same Express process, so it is one origin for real.
 
 Zero configuration beyond what is already in the repo. `vercel.json` sets the
 framework, the build and the rewrites; the API is one Serverless Function at
-`api/[...path].js` that hands every `/api/*` request to the same Express app
+`api/index.js` that hands every `/api/*` request to the same Express app
 `npm start` runs.
 
 ```
-dist/                 served by the CDN
-api/[...path].js  ->  server/app.js   (all of /api/*)
+dist/             served by the CDN
+api/index.js  ->  server/app.js   (all of /api/*)
 ```
+
+`/api/*` is routed there by an explicit rewrite rather than by a catch-all
+filename. `api/[...path].js` was tried first and Vercel matched it only one
+segment deep — `/api/login` reached the function while `/api/cron/backup` and
+`/api/session/device-usage` returned Vercel's own 404. The rewrite carries the
+real path in `__vercel_path`, and `api/index.js` puts it back on `req.url`
+before Express sees it, so the routers stay mounted on the real paths and the
+same app still runs unchanged under `npm start`.
 
 The rewrite `/((?!api/).*) -> /index.html` is what makes a hard load of
 `/session/start` work: Vercel checks the filesystem first, so real files
@@ -220,7 +228,7 @@ per-project time accounting that feeds Sperto's `project_time`.
 | `src/data/customers.js` | Dummy customer directory — the seam for the customer API |
 | `server/app.js` | The API: mounts every route, optionally serves `dist/` |
 | `server/index.js` | Starts it as a long-lived process (`npm start`, `npm run dev`) |
-| `api/[...path].js` | The same app as one Vercel Serverless Function |
+| `api/index.js` | The same app as one Vercel Serverless Function |
 | `server/routes/` | One router per `/api` endpoint |
 | `server/lib/` | Server-side only: DB, password hashing, Sperto, session tokens |
 | `server/lib/sperto-response.js` | The one place a Sperto answer is read — see below |
