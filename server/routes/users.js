@@ -61,14 +61,19 @@ usersRouter.get(
   withJsonErrors(async (req, res) => {
     const viewer = await getViewer(req);
     if (!viewer) return res.status(401).json({ error: "Not signed in" });
+    // Refused before the database is touched. With this check below the query
+    // — as it was — a sales staff member asking for the directory got
+    // whatever the database happened to say, which in production was a 500
+    // over a missing column: the wrong status, and a story about our
+    // plumbing rather than about their access.
+    if (viewer.role !== "admin" && viewer.role !== "sales_manager") {
+      return res.status(403).json({ error: "Not authorized" });
+    }
 
     const all = await allStaffAndManagers();
     if (viewer.role === "admin") return res.json({ users: all });
-    if (viewer.role === "sales_manager") {
-      const scoped = all.filter((u) => u.email === viewer.email || u.managerEmail === viewer.email);
-      return res.json({ users: scoped });
-    }
-    return res.status(403).json({ error: "Not authorized" });
+    const scoped = all.filter((u) => u.email === viewer.email || u.managerEmail === viewer.email);
+    return res.json({ users: scoped });
   }),
 );
 
