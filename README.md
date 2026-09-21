@@ -34,7 +34,43 @@ API from the same Express process, so it is one origin for real.
 
 ## Deploy
 
-One Node process serves everything:
+### Vercel
+
+Zero configuration beyond what is already in the repo. `vercel.json` sets the
+framework, the build and the rewrites; the API is one Serverless Function at
+`api/[...path].js` that hands every `/api/*` request to the same Express app
+`npm start` runs.
+
+```
+dist/                 served by the CDN
+api/[...path].js  ->  server/app.js   (all of /api/*)
+```
+
+The rewrite `/((?!api/).*) -> /index.html` is what makes a hard load of
+`/session/start` work: Vercel checks the filesystem first, so real files
+(`/assets/*`, `/brand/*`) still serve, and only client-side routes fall
+through to the app.
+
+Set `SESSION_SECRET` in the project's environment variables before the first
+deploy — the build succeeds without it and every sign-in then 500s. Everything
+else in the Environment table below is optional.
+
+The nightly backup is scheduled again by `vercel.json`'s `crons`, and Vercel
+injects `CRON_SECRET` itself.
+
+Two things behave differently on serverless than on a long-lived process, both
+by nature rather than by choice:
+
+- **The activity log**, with no `DATABASE_URL`, falls back to the temp
+  directory — it survives warm invocations on one instance, not a cold start
+  and not a second instance. `GET /api/activity?storage=1` reports which of
+  `file` / `temp` / `memory` is live. Set `DATABASE_URL` for history that has
+  to be permanent and shared.
+- **Rate limiting** is per-instance, since the counters are in memory.
+
+### Any Node host
+
+One process serves everything:
 
 ```bash
 npm ci
@@ -43,19 +79,12 @@ NODE_ENV=production SESSION_SECRET=… node server/index.js
 ```
 
 It listens on `API_PORT` (default 3001) and serves `dist/` alongside `/api`,
-including the single-page fallback — a hard load of `/session/start` returns
-`index.html` and lets the router take it from there. Put whatever fronts it
-(nginx, a platform router) in front of that one port; don't split the app and
-the API across two origins, or the session cookie stops being sent and the
-CSRF check starts refusing every POST.
+including the single-page fallback. Put whatever fronts it (nginx, a platform
+router) in front of that one port; don't split the app and the API across two
+origins, or the session cookie stops being sent and the CSRF check starts
+refusing every POST.
 
-Set `SESSION_SECRET` before the first boot. The server warns loudly without
-one and every sign-in 500s. Everything else in the Environment table below is
-optional — see it for what each one unlocks.
-
-**The daily backup is no longer scheduled for you.** On Vercel, `vercel.json`
-ran `/api/cron/backup` nightly and injected `CRON_SECRET` itself. Off that
-platform, whatever runs your schedule has to call it:
+Schedule the backup yourself there — nothing does it for you:
 
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/cron/backup
@@ -189,7 +218,9 @@ per-project time accounting that feeds Sperto's `project_time`.
 | `src/lib/` | Browser-side: session, activity log, API clients |
 | `src/data/properties.js` | Property list — the seam where the content API will plug in |
 | `src/data/customers.js` | Dummy customer directory — the seam for the customer API |
-| `server/index.js` | The API: mounts every route, serves `dist/` in production |
+| `server/app.js` | The API: mounts every route, optionally serves `dist/` |
+| `server/index.js` | Starts it as a long-lived process (`npm start`, `npm run dev`) |
+| `api/[...path].js` | The same app as one Vercel Serverless Function |
 | `server/routes/` | One router per `/api` endpoint |
 | `server/lib/` | Server-side only: DB, password hashing, Sperto, session tokens |
 | `server/lib/sperto-response.js` | The one place a Sperto answer is read — see below |
@@ -239,7 +270,7 @@ What the framework was doing, and what does it now:
 | `useRouter().push/replace/back` | `useNavigate()` |
 | `global-error.tsx` | `src/ErrorFallback.jsx`, behind a Sentry error boundary |
 | `@sentry/nextjs` | `@sentry/react` |
-| `vercel.json` cron | A call you schedule yourself — see Deploy |
+| `vercel.json` cron | Still `vercel.json` on Vercel; a call you schedule yourself elsewhere |
 | TypeScript types | Removed; shapes are described in the comment above each module |
 
 **The one thing that genuinely changed.** Next.js verified the session token on
