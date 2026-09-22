@@ -48,7 +48,7 @@ api/index.js  ->  server/app.js   (all of /api/*)
 
 `/api/*` is routed there by an explicit rewrite rather than by a catch-all
 filename. `api/[...path].js` was tried first and Vercel matched it only one
-segment deep — `/api/login` reached the function while `/api/cron/backup` and
+segment deep — `/api/login` reached the function while
 `/api/session/device-usage` returned Vercel's own 404. The rewrite carries the
 real path in `__vercel_path`, and `api/index.js` puts it back on `req.url`
 before Express sees it, so the routers stay mounted on the real paths and the
@@ -63,18 +63,19 @@ Set `SESSION_SECRET` in the project's environment variables before the first
 deploy — the build succeeds without it and every sign-in then 500s. Everything
 else in the Environment table below is optional.
 
-The nightly backup is scheduled again by `vercel.json`'s `crons`, and Vercel
-injects `CRON_SECRET` itself.
-
 Two things behave differently on serverless than on a long-lived process, both
 by nature rather than by choice:
 
-- **The activity log**, with no `DATABASE_URL`, falls back to the temp
-  directory — it survives warm invocations on one instance, not a cold start
-  and not a second instance. `GET /api/activity?storage=1` reports which of
-  `file` / `temp` / `memory` is live. Set `DATABASE_URL` for history that has
-  to be permanent and shared.
+- **The API's own state** — staff controls, admin-added accounts, unit counts,
+  the lead overlay (`server/lib/store.js`) — is process memory, so a cold
+  start clears it and two instances do not share it. Nothing in the sales flow
+  breaks when it is empty: an unknown account is simply one nobody has kicked
+  or suspended. A manager's force-logout can, however, be forgotten by a cold
+  start, so treat it as an immediate action rather than a lasting one.
 - **Rate limiting** is per-instance, since the counters are in memory.
+
+The activity log is unaffected by any of this — it never leaves the browser
+tab. See "Where the activity log is stored".
 
 ### Any Node host
 
@@ -91,15 +92,6 @@ including the single-page fallback. Put whatever fronts it (nginx, a platform
 router) in front of that one port; don't split the app and the API across two
 origins, or the session cookie stops being sent and the CSRF check starts
 refusing every POST.
-
-Schedule the backup yourself there — nothing does it for you:
-
-```bash
-curl -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/cron/backup
-```
-
-With no `CRON_SECRET` set the endpoint refuses every call — an unset secret
-reads as "locked", never as "no check needed".
 
 ## The sales staff flow
 
@@ -155,12 +147,9 @@ so the route that issues sessions must not take the browser's word for it.
 |---|---|
 | `SESSION_SECRET` | Required. Signs the session cookie the API verifies. |
 | `API_PORT` | Optional (default 3001). Where the API listens; Vite's dev proxy reads it too. |
-| `DATABASE_URL` | Optional. Without it the activity log writes to a file instead — see "Where the activity log is stored". |
-| `ACTIVITY_LOG_DIR` | Optional. Overrides where that file lives. |
 | `SPERTO_BASE_URL` | The CRM that verifies staff emails at login, and that logs device usage. Unset locally. |
 | `SPERTO_API_KEY` | Server-side only — never reaches the browser. Unset locally. |
 | `SPERTO_DEVICE_USAGE_API_KEY` | Separate key for the device-usage log (`docs/sperto.md`'s second integration). Server-side only. |
-| `CRON_SECRET` | Authorises `/api/cron/*`. You now schedule the call yourself — see Deploy. |
 | `VITE_SENTRY_DSN` | Optional. Client-side error reporting. **Must** be `VITE_`-prefixed to reach the browser bundle. |
 
 Optional: `SPERTO_TIMEOUT_MS` (default 8000).
@@ -169,43 +158,62 @@ Only `VITE_`-prefixed variables reach the browser. Everything else in
 `.env.local` stays on the server, which is the right default for all of the
 above — `SPERTO_API_KEY` in particular is the one that must never ship.
 
+There is no database variable, and that is deliberate — see "No database".
+
+### No database
+
+This app stores nothing of its own, anywhere. There is no `DATABASE_URL`, no
+Postgres, no migrations and no table of customers or staff history. The
+customer records belong to the client and stay in their CRM (Sperto); what is
+left is split between two places, both disposable:
+
+| What | Where | Lifetime |
+|---|---|---|
+| Activity log, session data, per-project times | The browser tab's `sessionStorage` | Until the tab closes or the staff member signs out |
+| Lead overlay (who claimed what, status) | The API process's memory (`server/lib/store.js`) | Until that staff member signs out |
+| Staff controls, admin-added accounts, unit counts | The API process's memory | Until the process restarts |
+
+Signing out wipes the first two. In the browser, `src/lib/sign-out.js` clears
+the activity log, the active session and the project timers; on the API,
+`POST /api/logout` drops every lead that sitting touched. The third row
+deliberately outlives a sign-out: a suspension undone by the very logout it
+caused would be no suspension at all, and admin-entered accounts and unit
+counts are configuration rather than session data.
+
+Everything is written so that an empty store is the ordinary starting state,
+not an error: an account nobody has kicked, a project with no unit count
+entered, a lead nobody has claimed yet. That is what makes losing either side
+acceptable rather than a failure to handle.
+
 ### Where the activity log is stored
 
 Every tracked event — login, search, customer lookup, project open/close,
 property shown, step timings, logout (the full list is in
-`src/lib/activity.js`) — is POSTed live to `/api/activity` as it happens. That
-route has two backends and the rest of the app cannot tell them apart:
+`src/lib/activity.js`) — is written to this browser tab's `sessionStorage` as
+it happens. Nothing is sent to the server, and the most recent 5000 events are
+kept.
 
-- **`DATABASE_URL` set** → Postgres, table `activity_events`
-  (`scripts/db/schema.sql`).
-- **`DATABASE_URL` unset** → a JSON file at `.data/activity.json`, written by
-  `server/lib/activity-store.js`. No database, no credentials, no setup. This
-  is the default, and it is gitignored.
+`sessionStorage` rather than `localStorage` is the point: it is scoped to the
+tab, so closing it clears the log and a second tab starts empty. Signing out
+clears it too (`src/lib/sign-out.js`), so a showroom screen handed to the next
+customer is not still carrying the last one's session.
 
-Both are append-only: the route has a GET and a POST and deliberately no
-PATCH or DELETE, so sales staff have no path to edit or erase their own
-history. The file store keeps the most recent 5000 events and writes
-atomically (temp file + rename), so a process killed mid-write leaves the
-previous complete log rather than a truncated one.
-
-To see what has been recorded:
-
-```bash
-curl 'http://localhost:3000/api/activity?storage=1'   # which backend, how many events
-curl 'http://localhost:3000/api/activity'             # the events themselves
-cat .data/activity.json                               # or straight off disk
-```
-
-The same filters work on either backend: `staffEmail`, `managerEmail`,
+Filters, unchanged from when this was an API: `staffEmail`, `managerEmail`,
 `leadId`, `project` (substring of the label or lead name), `from`, `to`.
 
-**Deployment caveat.** On a read-only deployment filesystem the store falls
-back to the temp directory: the log survives while the process lives, and does
-not survive a restart or reach a second instance. `?storage=1` reports which
-situation is live — `file` (durable), `temp` (ephemeral) or `memory` (nothing
-writable). For a deployment where the history has to be permanent and shared
-across instances, set `DATABASE_URL`; that is the only thing the Postgres path
-is needed for.
+To see what has been recorded, in the browser's console:
+
+```js
+JSON.parse(sessionStorage.getItem("hiranandani.activity"))
+```
+
+**Two consequences, neither a bug.** A manager sees only their own browser's
+log — the log cannot cross devices without a server-side store, and there
+isn't one. Cross-device *controls* (force-logout, suspension, project blocks)
+do still work, because those go through `/api/controls`. And because the log
+sits in the staff member's own browser, anyone who can open devtools can edit
+or clear it; the append-only guarantee a server endpoint used to provide did
+not survive the move into the tab.
 
 ### Tests
 
@@ -223,16 +231,15 @@ per-project time accounting that feeds Sperto's `project_time`.
 | `src/routes/guards.jsx` | Who may see which screen — replaces the Next.js middleware |
 | `src/pages/` | One component per route |
 | `src/components/` | The screens themselves, each with its own CSS module |
-| `src/lib/` | Browser-side: session, activity log, API clients |
+| `src/lib/` | Browser-side: session, API clients, and the activity log itself (`activity-store.js`) |
 | `src/data/properties.js` | Property list — the seam where the content API will plug in |
 | `src/data/customers.js` | Dummy customer directory — the seam for the customer API |
 | `server/app.js` | The API: mounts every route, optionally serves `dist/` |
 | `server/index.js` | Starts it as a long-lived process (`npm start`, `npm run dev`) |
 | `api/index.js` | The same app as one Vercel Serverless Function |
 | `server/routes/` | One router per `/api` endpoint |
-| `server/lib/` | Server-side only: DB, password hashing, Sperto, session tokens |
+| `server/lib/` | Server-side only: the in-memory store, password hashing, Sperto, session tokens |
 | `server/lib/sperto-response.js` | The one place a Sperto answer is read — see below |
-| `scripts/db/` | Postgres schema, migration and seed |
 | `scripts/docs/flow-pdf.cjs` | Builds `docs/Hiranandani-Flow.pdf` (`npm run docs:flow`) |
 
 Two modules are deliberately shared across the boundary, and neither imports
@@ -278,7 +285,7 @@ What the framework was doing, and what does it now:
 | `useRouter().push/replace/back` | `useNavigate()` |
 | `global-error.tsx` | `src/ErrorFallback.jsx`, behind a Sentry error boundary |
 | `@sentry/nextjs` | `@sentry/react` |
-| `vercel.json` cron | Still `vercel.json` on Vercel; a call you schedule yourself elsewhere |
+| `vercel.json` cron (nightly DB backup) | Gone with the database — there is nothing of ours left to back up |
 | TypeScript types | Removed; shapes are described in the comment above each module |
 
 **The one thing that genuinely changed.** Next.js verified the session token on

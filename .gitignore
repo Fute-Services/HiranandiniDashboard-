@@ -4,6 +4,3 @@ dist/
 .claude/
 .vercel
 .env*
-
-# Activity log store when running without DATABASE_URL (server/lib/activity-store.js)
-.data/

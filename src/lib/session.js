@@ -202,8 +202,9 @@ export function recordStepEnter(step) {
  * Logs a specific "what was shown" moment, e.g. a property card opened for
  * the customer, with a timestamp, so the dashboard can answer "what did
  * they show, and how far into the session" (not just total time). Safe to
- * call even if nothing's active (no-ops). Streams live to the server-side
- * activity log in addition to the local buffer this session's summary reads.
+ * call even if nothing's active (no-ops). Written to the activity log (see
+ * lib/activity-store.js) as well as the local buffer this session's summary
+ * reads — both live in this tab and both go at sign-out.
  *
  * `durationMs` is for events that close out something that was open for a
  * while — a project the staff member showed and then shut. The roadmap can
