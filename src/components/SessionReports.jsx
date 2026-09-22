@@ -2374,11 +2374,14 @@ function InventoryPanel() {
  * The reporting view shared by both `/admin/dashboard` and
  * `/manager/dashboard`: a projects overview, Today's Presentations, total
  * session duration, filters (staff/customer/project/date), and every
- * presentation's full timeline with a replay control, read from the
- * server-side activity log (src/lib/activity.js / /api/activity —
- * append-only, so sales staff have no path to edit or delete it). A sales
- * manager only sees their own team's activity (scoped server-side by
- * managerEmail); an admin always sees everyone.
+ * presentation's full timeline with a replay control, read from the activity
+ * log in this browser tab (src/lib/activity.js, stored by
+ * src/lib/activity-store.js). A sales manager only sees their own team's
+ * activity (scoped by managerEmail); an admin sees everyone in the log.
+ *
+ * "Everyone in the log" is the honest limit: the log is per-tab, so this
+ * shows what happened in *this* browser, not what staff did on their own
+ * devices. See src/lib/activity-store.js.
  */
 export function SessionReports({ brandLabel, title }) {
   const navigate = useNavigate();
@@ -3061,9 +3064,9 @@ export function SessionReports({ brandLabel, title }) {
 
       {/* One section at a time, chosen from the fixed navbar below. */}
       <div className={styles.viewArea}>
-        {/* Nothing has come back from /api/activity yet: every section below
-            reads off `events`, and each of their empty states would claim
-            "nothing logged" while the request is still in flight. */}
+        {/* The log hasn't been read yet: every section below reads off
+            `events`, and each of their empty states would claim "nothing
+            logged" while the read is still in flight. */}
         {events === null && <LoadingBlock message="Loading activity…" size={22} />}
 
         {events !== null && view === "staff" &&

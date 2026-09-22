@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getSql, hasDb } from "../lib/db.js";
+import { findUserByEmail as findStoredUser } from "../lib/store.js";
 import { withJsonErrors } from "../lib/api.js";
 import { isSameOrigin } from "../lib/csrf.js";
 import { checkRateLimit, clientKey } from "../lib/rate-limit.js";
@@ -83,13 +83,15 @@ function sanitizePageUrl(input, fallbackUrl) {
   return out.length > 0 ? out : fallbackUrl;
 }
 
-async function spertoLoginFor(email) {
+/** The account's Sperto Sales ID — the static roster first, then the
+ * admin-created accounts in the API's in-memory store (see lib/store.js),
+ * the same split routes/login.js uses. Null when nobody has put one on file,
+ * which the caller treats as "nothing to report to Sperto" rather than an
+ * error. */
+function spertoLoginFor(email) {
   const staticUser = USERS.find((u) => u.email === email);
   if (staticUser) return staticUser.spertoLogin ?? null;
-  if (!hasDb()) return null;
-  const sql = getSql();
-  const rows = await sql`SELECT sperto_login FROM users WHERE email = ${email}`;
-  return rows[0]?.sperto_login ?? null;
+  return findStoredUser(email)?.spertoLogin ?? null;
 }
 
 deviceUsageRouter.post(
@@ -117,7 +119,7 @@ deviceUsageRouter.post(
     const cleanProjectTime = sanitizeProjectTime(projectTime);
     const cleanPageUrl = sanitizePageUrl(pageUrl, `${req.protocol}://${req.get("host")}`);
 
-    const salesManagerLogin = await spertoLoginFor(viewer.email);
+    const salesManagerLogin = spertoLoginFor(viewer.email);
     if (!salesManagerLogin) {
       return res.json({ ok: true, recorded: false, skipped: "no sperto login on file" });
     }
