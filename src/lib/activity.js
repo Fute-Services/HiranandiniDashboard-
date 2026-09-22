@@ -1,17 +1,20 @@
 /**
  * Full sales-staff activity log (questionnaire "Admin & Sales Manager
  * Activity Tracking" goal): every login, search, customer lookup, and
- * project/property interaction, streamed live to `/api/activity` as it
- * happens rather than buffered until sign-out (so a walkthrough is
- * captured even if the tab closes early). Backed by the same server-side
- * store pattern as `src/lib/controls.js` — see that file's comment for why
- * this has to be server-side rather than localStorage: a manager and a
- * sales-staff member are on separate browsers, and only an append-only
- * server endpoint (no PATCH/DELETE route exists) can guarantee sales staff
- * can't edit or erase their own history.
+ * project/property interaction, recorded as it happens rather than buffered
+ * until sign-out, so a walkthrough is captured even when the tab closes
+ * early.
+ *
+ * This writes to the browser, not to a server. There is no database behind
+ * this app — the customer data is the client's and stays in their CRM — so
+ * the log lives in the tab's own `sessionStorage`. See
+ * `./activity-store.js` for what that costs: the log does not cross devices,
+ * and it is editable by the person it is about. Cross-device control
+ * (force-logout, suspension) is unaffected — that still goes through
+ * `/api/controls`, which is a real server endpoint.
  */
+import { appendEvent, listEvents } from "./activity-store";
 import { getSession, getSessionId } from "./auth";
-import { fetchWithTimeout, readJsonSafe } from "./http";
 import { findUserByEmail } from "./users";
 
 /**
@@ -36,43 +39,40 @@ export function newSessionId() {
 }
 
 /**
- * Fire-and-forget log write. `keepalive` lets the logout call survive the
- * page unload that immediately follows it. Never throws: a dropped log line
- * shouldn't break the sales flow.
+ * Records one event. Never throws: a dropped log line shouldn't break the
+ * sales flow, which is why every storage access inside `appendEvent` is
+ * already guarded — this catch is the backstop for anything else.
  *
  * `event.device` is the staff-chosen device type (Tab/TV/Kiosk/…, see
  * lib/session.js) when the event happens inside a presentation session. It
  * falls back to the raw `navigator.userAgent` when omitted — a browser string
  * is still better than nothing for events outside a session (login, search).
+ *
+ * Synchronous now that the write is local. It used to be a `keepalive` fetch
+ * whose whole point was surviving the page unload that follows a logout;
+ * a `sessionStorage` write has already completed by the time it returns, so
+ * that concern is gone rather than merely handled.
  */
 export function track(event) {
   try {
-    fetchWithTimeout("/api/activity", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...event, device: event.device ?? navigator.userAgent }),
-      keepalive: true,
-    }).catch(() => {});
+    appendEvent({ ...event, device: event.device ?? navigator.userAgent });
   } catch {
     // best-effort; ignore
   }
 }
 
-/** Never throws and never hangs: the dashboards call this on mount, on every
- * filter change and on a poll timer, and each of those clears a "Loading
- * activity…" state in its `.then()`. A failed read degrades to "no rows"
- * (which the UI already renders); a read that never came back used to leave
- * the dashboard on its loading block indefinitely. */
+/**
+ * Reads the log back, filtered.
+ *
+ * Still async, and still resolving to `[]` rather than rejecting on any
+ * failure: the dashboards call this on mount, on every filter change and on
+ * a poll timer, and each of those clears a "Loading activity…" state in its
+ * `.then()`. Keeping the promise means none of those call sites had to
+ * change when the store moved into the browser.
+ */
 export async function listActivity(filters = {}) {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) {
-    if (value !== undefined && value !== "") params.set(key, String(value));
-  }
   try {
-    const res = await fetchWithTimeout(`/api/activity?${params.toString()}`, { cache: "no-store" });
-    if (!res.ok) return [];
-    const data = await readJsonSafe(res);
-    return Array.isArray(data) ? data : [];
+    return listEvents(filters);
   } catch {
     return [];
   }

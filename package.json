@@ -13,14 +13,10 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:migrate": "node --env-file=.env.local scripts/db/migrate.mjs",
-    "db:seed": "node --env-file=.env.local scripts/db/seed.mjs",
     "docs:flow": "node scripts/docs/flow-pdf.cjs"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
     "@sentry/react": "^10.19.0",
-    "@vercel/blob": "^2.6.1",
     "cookie-parser": "^1.4.7",
     "express": "^5.1.0",
     "react": "^19.2.8",

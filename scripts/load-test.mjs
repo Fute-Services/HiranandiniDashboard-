@@ -44,19 +44,12 @@ async function simulateSession(i) {
   const { sessionId } = await loginRes.json();
 
   for (let e = 0; e < 3; e++) {
-    const res = await fetch(`${BASE_URL}/api/activity`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Origin: BASE_URL, Cookie: cookieHeader },
-      body: JSON.stringify({
-        sessionId,
-        staffEmail: email,
-        staffName: email,
-        type: "search",
-        label: `LOADTEST session ${i} event ${e}`,
-      }),
+    const query = new URLSearchParams({ email, sessionId });
+    const res = await fetch(`${BASE_URL}/api/controls?${query}`, {
+      headers: { Origin: BASE_URL, Cookie: cookieHeader },
     });
     if (!res.ok) {
-      return { i, email, ok: false, step: `activity#${e}`, status: res.status, ms: Date.now() - t0 };
+      return { i, email, ok: false, step: `controls#${e}`, status: res.status, ms: Date.now() - t0 };
     }
   }
 

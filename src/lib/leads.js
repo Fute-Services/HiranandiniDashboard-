@@ -1,10 +1,12 @@
 /**
- * Client for the real customer/lead directory (`/api/leads`, backed by
- * Postgres — see scripts/db/schema.sql's `leads` table). Used to be a
- * hardcoded in-memory array standing in for the Sperto/CRM lookup this app
- * doesn't have API access to yet; now a real table so assignment and status
- * changes actually persist across staff/manager/admin, who are on separate
- * devices in real use.
+ * Client for the customer/lead lookup (`/api/leads`).
+ *
+ * Sperto owns the customer list — it is the client's CRM and their data, and
+ * this app keeps no copy of it. The API holds only a thin, disposable
+ * overlay of what this app did to a lead (who claimed it, what status a
+ * manager set, walk-ins created for presentations that started without a
+ * Lead ID), which is server-side rather than in the browser only because the
+ * manager and the staff member are on separate devices.
  *
  * A lead is `{ leadId, phone, name, budget, preferredProject, leadStatus,
  * previousVisits, interestedTower, familySize, loanRequirement,
@@ -15,6 +17,8 @@
  * (see `isStaleLead`).
  */
 import { DUMMY_CUSTOMERS, findDummyCustomer } from "@/data/customers";
+import { actorFields, track } from "./activity";
+import { scrubLead } from "./activity-store";
 import { fetchWithTimeout, readJsonSafe } from "./http";
 
 /** @typedef {"New" | "Follow-up" | "Hot" | "Negotiation" | "Booked" | "Lost"} LeadStatus */
@@ -106,18 +110,33 @@ export async function createWalkInLead() {
 }
 
 /** Claims a lead for the staff member starting a session with it. If it was
- * previously assigned to someone else, the server logs a `lead_reassigned`
- * activity event — this is the ownership audit trail, not something the
- * caller has to build. Best-effort: a failed claim shouldn't block the
+ * previously assigned to someone else, that is the ownership-dispute case
+ * the audit trail exists for, so a `lead_reassigned` event is written here —
+ * the log lives in this browser now (see lib/activity-store.js), so the API
+ * reports the previous owner back and this records it rather than writing
+ * the event itself. Best-effort: a failed claim shouldn't block the
  * presentation from starting. */
 export async function claimLead(leadId, staffEmail, staffName) {
   try {
-    await fetchWithTimeout("/api/leads", {
+    const res = await fetchWithTimeout("/api/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "claim", leadId, staffEmail, staffName }),
       keepalive: true,
     });
+    if (!res.ok) return;
+    const data = await readJsonSafe(res);
+    if (data?.reassignedFrom) {
+      track({
+        sessionId: `leads-${leadId}`,
+        type: "lead_reassigned",
+        label: `Reassigned from ${data.reassignedFrom} to ${staffEmail}`,
+        leadId,
+        leadName: null,
+        durationMs: null,
+        ...actorFields(staffEmail, staffName ?? staffEmail),
+      });
+    }
   } catch {
     // best-effort; ignore
   }
@@ -139,10 +158,13 @@ export async function setLeadStatus(leadId, status) {
 }
 
 /** Admin-only: permanently deletes a customer's lead record (a data-deletion
- * request, e.g. GDPR-style) — the server also scrubs their name from linked
- * activity events while leaving the events themselves (staff accountability
- * records) in place. This is the only thing in the leads/activity system
- * that actually removes data rather than just hiding or superseding it. */
+ * request, e.g. GDPR-style). Their name is then scrubbed from the linked
+ * activity events while the events themselves (staff accountability records)
+ * stay — done here rather than server-side because the log is this browser's
+ * (see lib/activity-store.js), which also means it only reaches the log in
+ * the tab the admin is deleting from. This is the only thing in the
+ * leads/activity system that removes data rather than hiding or superseding
+ * it. */
 export async function deleteLead(leadId) {
   try {
     const res = await fetchWithTimeout("/api/leads", {
@@ -150,7 +172,21 @@ export async function deleteLead(leadId) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "delete_lead", leadId }),
     });
-    return res.ok;
+    if (!res.ok) return false;
+    const data = await readJsonSafe(res);
+    scrubLead(leadId, data?.leadName ?? "");
+    track({
+      sessionId: `leads-${leadId}`,
+      type: "status",
+      label: "Customer data deleted",
+      leadId,
+      leadName: null,
+      durationMs: null,
+      staffEmail: "admin",
+      staffName: "Admin",
+      managerEmail: null,
+    });
+    return true;
   } catch {
     return false;
   }

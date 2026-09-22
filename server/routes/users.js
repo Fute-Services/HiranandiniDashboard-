@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getSql, hasDb } from "../lib/db.js";
+import { addUser, findUserByEmail as findStoredUser, listUsers } from "../lib/store.js";
 import { withJsonErrors } from "../lib/api.js";
 import { isSameOrigin } from "../lib/csrf.js";
 import { checkRateLimit, clientKey } from "../lib/rate-limit.js";
@@ -9,16 +9,21 @@ import { USERS } from "../lib/users.js";
 
 /**
  * Sales manager/staff account directory + creation. Admin-created accounts
- * live in the `users` table (see scripts/db/schema.sql) — the roster in
- * src/lib/users.js stays untouched, since it's shipped client-side and a real
- * account's password must never end up there.
+ * are held in the API process's memory (see server/lib/store.js); the roster
+ * in src/lib/users.js stays untouched, since it's shipped client-side and a
+ * real account's password hash must never end up there.
+ *
+ * The memory store means accounts added here last as long as the process
+ * does. The demo roster always survives, so the sales flow is never left
+ * without accounts to sign in with — only the admin's own additions need
+ * re-entering after a restart.
  */
 export const usersRouter = Router();
 
 /** Staff+manager directory for the reports dashboard — admin accounts are
  * excluded on purpose (they're not a "team" anyone is scoped to or reports
  * on), including ones created via POST below. */
-async function allStaffAndManagers() {
+function allStaffAndManagers() {
   const fromStatic = USERS.filter((u) => u.role !== "admin").map((u) => ({
     email: u.email,
     name: u.name,
@@ -27,33 +32,24 @@ async function allStaffAndManagers() {
     joiningDate: u.joiningDate ?? null,
     spertoLogin: u.spertoLogin ?? null,
   }));
-  // No DB configured means no admin-created accounts to add — the demo
-  // roster is just the static array.
-  if (!hasDb()) return fromStatic;
-
-  const sql = getSql();
-  const rows = await sql`
-    SELECT email, name, role, manager_email, joining_date, sperto_login FROM users WHERE role != 'admin'
-  `;
-  const fromDb = rows.map((r) => ({
-    email: r.email,
-    name: r.name,
-    role: r.role,
-    managerEmail: r.manager_email,
-    joiningDate: r.joining_date,
-    spertoLogin: r.sperto_login,
-  }));
-  return [...fromStatic, ...fromDb];
+  const fromStore = listUsers()
+    .filter((u) => u.role !== "admin")
+    .map((u) => ({
+      email: u.email,
+      name: u.name,
+      role: u.role,
+      managerEmail: u.managerEmail ?? null,
+      joiningDate: u.joiningDate ?? null,
+      spertoLogin: u.spertoLogin ?? null,
+    }));
+  return [...fromStatic, ...fromStore];
 }
 
-/** Any email already in use, across both the static roster and the DB table
- * — regardless of role, since an admin account and a staff account can't
- * share an email either. */
-async function emailInUse(email) {
-  if (USERS.some((u) => u.email === email)) return true;
-  const sql = getSql();
-  const rows = await sql`SELECT 1 FROM users WHERE email = ${email}`;
-  return rows.length > 0;
+/** Any email already in use, across both the static roster and the stored
+ * accounts — regardless of role, since an admin account and a staff account
+ * can't share an email either. */
+function emailInUse(email) {
+  return USERS.some((u) => u.email === email) || Boolean(findStoredUser(email));
 }
 
 usersRouter.get(
@@ -61,16 +57,16 @@ usersRouter.get(
   withJsonErrors(async (req, res) => {
     const viewer = await getViewer(req);
     if (!viewer) return res.status(401).json({ error: "Not signed in" });
-    // Refused before the database is touched. With this check below the query
-    // — as it was — a sales staff member asking for the directory got
-    // whatever the database happened to say, which in production was a 500
-    // over a missing column: the wrong status, and a story about our
-    // plumbing rather than about their access.
+    // Refused before the directory is assembled. With this check below the
+    // lookup — as it was — a sales staff member asking for the directory got
+    // whatever came back, which in production was a 500 over a missing
+    // column: the wrong status, and a story about our plumbing rather than
+    // about their access.
     if (viewer.role !== "admin" && viewer.role !== "sales_manager") {
       return res.status(403).json({ error: "Not authorized" });
     }
 
-    const all = await allStaffAndManagers();
+    const all = allStaffAndManagers();
     if (viewer.role === "admin") return res.json({ users: all });
     const scoped = all.filter((u) => u.email === viewer.email || u.managerEmail === viewer.email);
     return res.json({ users: scoped });
@@ -105,24 +101,30 @@ usersRouter.post(
       return res.status(400).json({ error: "Role must be admin, sales_manager, or sales_staff" });
     }
 
-    if (await emailInUse(email)) {
+    if (emailInUse(email)) {
       return res.status(409).json({ error: "An account with that email already exists" });
     }
 
     let normalizedManagerEmail = null;
     if (role === "sales_staff") {
       if (!managerEmail) return res.status(400).json({ error: "Manager required for sales staff" });
-      const existing = await allStaffAndManagers();
-      const managerExists = existing.some((u) => u.role === "sales_manager" && u.email === managerEmail);
+      const managerExists = allStaffAndManagers().some(
+        (u) => u.role === "sales_manager" && u.email === managerEmail,
+      );
       if (!managerExists) return res.status(400).json({ error: "Selected manager was not found" });
       normalizedManagerEmail = managerEmail;
     }
 
-    const sql = getSql();
-    await sql`
-      INSERT INTO users (email, password_hash, name, role, manager_email, joining_date, created_at, sperto_login)
-      VALUES (${email}, ${hashPassword(password)}, ${name.trim()}, ${role}, ${normalizedManagerEmail}, ${new Date().toISOString()}, ${Date.now()}, ${spertoLogin})
-    `;
+    addUser({
+      email,
+      passwordHash: hashPassword(password),
+      name: name.trim(),
+      role,
+      managerEmail: normalizedManagerEmail,
+      joiningDate: new Date().toISOString(),
+      createdAt: Date.now(),
+      spertoLogin,
+    });
 
     return res.json({ ok: true });
   }),

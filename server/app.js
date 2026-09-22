@@ -7,16 +7,23 @@ import cookieParser from "cookie-parser";
 import { sessionRouter } from "./routes/session.js";
 import { loginRouter } from "./routes/login.js";
 import { logoutRouter } from "./routes/logout.js";
-import { activityRouter } from "./routes/activity.js";
 import { controlsRouter } from "./routes/controls.js";
 import { inventoryRouter } from "./routes/inventory.js";
 import { leadsRouter } from "./routes/leads.js";
 import { usersRouter } from "./routes/users.js";
 import { deviceUsageRouter } from "./routes/device-usage.js";
-import { cronRouter } from "./routes/cron.js";
 
 /**
  * The API, as an Express app — built here, started somewhere else.
+ *
+ * Deliberately small, and it owns no data. This app has no database: the
+ * customer records belong to the client and stay in their CRM (Sperto), and
+ * the activity log lives in the staff member's own browser tab (see
+ * src/lib/activity-store.js). What is left on this side is the work a
+ * browser cannot do — verifying a sign-in against Sperto without shipping
+ * the API key, signing the session cookie, and holding the little bit of
+ * cross-device coordination state in memory (server/lib/store.js) that two
+ * people on two devices have to agree on.
  *
  * Two things run it, and neither should have to know about the other:
  *
@@ -56,12 +63,10 @@ export function createApp({ serveStatic = true } = {}) {
   app.use("/api/session", sessionRouter);
   app.use("/api/login", loginRouter);
   app.use("/api/logout", logoutRouter);
-  app.use("/api/activity", activityRouter);
   app.use("/api/controls", controlsRouter);
   app.use("/api/inventory", inventoryRouter);
   app.use("/api/leads", leadsRouter);
   app.use("/api/users", usersRouter);
-  app.use("/api/cron", cronRouter);
 
   // An unmatched /api/* is a 404 in JSON, not Express's HTML page — every
   // client here parses the body it gets back, and an HTML 404 surfaces in the

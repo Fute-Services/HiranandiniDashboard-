@@ -10,7 +10,7 @@ import {
 } from "../lib/auth.js";
 import { checkRateLimit, clientKey } from "../lib/rate-limit.js";
 import { isSameOrigin } from "../lib/csrf.js";
-import { getSql, hasDb } from "../lib/db.js";
+import { findUserByEmail as findStoredUser, findUserBySpertoLogin as findStoredBySpertoLogin, getControls, startSession } from "../lib/store.js";
 import { cookieOptions, withJsonErrors } from "../lib/api.js";
 import { signSessionToken } from "../lib/session-token.js";
 import { findStaticUserWithHash, findUser, findUserBySpertoLogin } from "../lib/users.js";
@@ -42,23 +42,18 @@ import { isSpertoConfigured, spertoEmailExists, spertoSalesIdExists } from "../l
  */
 export const loginRouter = Router();
 
-/** Admin-created accounts (see routes/users.js) live in the `users` table
- * rather than the static roster — checked only when the static lookup misses,
- * so every existing demo account keeps resolving exactly as before. */
-async function findDbUserByEmail(email) {
-  if (!hasDb()) return null;
-  const sql = getSql();
-  const rows = await sql`
-    SELECT email, password_hash, name, role, manager_email FROM users WHERE email = ${email}
-  `;
-  const row = rows[0];
+/** Admin-created accounts (see routes/users.js) live in the API's in-memory
+ * store rather than the static roster — checked only when the static lookup
+ * misses, so every existing demo account keeps resolving exactly as before. */
+function findStoredUserByEmail(email) {
+  const row = findStoredUser(email);
   if (!row) return null;
   return {
     email: row.email,
-    passwordHash: row.password_hash,
+    passwordHash: row.passwordHash,
     name: row.name,
     role: row.role,
-    managerEmail: row.manager_email ?? undefined,
+    managerEmail: row.managerEmail ?? undefined,
   };
 }
 
@@ -70,7 +65,7 @@ async function findDbUserByEmail(email) {
  * valid sign-in (that is the point of letting Sperto own the list); it just
  * lands as plain sales_staff with no team. */
 async function accountFor(email, spertoName) {
-  const known = findStaticUserWithHash(email) ?? (await findDbUserByEmail(email));
+  const known = findStaticUserWithHash(email) ?? findStoredUserByEmail(email);
   if (known) return known;
   return {
     email,
@@ -81,19 +76,16 @@ async function accountFor(email, spertoName) {
 }
 
 /** A Sales ID (e.g. "PDPL0349") has no "@", so that alone tells it apart from
- * an email address — checked against the same `sperto_login` column the
- * "+ Add Staff" form writes (static roster first, then the `users` table for
- * admin-created accounts), same split as the device-usage route's own lookup.
- * Never throws: an unset DB just means no admin-created accounts have a Sales
- * ID on file yet, not a broken sign-in. */
-async function resolveEmailFromSalesId(salesId) {
+ * an email address — checked against the same `spertoLogin` the
+ * "+ Add Staff" form writes (static roster first, then the
+ * in-memory store for admin-created accounts), same split as the
+ * device-usage route's own lookup. An empty store just means no
+ * admin-created account has a Sales ID on file yet, not a broken sign-in. */
+function resolveEmailFromSalesId(salesId) {
   const normalized = salesId.trim().toLowerCase();
   const staticMatch = findUserBySpertoLogin(normalized);
   if (staticMatch) return staticMatch.email;
-  if (!hasDb()) return null;
-  const sql = getSql();
-  const rows = await sql`SELECT email FROM users WHERE lower(sperto_login) = ${normalized}`;
-  return rows[0]?.email ?? null;
+  return findStoredBySpertoLogin(normalized)?.email ?? null;
 }
 
 loginRouter.post(
@@ -121,11 +113,11 @@ loginRouter.post(
     if (isSalesIdLogin) {
       // Resolves which account this Sales ID belongs to (so role/manager/name
       // come from the right record), but this alone is NOT the verification —
-      // it's just our own `users.sperto_login` column, which is only as
-      // trustworthy as whoever last edited it. The actual "does this Sales ID
+      // it's just our own `spertoLogin` field, which is only as trustworthy
+      // as whoever last edited it. The actual "does this Sales ID
       // exist" check is spertoSalesIdExists below, same live gate the email
       // door gets.
-      const resolved = await resolveEmailFromSalesId(rawIdentifier);
+      const resolved = resolveEmailFromSalesId(rawIdentifier);
       if (!resolved) {
         return res.status(401).json({ error: "That Sales ID isn't registered." });
       }
@@ -152,10 +144,10 @@ loginRouter.post(
     if (mode === "password") {
       const found =
         findUser(email, password) ??
-        (await (async () => {
-          const row = await findDbUserByEmail(email);
+        (() => {
+          const row = findStoredUserByEmail(email);
           return row && verifyPassword(password, row.passwordHash) ? row : null;
-        })());
+        })();
       if (!found) {
         return res.status(401).json({ error: "Incorrect email or password." });
       }
@@ -191,7 +183,7 @@ loginRouter.post(
       // No Sperto credentials — a local demo instance. Fall back to the built-in
       // account list so the flow can still be walked through, but only for
       // sales_staff: admin and manager dashboards keep their password.
-      const found = findStaticUserWithHash(email) ?? (await findDbUserByEmail(email));
+      const found = findStaticUserWithHash(email) ?? findStoredUserByEmail(email);
       if (!found || found.role !== "sales_staff") {
         return res.status(401).json({ error: "That email isn't set up for staff sign-in." });
       }
@@ -218,34 +210,20 @@ loginRouter.post(
     const secret = process.env.SESSION_SECRET;
     if (!secret) throw new Error("SESSION_SECRET is not set");
 
-    // Both of the below are Postgres-only concerns, and this flow is meant to
-    // run on dummy data with no database configured (see lib/db.js's `hasDb`).
-    // With a DB they behave exactly as before; without one, sign-in still works
-    // and simply has no suspension list and no single-session enforcement.
-    if (hasDb()) {
-      const sql = getSql();
-      // A force-logout suspends login until an admin/manager explicitly restores
-      // it (see routes/controls.js's "restore" action) — otherwise the staff
-      // member could just sign back in immediately.
-      const rows = await sql`
-        SELECT login_suspended FROM staff_controls WHERE email = ${user.email}
-      `;
-      if (rows[0]?.login_suspended) {
-        return res.status(403).json({
-          error: "Your access has been suspended. Contact your admin or sales manager to restore it.",
-        });
-      }
-
-      // Records this login as the one true active session for the account, so a
-      // second concurrent login elsewhere (see routes/controls.js's
-      // sessionInvalid check) can eject this one instead of both silently
-      // coexisting.
-      await sql`
-        INSERT INTO staff_controls (email, kicked, blocked_projects, current_session_id)
-        VALUES (${user.email}, false, '{}', ${sessionId})
-        ON CONFLICT (email) DO UPDATE SET current_session_id = ${sessionId}
-      `;
+    // A force-logout suspends login until an admin/manager explicitly
+    // restores it (see routes/controls.js's "restore" action) — otherwise the
+    // staff member could just sign back in immediately.
+    if (getControls(user.email).loginSuspended) {
+      return res.status(403).json({
+        error: "Your access has been suspended. Contact your admin or sales manager to restore it.",
+      });
     }
+
+    // Records this login as the one true active session for the account, so a
+    // second concurrent login elsewhere (see routes/controls.js's
+    // sessionInvalid check) can eject this one instead of both silently
+    // coexisting.
+    startSession(user.email, sessionId);
 
     const token = await signSessionToken(
       { email: user.email, role: user.role, name: user.name, exp: Date.now() + AUTH_MAX_AGE * 1000 },

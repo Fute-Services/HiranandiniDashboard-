@@ -1,3 +1,4 @@
+import { clearEvents } from "./activity-store";
 import { logLogout } from "./activity";
 import { clearSessionCookies, LOGIN_PATH } from "./auth";
 import { finalizeSession } from "./session";
@@ -46,6 +47,13 @@ export async function signOut(redirectTo = LOGIN_PATH) {
     // arriving second is not a duplicate.
     finalizeSession();
     await clearSessionCookies();
+    // The log lives in this tab (see lib/activity-store.js), and a showroom
+    // screen outlives the person signed in to it — without this, the next
+    // staff member to sign in on the same tab opens the reports screen onto
+    // the previous customer's walkthrough. Deliberately after logLogout, so
+    // that last event goes too: it is worth less than the guarantee that
+    // nothing carries over.
+    clearEvents();
   } catch {
     // Best-effort: the httpOnly auth cookie is what actually ends the
     // session, and a failure here still leaves the login page ahead.
