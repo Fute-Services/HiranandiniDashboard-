@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "docs:flow": "node scripts/docs/flow-pdf.cjs"
+    "docs:flow": "node scripts/docs/flow-pdf.cjs",
+    "docs:flow:short": "node scripts/docs/flow-pdf-short.cjs"
   },
   "dependencies": {
     "@sentry/react": "^10.19.0",

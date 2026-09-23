@@ -219,7 +219,8 @@ not survive the move into the tab.
 
 `npm test` runs the Vitest suite — the Sperto client's quirk handling (errors
 on HTTP 200, JSON labelled `text/html`, api_key never echoed back out) and the
-per-project time accounting that feeds Sperto's `project_time`.
+per-project time accounting that feeds Sperto's `page_url`, and the shape of
+the device-usage body itself.
 
 ## Layout
 
@@ -241,6 +242,8 @@ per-project time accounting that feeds Sperto's `project_time`.
 | `server/lib/` | Server-side only: the in-memory store, password hashing, Sperto, session tokens |
 | `server/lib/sperto-response.js` | The one place a Sperto answer is read — see below |
 | `scripts/docs/flow-pdf.cjs` | Builds `docs/Hiranandani-Flow.pdf` (`npm run docs:flow`) |
+| `scripts/docs/flow-pdf-short.cjs` | The two-page version (`npm run docs:flow:short`) |
+| `scripts/docs/pdf-kit.cjs` | The page furniture both of them are drawn with |
 
 Two modules are deliberately shared across the boundary, and neither imports
 anything: `src/lib/users.js` (the account roster, minus the password hashes,
@@ -260,17 +263,21 @@ one it stored. It now reports `recorded: true/false` and logs a failure with
 Sperto's own words. It still answers `ok: true` either way — a presentation
 must be free to start and end whether or not the CRM accepted the write.
 
-On logout, the visit data goes out in **two** fields carrying the same
-numbers: `page_url` as `[{ "Elena": 180 }, { "Alibaug": 240 }]` (their field,
-always existed) and `project_time` as `{ "Elena": 180, "Alibaug": 240 }` (a
-custom field their published API doesn't list). Whichever one they are actually reading has the
-numbers in it. Full detail, and the open questions still outstanding with the
-client, are in [docs/sperto.md](docs/sperto.md).
+On logout, the visit data goes out in **one** field, theirs: `page_url` as
+`[{ "Elena": 180 }, { "Alibaug": 240 }]`. A custom `project_time` carrying the
+same numbers as one object was sent alongside it for a while, as insurance
+against their parser ignoring the array; the client asked for the array alone,
+so nothing goes out beside it and a test asserts the "OUT" body carries only
+their own documented fields. Full detail, and the open questions still
+outstanding with the client, are in [docs/sperto.md](docs/sperto.md).
 
 [docs/Hiranandani-Flow.pdf](docs/Hiranandani-Flow.pdf) is the same story for a
 non-developer: the flow end to end, what reaches the CRM, how time is measured,
-and what is still open with the client. Rebuild it with `npm run docs:flow`
-whenever the flow changes, so it cannot drift from the code.
+and what is still open with the client.
+[docs/Hiranandani-Flow-Short.pdf](docs/Hiranandani-Flow-Short.pdf) is the same
+thing on two pages. Rebuild them with `npm run docs:flow` and
+`npm run docs:flow:short` whenever the flow changes, so neither drifts from the
+code — they share their layout, not their text, so both need the edit.
 
 ## Ported off Next.js
 
@@ -350,5 +357,5 @@ viewports, so the arc never crops.
 - Property data is hardcoded in `src/data/properties.js`; swap for the API.
 - Floor plans have no media; `ImageSlot` renders a captioned placeholder.
 - Sperto's real numeric `device_id` per device type is a placeholder mapping in
-  `server/lib/sperto-device-usage.js`, and the custom `project_time` field on
-  their device-usage endpoint is unconfirmed on their side.
+  `server/lib/sperto-device-usage.js`, and their parser accepting `page_url` as
+  an array of `{ project: seconds }` is unconfirmed on their side.

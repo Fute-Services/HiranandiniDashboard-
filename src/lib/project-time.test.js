@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearProjectTime,
-  getProjectTimeSeconds,
   getProjectVisits,
   pauseProjectTimer,
   readOpenProject,
@@ -11,7 +10,8 @@ import {
 } from "./project-time";
 
 /**
- * These cover the rules Sperto's `project_time` has to hold to, all of which
+ * These cover the rules the per-project seconds in Sperto's `page_url` have
+ * to hold to, all of which
  * are easy to get wrong in a way nobody notices until a report is already in
  * the client's hands: reopening a project must add to it rather than replace
  * it or duplicate it, two projects must never run at once, a project nobody
@@ -45,29 +45,36 @@ afterEach(() => {
 /** Advance the clock without waiting for it. */
 const seconds = (n) => vi.advanceTimersByTime(n * 1000);
 
-describe("getProjectTimeSeconds", () => {
+/**
+ * The visits as one object, name against seconds. The rules below are about
+ * the numbers rather than the array they sit in, and reading them this way
+ * keeps each assertion to the thing it is actually testing.
+ */
+const secondsByProject = () => Object.assign({}, ...getProjectVisits());
+
+describe("the seconds a project is reported with", () => {
   it("is empty before anything is opened", () => {
-    expect(getProjectTimeSeconds()).toEqual({});
+    expect(secondsByProject()).toEqual({});
   });
 
   it("reports a project that is still open, counted up to now", () => {
     startProjectTimer("Fortune City");
     seconds(45);
-    expect(getProjectTimeSeconds()).toEqual({ "Fortune City": 45 });
+    expect(secondsByProject()).toEqual({ "Fortune City": 45 });
   });
 
   it("leaves out projects that were never opened", () => {
     startProjectTimer("Fortune City");
     seconds(30);
     stopProjectTimer();
-    expect(getProjectTimeSeconds()).not.toHaveProperty("Alibaug");
+    expect(secondsByProject()).not.toHaveProperty("Alibaug");
   });
 
   it("leaves out a project opened and closed inside the same second", () => {
     startProjectTimer("Fortune City");
     stopProjectTimer();
     // A mis-tap is not a visit, and "0" in the CRM reads like one that was.
-    expect(getProjectTimeSeconds()).toEqual({});
+    expect(secondsByProject()).toEqual({});
   });
 });
 
@@ -81,7 +88,7 @@ describe("reopening the same project", () => {
     seconds(120);
     stopProjectTimer();
 
-    expect(getProjectTimeSeconds()).toEqual({ "Project A": 300 });
+    expect(secondsByProject()).toEqual({ "Project A": 300 });
   });
 
   it("keeps one entry per project however many times it is opened", () => {
@@ -90,8 +97,8 @@ describe("reopening the same project", () => {
       seconds(10);
       stopProjectTimer();
     }
-    expect(Object.keys(getProjectTimeSeconds())).toEqual(["Project A"]);
-    expect(getProjectTimeSeconds()["Project A"]).toBe(40);
+    expect(Object.keys(secondsByProject())).toEqual(["Project A"]);
+    expect(secondsByProject()["Project A"]).toBe(40);
   });
 });
 
@@ -104,7 +111,7 @@ describe("navigating between projects", () => {
     seconds(240);
 
     // 540s of wall clock, split — not counted twice.
-    expect(getProjectTimeSeconds()).toEqual({ "Project A": 300, "Project B": 240 });
+    expect(secondsByProject()).toEqual({ "Project A": 300, "Project B": 240 });
   });
 
   it("accumulates across an interleaved A → B → A visit", () => {
@@ -116,7 +123,7 @@ describe("navigating between projects", () => {
     seconds(200);
     stopProjectTimer();
 
-    expect(getProjectTimeSeconds()).toEqual({ "Project A": 300, "Project B": 50 });
+    expect(secondsByProject()).toEqual({ "Project A": 300, "Project B": 50 });
   });
 });
 
@@ -129,13 +136,13 @@ describe("time when the tab is not being looked at", () => {
     resumeProjectTimer();
     seconds(60);
 
-    expect(getProjectTimeSeconds()).toEqual({ "Project A": 120 });
+    expect(secondsByProject()).toEqual({ "Project A": 120 });
   });
 
   it("survives a pause with nothing open", () => {
     pauseProjectTimer();
     resumeProjectTimer();
-    expect(getProjectTimeSeconds()).toEqual({});
+    expect(secondsByProject()).toEqual({});
   });
 });
 
@@ -147,7 +154,7 @@ describe("stopProjectTimer", () => {
     seconds(30);
     stopProjectTimer();
 
-    expect(getProjectTimeSeconds()).toEqual({ "Project A": 30 });
+    expect(secondsByProject()).toEqual({ "Project A": 30 });
   });
 });
 
@@ -156,7 +163,7 @@ describe("clearProjectTime", () => {
     startProjectTimer("Project A");
     seconds(120);
     clearProjectTime();
-    expect(getProjectTimeSeconds()).toEqual({});
+    expect(secondsByProject()).toEqual({});
   });
 });
 
@@ -187,9 +194,9 @@ describe("readOpenProject", () => {
     seconds(60);
     startProjectTimer("Elena");
     seconds(120);
-    // 3 min before, 2 min now — the same 300s getProjectTimeSeconds reports.
+    // 3 min before, 2 min now — the same 300s the OUT call reports.
     expect(readOpenProject()).toEqual({ project: "Elena", ms: 300_000 });
-    expect(getProjectTimeSeconds().Elena).toBe(300);
+    expect(secondsByProject().Elena).toBe(300);
   });
 
   it("holds steady while the tab is backgrounded", () => {
@@ -208,16 +215,14 @@ describe("readOpenProject", () => {
     seconds(10);
     for (let i = 0; i < 20; i++) readOpenProject();
     seconds(10);
-    expect(getProjectTimeSeconds()).toEqual({ Elena: 20 });
+    expect(secondsByProject()).toEqual({ Elena: 20 });
   });
 });
 
 /**
  * The array Sperto's `page_url` field carries on the "OUT" call: one object
- * per project, name against seconds. It has to agree with
- * `getProjectTimeSeconds` exactly — the two fields describe the same visits,
- * and a CRM showing two different numbers for one presentation is worse than
- * a CRM showing one.
+ * per project, name against seconds. It is the only field the times go out
+ * in, so its order and its grouping are exactly what the CRM ends up showing.
  */
 describe("getProjectVisits", () => {
   it("is empty before anything is opened", () => {
@@ -248,19 +253,6 @@ describe("getProjectVisits", () => {
     stopProjectTimer();
     // Elena's two visits are one 300s entry, still in first-open order.
     expect(getProjectVisits()).toEqual([{ Elena: 300 }, { Ebony: 60 }]);
-  });
-
-  it("agrees with getProjectTimeSeconds, second for second", () => {
-    startProjectTimer("Elena");
-    seconds(95);
-    startProjectTimer("Ebony");
-    seconds(40);
-    stopProjectTimer();
-    const byName = getProjectTimeSeconds();
-    // The array is the same map, one key per object — flattening it back must
-    // reproduce the other field exactly.
-    const flattened = Object.assign({}, ...getProjectVisits());
-    expect(flattened).toEqual(byName);
   });
 
   it("leaves out a project opened and closed inside the same second", () => {
@@ -319,6 +311,6 @@ describe("storage that refuses to work", () => {
       resumeProjectTimer();
       clearProjectTime();
     }).not.toThrow();
-    expect(getProjectTimeSeconds()).toEqual({});
+    expect(secondsByProject()).toEqual({});
   });
 });

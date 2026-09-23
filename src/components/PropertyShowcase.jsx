@@ -78,7 +78,7 @@ export function PropertyShowcase({ properties }) {
     setViewerProperty(property);
     const name = property.name || property.slug;
     logSessionEvent(within ? `Opened ${name} · ${within}` : `Opened ${name}`, "project_open");
-    // Sperto's project_time is keyed on the bare project name, without the
+    // The seconds Sperto is sent are keyed on the bare project name, without the
     // "· Fortune City" suffix the timeline uses: opening Ebony off the shelf
     // and opening it through Fortune City's panel are the same project to a
     // CRM, and splitting them would report two half-length visits instead of
@@ -96,7 +96,7 @@ export function PropertyShowcase({ properties }) {
     viewerRef.current = null;
     setViewerProperty(null);
     if (!open) return;
-    // Stops the project_time clock however the viewer was closed — ×,
+    // Stops the per-project clock however the viewer was closed — ×,
     // Escape, an admin block mid-session, or Log out — since every one of
     // those routes through here. Opening another project stops it too, via
     // startProjectTimer, so the two can never both be running.
@@ -148,8 +148,8 @@ export function PropertyShowcase({ properties }) {
     }
     setSession(active);
     setIsAdmin(getSession()?.role === "admin");
-    // A reload lands here with no viewer open, but project_time is kept in
-    // sessionStorage and survives the reload — so a project that was on
+    // A reload lands here with no viewer open, but the per-project time is
+    // kept in sessionStorage and survives the reload — so a project that was on
     // screen when the tablet was refreshed still has its clock running, with
     // nothing left on screen to ever stop it. Close it out here: the time up
     // to the reload is real viewing time and is kept; everything after it
@@ -380,7 +380,7 @@ export function PropertyShowcase({ properties }) {
         <div className={styles.headerRight}>
           {session && <span className={styles.timer}>{formatElapsed(elapsedMs)}</span>}
           {/* The per-project clock, next to the whole-presentation one. This
-              is the number that actually reaches Sperto as `project_time` on
+              is the number that actually reaches Sperto, in `page_url`, on
               logout, so showing it live is what lets a staff member see what
               is being recorded rather than find out afterwards. */}
           {openProject && (
@@ -466,7 +466,7 @@ export function PropertyShowcase({ properties }) {
           customer tapped, cannot add Alibaug to it, and would have to book
           every minute spent in it against "Fortune City". This one is ours,
           so tapping Elena opens Elena and starts Elena's timer, and Sperto's
-          project_time can name the tower (see lib/project-time.js).
+          `page_url` can name the tower (see lib/project-time.js).
 
           It replaced the bottom card shelf rather than joining it. The shelf
           listed the same projects a second time, one drill-down further away,

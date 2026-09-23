@@ -1,7 +1,7 @@
 /**
  * How long the customer actually spent inside each project, accumulated
- * across a whole presentation and sent once, on logout, as Sperto's
- * `project_time` (see finalizeSession in lib/session.js).
+ * across a whole presentation and sent once, on logout, in Sperto's
+ * `page_url` field (see finalizeSession in lib/session.js).
  *
  * The showcase already logs an open and a close event per project
  * (PropertyShowcase's openViewer/closeViewer), and the activity log keeps
@@ -127,38 +127,20 @@ export function resumeProjectTimer() {
 }
 
 /**
- * Final per-project seconds for the OUT call. Banks the still-running timer
- * first, so the project on screen at logout is counted rather than dropped.
- * Projects that somehow rounded to zero are left out: Sperto should only see
- * what was genuinely looked at, and "0" reads as a visit that happened.
- */
-export function getProjectTimeSeconds() {
-  const state = bank(read(), Date.now());
-  const out = {};
-  for (const [project, ms] of Object.entries(state.totals)) {
-    const seconds = Math.round(ms / 1000);
-    if (seconds > 0) out[project] = seconds;
-  }
-  return out;
-}
-
-/**
- * The same visits as `getProjectTimeSeconds`, as the array Sperto's
- * `page_url` field carries on the "OUT" call: one object per project, each
- * mapping the project's name to the seconds spent on it, in the order the
- * projects were first opened.
+ * The presentation's visits, as the array Sperto's `page_url` field carries
+ * on the "OUT" call: one object per project, each mapping the project's name
+ * to the seconds spent on it, in the order the projects were first opened.
  *
  *   [ { "Elena": 180 }, { "Alibaug": 240 } ]
  *
- * Same content as `project_time`, one object per entry instead of one object
- * for all of them. Why both: `project_time` is a custom field their published
- * API doesn't list, so there is no guarantee their backend stores it;
- * `page_url` is theirs and always has been. Both go out — see
- * `recordDeviceUsage` — so whichever one they are actually reading has the
- * numbers in it.
+ * This is the only shape the times leave in, and `page_url` is the only field
+ * they leave in. A `project_time` custom field carrying the same numbers as
+ * one object used to go out alongside it; the client asked for the array
+ * only, so nothing is sent beside it now.
  *
- * Same "never send a zero" rule as the seconds map: a project that rounds to
- * 0s was a mis-tap, and a `0` in the CRM reads as a visit that happened.
+ * Banks the still-running timer first, so the project on screen at logout is
+ * counted rather than dropped. A project that rounds to 0s is left out: it
+ * was a mis-tap, and a `0` in the CRM reads as a visit that happened.
  */
 export function getProjectVisits() {
   const state = bank(read(), Date.now());

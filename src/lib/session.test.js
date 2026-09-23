@@ -81,7 +81,7 @@ describe("what a presentation sends Sperto", () => {
       // Nothing has been opened yet, so the field keeps its original meaning.
       pageUrl: "http://localhost:3000/dashboard",
     });
-    expect(callOf("IN")).not.toHaveProperty("projectTime");
+    expect(Object.keys(callOf("IN")).sort()).toEqual(["deviceType", "leadId", "pageUrl", "type"]);
   });
 
   it("puts the per-project seconds in page_url, one object per project", async () => {
@@ -98,9 +98,10 @@ describe("what a presentation sends Sperto", () => {
 
     const out = callOf("OUT");
     expect(out.pageUrl).toEqual([{ Elena: 180 }, { Alibaug: 240 }]);
-    // The same numbers as one object, because their published API does not
-    // list `project_time` and we do not know which field they read.
-    expect(out.projectTime).toEqual({ Elena: 180, Alibaug: 240 });
+    // Their own field, and the only one: nothing carrying the same numbers
+    // goes out beside it. A `project_time` custom field used to, and the
+    // client asked for it to stop, so this is the assertion that keeps it off.
+    expect(Object.keys(out).sort()).toEqual(["deviceType", "leadId", "pageUrl", "type"]);
   });
 
   it("counts the project still on screen when the staff member logs out", async () => {
@@ -115,7 +116,7 @@ describe("what a presentation sends Sperto", () => {
     expect(callOf("OUT").pageUrl).toEqual([{ Elena: 300 }]);
   });
 
-  it("sends neither field when nothing was opened", async () => {
+  it("falls back to the page URL when nothing was opened", async () => {
     const { session } = await load();
     session.setActiveSession(LEAD, "Tab");
     session.finalizeSession();
@@ -124,7 +125,6 @@ describe("what a presentation sends Sperto", () => {
     // An empty array would read as "a visit with no projects"; the page the
     // presentation ended on is the honest answer.
     expect(out.pageUrl).toBe("http://localhost:3000/dashboard");
-    expect(out).not.toHaveProperty("projectTime");
   });
 
   it("sends exactly one OUT, however many times the session is finalized", async () => {

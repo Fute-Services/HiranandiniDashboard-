@@ -164,7 +164,7 @@ export function projectsIn(slug) {
  * Flat, and ours, for one reason: that site's rail lives inside a
  * cross-origin iframe, so the app cannot see which of those buttons a
  * customer tapped and cannot add anything to it. Time spent would all land
- * under "Fortune City" and Sperto's project_time would never name a single
+ * under "Fortune City" and what Sperto is sent would never name a single
  * tower. Rendering our own rail over the tour is what makes "they opened
  * Elena for four minutes" a thing we can actually report.
  *

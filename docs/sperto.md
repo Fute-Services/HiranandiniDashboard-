@@ -201,8 +201,9 @@ POST {SPERTO_BASE_URL}/api_record_device_usage.php
   "type": "IN"|"OUT",
   "page_url": [ { "<project>": 180 }, ... ] }
 
-# and on "OUT" only, when at least one project was opened:
-{ ..., "project_time": { "Fortune City": 300, "Alibaug": 240 } }
+# Nothing else. The per-project seconds go out in page_url and in no
+# other field — a custom project_time was sent alongside it for a while
+# and the client asked for it to stop.
 ```
 
 | Concern | Where |
@@ -226,8 +227,7 @@ Fields, and where each comes from:
 | `lead_id` | the Lead ID the staff member typed, now Sperto-verified | confirmed (client's call) |
 | `sales_manager_login` | `users.sperto_login`, set per account by an admin (Staff → Add Account) | unset for most existing accounts, so those sessions skip the call rather than send a made-up login |
 | `type` | `"IN"` / `"OUT"` | confirmed (client's call) |
-| `page_url` | **per-project seconds on OUT** — see below | **shape changed; confirm with the client** |
-| `project_time` | `src/lib/project-time.js`, keyed by project name | **custom field — not in their docs.** See below |
+| `page_url` | **per-project seconds on OUT** (`src/lib/project-time.js`) — see below | **shape changed; confirm with the client** |
 
 If a signed-in account has no `sperto_login` on file, the route no-ops
 (`{ok:true, recorded:false, skipped:...}`) rather than sending a made-up value.
@@ -276,17 +276,16 @@ so the field keeps its original meaning: the page in front of the customer.
 "page_url": [ { "Elena": 180 }, { "Alibaug": 240 } ]
 ```
 
-**Why this field.** `project_time` below is a custom field their published API
-does not list, so there is no guarantee their backend stores it. `page_url` is
-theirs and always has been. Both go out on "OUT", carrying the same visits —
-the array keyed by URL, the map keyed by project name — so whichever one they
-are actually reading has the numbers in it. The two are asserted to agree
-second-for-second by a test.
+**Why this field, and only this field.** It is theirs and always has been, so
+it is the one field the times can travel in without the client having to add
+anything. A custom `project_time` carrying the same numbers as one object used
+to go out beside it, as insurance against their parser ignoring the array;
+the client asked for the array alone, so it is gone, and a test asserts the
+"OUT" body carries nothing but their own documented fields.
 
-Same content as `project_time`, one object per entry instead of one object for
-all of them. An empty array is never sent — it would read as a visit with no
-projects in it, which is a claim the page URL does not make. A project that
-rounds to 0s is left out for the same reason.
+An empty array is never sent — it would read as a visit with no projects in
+it, which is a claim the page URL does not make. A project that rounds to 0s
+is left out for the same reason.
 
 ⚠ **Confirm their parser accepts an array here.** It previously received a
 single URL string. Their server ignores what it doesn't understand and answers
@@ -300,14 +299,7 @@ finite positive number are dropped, the array is capped at 50 entries, and if
 nothing survives the field falls back to the request's own origin rather than
 going out empty.
 
-### `project_time`: per-project viewing time
-
-Sent once per presentation, on the "OUT" call, as `{ "<project name>":
-<seconds> }` for every project the customer actually opened. Not in
-`api_record_device_usage.php`'s published fields — a custom field the client
-asked for, which Sperto's backend has to be reading for any of it to reach the
-CRM. **Confirm with them, don't assume**; nothing on our side changes either
-way.
+### How the seconds are counted
 
 What the accumulator (`src/lib/project-time.js`) guarantees, each covered by a
 test in `project-time.test.js`:
@@ -319,8 +311,7 @@ test in `project-time.test.js`:
 | Two projects never run at once | `startProjectTimer` banks the previous project's time before starting the next |
 | Background tabs don't accrue time | `visibilitychange` pauses and resumes the running clock |
 | A refresh doesn't invent time | state lives in `sessionStorage`; the showcase closes the dangling clock on mount, keeping the time up to the reload |
-| The project on screen at logout is counted | both readers bank the running clock before reading |
-| The two fields agree | `getProjectVisits()` and `getProjectTimeSeconds()` read the same banked totals |
+| The project on screen at logout is counted | `getProjectVisits()` banks the running clock before reading |
 | Exactly one "OUT" per presentation | a `sessionStorage` claim flag in `session.js` |
 | One customer's time never lands on the next | `setActiveSession` clears the totals, the URLs and the OUT flag |
 
@@ -335,9 +326,9 @@ force-logout — because `signOut()` calls `finalizeSession()`.
 1. The real `device_id` per device type — update `DEVICE_IDS`.
 2. Each real staff member's Sperto login code (Staff → Add Account's "Sperto
    login" field, or a DB update on `users.sperto_login`).
-3. Confirmation that `project_time` is stored on their side.
-4. Confirmation that `page_url` as an array of `{ project: seconds }` is
-   accepted by their parser.
+3. Confirmation that `page_url` as an array of `{ project: seconds }` is
+   accepted by their parser. It is now the only field the times are in, so
+   if their parser still expects a string, the numbers reach nobody.
 
 ---
 

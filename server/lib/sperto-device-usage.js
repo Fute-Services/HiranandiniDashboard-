@@ -54,23 +54,18 @@ export function isDeviceUsageConfigured() {
  * never surface to the staff flow. No-ops silently when unconfigured, same as
  * isSpertoConfigured() gating login.
  *
- * `params` is `{ deviceType, leadId, salesManagerLogin, type, pageUrl,
- * projectTime? }`, where `type` is "IN" or "OUT".
+ * `params` is `{ deviceType, leadId, salesManagerLogin, type, pageUrl }`,
+ * where `type` is "IN" or "OUT".
  *
  * `pageUrl` on "OUT" is the presentation's per-project seconds, one object
  * per project — `[{ "Elena": 180 }, { "Alibaug": 240 }]`. On "IN" nothing has
  * been opened yet, so it keeps the field's original meaning: the page the
  * session started on, as a string.
  *
- * `projectTime` is the same seconds as one object instead (see
- * src/lib/project-time.js). Sent on OUT only, and left out of the body
- * entirely when empty — a presentation where nothing was opened should send
- * no `project_time` at all rather than an empty object.
- *
- * Both fields carry the same numbers on purpose. `project_time` is a custom
- * field their published API does not list, so there is no guarantee their
- * backend stores it; `page_url` is theirs and always has been. Whichever one
- * they are actually reading has the numbers in it.
+ * That array is the only place the times go. The body carries their own
+ * documented fields and nothing else: a `project_time` custom field was sent
+ * alongside it for a while, and is deliberately gone — the client asked for
+ * the numbers in `page_url` only.
  *
  * **It no longer throws the answer away.** Their server does not use HTTP
  * status codes to mean anything — a rejection and a success both arrive as
@@ -106,9 +101,6 @@ export async function recordDeviceUsage(params) {
           sales_manager_login: params.salesManagerLogin,
           type: params.type,
           page_url: params.pageUrl,
-          ...(params.type === "OUT" && params.projectTime && Object.keys(params.projectTime).length > 0
-            ? { project_time: params.projectTime }
-            : {}),
         }),
         cache: "no-store",
       },

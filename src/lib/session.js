@@ -1,7 +1,7 @@
 import { actorFields, track } from "./activity";
 import { getSession, getSessionId } from "./auth";
 import { fetchWithTimeout } from "./http";
-import { clearProjectTime, getProjectTimeSeconds, getProjectVisits } from "./project-time";
+import { clearProjectTime, getProjectVisits } from "./project-time";
 
 /**
  * The active presentation session: which lead a sales staff member is
@@ -57,7 +57,7 @@ function writeRaw(value) {
  * session starting or ending must never depend on this succeeding, same
  * reasoning as `track()` in lib/activity.js. `keepalive` lets the "OUT" call
  * survive the page unload that immediately follows logout. */
-function recordDeviceUsage(lead, deviceType, type, projectTime, visits) {
+function recordDeviceUsage(lead, deviceType, type, visits) {
   try {
     fetchWithTimeout("/api/session/device-usage", {
       method: "POST",
@@ -75,7 +75,6 @@ function recordDeviceUsage(lead, deviceType, type, projectTime, visits) {
         // An empty array is deliberately not sent. It would read as a visit
         // with no projects in it, which is a claim; the page URL is not.
         pageUrl: visits && visits.length > 0 ? visits : window.location.href,
-        ...(projectTime && Object.keys(projectTime).length > 0 ? { projectTime } : {}),
       }),
       keepalive: true,
     }).catch(() => {});
@@ -92,8 +91,9 @@ function recordDeviceUsage(lead, deviceType, type, projectTime, visits) {
  * the session is still readable, and signOut() then calls it again so every
  * other exit (idle timeout, force-logout, the dashboards) reports the
  * session closed too. Both calls used to be harmless repeats. An "OUT"
- * carrying project_time is not harmless twice: Sperto would see the same
- * visit closed two or three times over, with the times counted each time.
+ * carrying the presentation's times is not harmless twice: Sperto would see
+ * the same visit closed two or three times over, with the times counted each
+ * time.
  *
  * A sessionStorage flag rather than a module-level boolean, because signOut
  * leaves by hard navigation (see lib/sign-out.js) and that tears the module
@@ -242,22 +242,12 @@ export function finalizeSession() {
     trackForSession(session, "step", `Left "${session.currentStep}"`, now - session.currentStepEnteredAt);
   }
   // The one place per-project time reaches Sperto — accumulated all session
-  // (lib/project-time.js) and sent only here, once. Both readers bank the
-  // still-running timer first, so whatever project was on screen when Log out
-  // was pressed is counted rather than dropped.
-  //
-  // Two fields carrying the same visits on purpose: `project_time` is a
-  // custom field their published API doesn't list, so there is no guarantee
-  // their backend stores it; `page_url` is theirs. Whichever one they are
-  // actually reading has the numbers in it.
+  // (lib/project-time.js) and sent only here, once, in their own `page_url`
+  // field and nowhere else. getProjectVisits banks the still-running timer
+  // first, so whatever project was on screen when Log out was pressed is
+  // counted rather than dropped.
   if (claimOutSend()) {
-    recordDeviceUsage(
-      session.lead,
-      session.deviceType,
-      "OUT",
-      getProjectTimeSeconds(),
-      getProjectVisits(),
-    );
+    recordDeviceUsage(session.lead, session.deviceType, "OUT", getProjectVisits());
   }
   clearProjectTime();
   clearActiveSession();

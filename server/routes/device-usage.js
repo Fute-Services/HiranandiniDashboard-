@@ -23,35 +23,13 @@ import { recordDeviceUsage } from "../lib/sperto-device-usage.js";
 export const deviceUsageRouter = Router();
 
 /**
- * The per-project seconds map comes straight off the browser, so it is
- * treated as untrusted shape rather than as the map the client meant to
- * send: anything that isn't a finite positive number under a non-empty key is
- * dropped. A malformed entry costs one project's time in a report; forwarding
- * it verbatim would put whatever the browser said into the client's CRM.
- * Returns undefined when nothing survives, so the outgoing body omits
- * `project_time` entirely rather than sending `{}`.
- */
-function sanitizeProjectTime(input) {
-  if (typeof input !== "object" || input === null || Array.isArray(input)) return undefined;
-  const out = {};
-  for (const [key, value] of Object.entries(input)) {
-    const name = key.trim();
-    if (!name) continue;
-    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) continue;
-    out[name] = Math.round(value);
-  }
-  return Object.keys(out).length > 0 ? out : undefined;
-}
-
-/**
  * `page_url` carries two different things depending on the call, and both
  * arrive from a browser, so both are shape rather than data until this has
  * been through them:
  *
  * - On "OUT": the presentation's per-project seconds, one object per project
- *   — `[{ "Elena": 180 }, { "Alibaug": 240 }]`. Same content as
- *   `project_time`, which also goes out; whichever field their backend is
- *   actually reading has the numbers in it.
+ *   — `[{ "Elena": 180 }, { "Alibaug": 240 }]`. This is the only field the
+ *   times go out in; nothing is sent alongside it.
  * - On "IN": nothing has been opened yet, so it keeps the field's original
  *   meaning — the page the session started on, as a string.
  *
@@ -107,7 +85,7 @@ deviceUsageRouter.post(
     const viewer = await getViewer(req);
     if (!viewer) return res.status(401).json({ error: "Not signed in" });
 
-    const { leadId, deviceType, type, pageUrl, projectTime } = req.body ?? {};
+    const { leadId, deviceType, type, pageUrl } = req.body ?? {};
 
     if (!leadId || (type !== "IN" && type !== "OUT")) {
       return res.status(400).json({ error: "leadId and type (IN/OUT) required" });
@@ -116,7 +94,6 @@ deviceUsageRouter.post(
       return res.status(400).json({ error: "Invalid deviceType" });
     }
 
-    const cleanProjectTime = sanitizeProjectTime(projectTime);
     const cleanPageUrl = sanitizePageUrl(pageUrl, `${req.protocol}://${req.get("host")}`);
 
     const salesManagerLogin = spertoLoginFor(viewer.email);
@@ -130,7 +107,6 @@ deviceUsageRouter.post(
       salesManagerLogin,
       type,
       pageUrl: cleanPageUrl,
-      projectTime: cleanProjectTime,
     });
 
     // Still 200, still `ok: true`, whatever Sperto said. This is a
