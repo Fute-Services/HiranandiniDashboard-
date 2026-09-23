@@ -215,12 +215,43 @@ sits in the staff member's own browser, anyone who can open devtools can edit
 or clear it; the append-only guarantee a server endpoint used to provide did
 not survive the move into the tab.
 
+### A whole floor at once
+
+`node scripts/load-test.mjs [baseUrl] [concurrency]` runs the real flow —
+sign in, session check, device-usage IN, five control polls, device-usage OUT,
+sign out — for that many staff at the same time, rotating the demo accounts
+the way a showroom shares logins.
+
+Measured against `npm start` on one laptop, 50 concurrent sessions (500
+requests) finish in 345 ms, p95 305 ms per session, nothing failing. The app
+holds no per-user state on the server, so the limits below are what a floor
+actually runs into first, not CPU:
+
+| Limit | Value | Where |
+|---|---|---|
+| Sign-ins per staff account | 20 / minute | `perEmailLimit`, `server/routes/login.js` |
+| Sign-ins per IP (a whole office is one) | 300 / minute | same file |
+| Device-usage calls per IP | 300 / minute | `server/routes/device-usage.js` |
+| Controls, leads, inventory per IP | 300 / minute | one per route |
+
+Three shared accounts therefore support 60 sign-ins a minute; past that a
+staff member is told to try again shortly rather than being let in wrongly.
+Raise `perEmailLimit` if a floor is genuinely busier than that — it is there
+to stop a script hammering Sperto's lookup, not to ration real sign-ins.
+
+The counters are per process and in memory, so on Vercel they are per
+instance — several instances means several times these numbers, which is the
+safe direction. `KickWatcher` polls `/api/controls` every 2s per signed-in
+tab and skips the poll while the tab is hidden; that poll is the highest-volume
+call in the app, and on serverless it is the one worth watching in the bill.
+
 ### Tests
 
 `npm test` runs the Vitest suite — the Sperto client's quirk handling (errors
-on HTTP 200, JSON labelled `text/html`, api_key never echoed back out) and the
-per-project time accounting that feeds Sperto's `page_url`, and the shape of
-the device-usage body itself.
+on HTTP 200, JSON labelled `text/html`, api_key never echoed back out), the
+per-project time accounting that feeds Sperto's `page_url`, the shape of the
+device-usage body itself, and the rate limiter reclaiming the keys of callers
+that have gone away.
 
 ## Layout
 

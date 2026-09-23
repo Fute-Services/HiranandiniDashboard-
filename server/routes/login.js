@@ -131,9 +131,17 @@ loginRouter.post(
     // from behind one shared/NAT'd IP, often within the same minute. The staff
     // door is limited harder because what's typed there is an email address,
     // which is not a secret.
-    const perEmailLimit = mode === "password" ? 10 : 5;
+    //
+    // The staff figure is deliberately not small. A showroom floor shares a
+    // handful of accounts across every tablet, TV and kiosk on it, so the
+    // same email signing in twenty times in a minute is a busy morning, not
+    // an attack — and 5 turned that morning into "Too many attempts" on the
+    // sixth device. What the limit is actually for here is keeping a script
+    // from hammering Sperto's lookup, which 20 still does. The password door
+    // stays tight, because what is typed there is a secret.
+    const perEmailLimit = mode === "password" ? 10 : 20;
     if (
-      !checkRateLimit(`login:${clientKey(req)}`, 100, 60_000) ||
+      !checkRateLimit(`login:${clientKey(req)}`, 300, 60_000) ||
       !checkRateLimit(`login:email:${email}`, perEmailLimit, 60_000)
     ) {
       return res.status(429).json({ error: "Too many attempts, try again shortly." });

@@ -78,7 +78,12 @@ deviceUsageRouter.post(
     if (!isSameOrigin(req)) {
       return res.status(403).json({ error: "Invalid origin" });
     }
-    if (!checkRateLimit(`device-usage:${clientKey(req)}`, 60, 60_000)) {
+    // Per-IP, and a showroom's whole floor is behind one of them: every
+    // device sends an IN and an OUT per presentation, so 60 a minute is a
+    // ceiling a busy morning can actually reach, and reaching it would drop
+    // a real visit's times rather than stop an abuser. 300 is the same figure
+    // the other office-shared routes use.
+    if (!checkRateLimit(`device-usage:${clientKey(req)}`, 300, 60_000)) {
       return res.status(429).json({ error: "Too many requests" });
     }
 
