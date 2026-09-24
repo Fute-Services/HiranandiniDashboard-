@@ -57,10 +57,10 @@ export function isDeviceUsageConfigured() {
  * `params` is `{ deviceType, leadId, salesManagerLogin, type, pageUrl }`,
  * where `type` is "IN" or "OUT".
  *
- * `pageUrl` on "OUT" is the presentation's per-project seconds, one object
- * per project — `[{ "Elena": 180 }, { "Alibaug": 240 }]`. On "IN" nothing has
- * been opened yet, so it keeps the field's original meaning: the page the
- * session started on, as a string.
+ * `pageUrl` on "OUT" is the presentation's per-project minutes (two
+ * decimals), one object per project — `[{ "Elena": 3 }, { "Alibaug": 4.5 }]`. On "IN" (sent at
+ * sign-in, with no lead_id) nothing has been opened yet, so it keeps the
+ * field's original meaning: the page on screen, as a string.
  *
  * That array is the only place the times go. The body carries their own
  * documented fields and nothing else: a `project_time` custom field was sent
@@ -109,7 +109,7 @@ export async function recordDeviceUsage(params) {
   } catch (err) {
     const aborted = err instanceof Error && err.name === "AbortError";
     const message = aborted ? "Sperto did not respond in time" : "Could not reach Sperto";
-    console.error(`[device-usage] ${params.type} for ${params.leadId}: ${message}`);
+    console.error(`[device-usage] ${params.type} for ${params.leadId || params.salesManagerLogin}: ${message}`);
     return { ok: false, reason: "unavailable", message };
   }
 
@@ -123,7 +123,7 @@ export async function recordDeviceUsage(params) {
   // What this buys is that "Sperto is dropping our visits" stops being
   // invisible.
   console.error(
-    `[device-usage] ${params.type} for ${params.leadId} was not recorded: ${answer.message}`,
+    `[device-usage] ${params.type} for ${params.leadId || params.salesManagerLogin} was not recorded: ${answer.message}`,
   );
   return { ok: false, reason, message: answer.message };
 }

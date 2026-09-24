@@ -27,10 +27,11 @@
  * locked-down kiosk profile the whole `sessionStorage` access throws, and
  * these calls sit inside click handlers that must not die half-way.
  *
- * Totals are held in milliseconds and converted to whole seconds once, at
- * read time. Sperto's field is seconds; rounding each visit separately would
- * quietly lose up to half a second per open, which on a project opened a
- * dozen times is a visible undercount.
+ * Totals are held in milliseconds and converted to minutes once, at read
+ * time. Sperto's field is minutes, to two decimals (90s is 1.5, 45s is
+ * 0.75) — whole minutes would drop every look shorter than 30s. Rounding each
+ * visit separately would quietly lose a little per open, which on a project
+ * opened a dozen times is a visible undercount.
  */
 
 const KEY = "futeservices_project_time";
@@ -75,6 +76,11 @@ function bank(state, now) {
     totals: { ...state.totals, [open.project]: (state.totals[open.project] ?? 0) + elapsed },
     open: { project: open.project, since: now },
   };
+}
+
+/** Milliseconds to minutes, rounded to two decimals: 90_000 → 1.5. */
+function toMinutes(ms) {
+  return Math.round(ms / 600) / 100;
 }
 
 let hooked = false;
@@ -129,9 +135,10 @@ export function resumeProjectTimer() {
 /**
  * The presentation's visits, as the array Sperto's `page_url` field carries
  * on the "OUT" call: one object per project, each mapping the project's name
- * to the seconds spent on it, in the order the projects were first opened.
+ * to the minutes spent on it (two decimals), in the order the projects were
+ * first opened.
  *
- *   [ { "Elena": 180 }, { "Alibaug": 240 } ]
+ *   [ { "Elena": 3 }, { "Alibaug": 4.5 } ]
  *
  * This is the only shape the times leave in, and `page_url` is the only field
  * they leave in. A `project_time` custom field carrying the same numbers as
@@ -139,15 +146,15 @@ export function resumeProjectTimer() {
  * only, so nothing is sent beside it now.
  *
  * Banks the still-running timer first, so the project on screen at logout is
- * counted rather than dropped. A project that rounds to 0s is left out: it
- * was a mis-tap, and a `0` in the CRM reads as a visit that happened.
+ * counted rather than dropped. A project that rounds to 0 minutes is left
+ * out: it was a mis-tap, and a `0` in the CRM reads as a visit that happened.
  */
 export function getProjectVisits() {
   const state = bank(read(), Date.now());
   const out = [];
   for (const [project, ms] of Object.entries(state.totals)) {
-    const time = Math.round(ms / 1000);
-    if (time > 0) out.push({ [project]: time });
+    const minutes = toMinutes(ms);
+    if (minutes > 0) out.push({ [project]: minutes });
   }
   return out;
 }

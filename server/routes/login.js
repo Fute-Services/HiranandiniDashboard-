@@ -63,14 +63,17 @@ function findStoredUserByEmail(email) {
  * the `managerEmail` the reporting dashboards scope teams by, which Sperto's
  * four-field world has no room for. An address we've never seen is still a
  * valid sign-in (that is the point of letting Sperto own the list); it just
- * lands as plain sales_staff with no team. */
-async function accountFor(email, spertoName) {
+ * lands as plain sales_staff with no team.
+ *
+ * The same goes for a Sales ID we have no account for: `email` is then the
+ * Sales ID itself, and the session runs under it. Nothing is stored. */
+async function accountFor(email, spertoName, isSalesId = false) {
   const known = findStaticUserWithHash(email) ?? findStoredUserByEmail(email);
   if (known) return known;
   return {
     email,
     passwordHash: "",
-    name: spertoName ?? email.split("@")[0],
+    name: spertoName ?? (isSalesId ? email : email.split("@")[0]),
     role: "sales_staff",
   };
 }
@@ -111,17 +114,18 @@ loginRouter.post(
     const isSalesIdLogin = mode === "staff" && !rawIdentifier.includes("@");
     let email;
     if (isSalesIdLogin) {
-      // Resolves which account this Sales ID belongs to (so role/manager/name
-      // come from the right record), but this alone is NOT the verification —
-      // it's just our own `spertoLogin` field, which is only as trustworthy
-      // as whoever last edited it. The actual "does this Sales ID
-      // exist" check is spertoSalesIdExists below, same live gate the email
-      // door gets.
+      // Sperto alone decides whether a Sales ID may sign in (the check
+      // below). Our roster is only asked which account to attribute the
+      // session to — a Sales ID it doesn't know still goes to Sperto, and on
+      // success signs in under the Sales ID itself. Refusing it here, before
+      // Sperto was ever asked, used to lock out every salesperson nobody had
+      // added to this app by hand. Without Sperto (a local demo) the roster
+      // is all there is, so an unknown ID is refused there instead.
       const resolved = resolveEmailFromSalesId(rawIdentifier);
-      if (!resolved) {
+      if (!resolved && !isSpertoConfigured()) {
         return res.status(401).json({ error: "That Sales ID isn't registered." });
       }
-      email = resolved;
+      email = resolved ?? rawIdentifier.toUpperCase();
     } else {
       email = rawIdentifier.toLowerCase();
     }
@@ -186,7 +190,7 @@ loginRouter.post(
             : "That email isn't registered in Sperto.",
         });
       }
-      user = await accountFor(email, check.name);
+      user = await accountFor(email, check.name, isSalesIdLogin);
     } else {
       // No Sperto credentials — a local demo instance. Fall back to the built-in
       // account list so the flow can still be walked through, but only for

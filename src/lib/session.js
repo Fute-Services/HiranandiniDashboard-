@@ -57,20 +57,22 @@ function writeRaw(value) {
  * session starting or ending must never depend on this succeeding, same
  * reasoning as `track()` in lib/activity.js. `keepalive` lets the "OUT" call
  * survive the page unload that immediately follows logout. */
-function recordDeviceUsage(lead, deviceType, type, visits) {
+function recordDeviceUsage(leadId, deviceType, type, visits) {
   try {
     fetchWithTimeout("/api/session/device-usage", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        leadId: lead.leadId,
+        // Empty on "IN", which goes at sign-in, before any customer has been
+        // looked up — and on an "OUT" from a sign-in that never reached one.
+        leadId: leadId ?? "",
         deviceType,
         type,
-        // On "OUT" this carries the presentation's per-project seconds — one
-        // object per project, `[{ "Elena": 180 }, { "Alibaug": 240 }]` (see
+        // On "OUT" this carries the presentation's per-project minutes — one
+        // object per project, `[{ "Elena": 3 }, { "Alibaug": 4.5 }]` (see
         // getProjectVisits). On "IN", and on an "OUT" where the customer was
         // never actually taken into a project, there is no time to report and
-        // the field keeps its original meaning: the page in front of them.
+        // the field keeps its original meaning: the page on screen.
         //
         // An empty array is deliberately not sent. It would read as a visit
         // with no projects in it, which is a claim; the page URL is not.
@@ -123,6 +125,22 @@ function clearOutSent() {
   }
 }
 
+/**
+ * Sperto's "IN": sent once per sign-in, the moment it succeeds (LoginPage's
+ * afterSignIn), paired with the one "OUT" every sign-out sends. The client
+ * asked for IN at login and OUT at logout, so this is the staff member's
+ * session in the CRM rather than one customer's presentation — which is why
+ * it carries no Lead ID and no device: neither has been chosen yet.
+ *
+ * Re-arms the "OUT" for this sign-in, and starts the project clocks from
+ * zero so nothing from whoever last used this tab is attributed to it.
+ */
+export function recordLoginIn() {
+  clearProjectTime();
+  clearOutSent();
+  recordDeviceUsage(null, null, "IN");
+}
+
 export function setActiveSession(lead, deviceType = null) {
   const session = {
     lead,
@@ -134,12 +152,9 @@ export function setActiveSession(lead, deviceType = null) {
     deviceType,
   };
   writeRaw(JSON.stringify(session));
-  // A new presentation starts from zero on both counts: the previous
-  // customer's project times must never be attributed to this one, and this
-  // session needs its own "OUT" still available to send.
+  // The previous customer's project times must never be attributed to this
+  // one. No "IN" here: that went at sign-in (recordLoginIn).
   clearProjectTime();
-  clearOutSent();
-  recordDeviceUsage(lead, deviceType, "IN");
 }
 
 export function getActiveSession() {
@@ -236,8 +251,7 @@ export function clearActiveSession() {
  */
 export function finalizeSession() {
   const session = getActiveSession();
-  if (!session) return;
-  if (session.currentStep && session.currentStepEnteredAt) {
+  if (session?.currentStep && session.currentStepEnteredAt) {
     const now = Date.now();
     trackForSession(session, "step", `Left "${session.currentStep}"`, now - session.currentStepEnteredAt);
   }
@@ -246,8 +260,16 @@ export function finalizeSession() {
   // field and nowhere else. getProjectVisits banks the still-running timer
   // first, so whatever project was on screen when Log out was pressed is
   // counted rather than dropped.
+  //
+  // Sent even when no presentation was ever started: the "IN" went at
+  // sign-in, so every sign-out owes Sperto the matching "OUT".
   if (claimOutSend()) {
-    recordDeviceUsage(session.lead, session.deviceType, "OUT", getProjectVisits());
+    recordDeviceUsage(
+      session?.lead.leadId,
+      session?.deviceType ?? null,
+      "OUT",
+      session ? getProjectVisits() : null,
+    );
   }
   clearProjectTime();
   clearActiveSession();

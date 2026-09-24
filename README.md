@@ -295,7 +295,7 @@ Sperto's own words. It still answers `ok: true` either way — a presentation
 must be free to start and end whether or not the CRM accepted the write.
 
 On logout, the visit data goes out in **one** field, theirs: `page_url` as
-`[{ "Elena": 180 }, { "Alibaug": 240 }]`. A custom `project_time` carrying the
+`[{ "Elena": 3 }, { "Alibaug": 4.5 }]`. A custom `project_time` carrying the
 same numbers as one object was sent alongside it for a while, as insurance
 against their parser ignoring the array; the client asked for the array alone,
 so nothing goes out beside it and a test asserts the "OUT" body carries only
@@ -389,4 +389,4 @@ viewports, so the arc never crops.
 - Floor plans have no media; `ImageSlot` renders a captioned placeholder.
 - Sperto's real numeric `device_id` per device type is a placeholder mapping in
   `server/lib/sperto-device-usage.js`, and their parser accepting `page_url` as
-  an array of `{ project: seconds }` is unconfirmed on their side.
+  an array of `{ project: minutes }` is unconfirmed on their side.

@@ -10,8 +10,8 @@ import { recordDeviceUsage } from "../lib/sperto-device-usage.js";
 
 /**
  * Fires Sperto's device-usage log (server/lib/sperto-device-usage.js) for the
- * signed-in staff member's presentation session — "IN" on start, "OUT" on
- * end (see src/lib/session.js's setActiveSession/finalizeSession). The
+ * signed-in staff member — "IN" at sign-in, "OUT" at sign-out
+ * (see src/lib/session.js's recordLoginIn/finalizeSession). The
  * api_key stays server-side, so the client only ever posts here, never
  * straight to Sperto.
  *
@@ -27,8 +27,8 @@ export const deviceUsageRouter = Router();
  * arrive from a browser, so both are shape rather than data until this has
  * been through them:
  *
- * - On "OUT": the presentation's per-project seconds, one object per project
- *   — `[{ "Elena": 180 }, { "Alibaug": 240 }]`. This is the only field the
+ * - On "OUT": the presentation's per-project minutes (two decimals), one
+ *   object per project — `[{ "Elena": 3 }, { "Alibaug": 4.5 }]`. This is the only field the
  *   times go out in; nothing is sent alongside it.
  * - On "IN": nothing has been opened yet, so it keeps the field's original
  *   meaning — the page the session started on, as a string.
@@ -49,11 +49,15 @@ function sanitizePageUrl(input, fallbackUrl) {
   for (const entry of input.slice(0, 50)) {
     if (typeof entry !== "object" || entry === null || Array.isArray(entry)) continue;
     const clean = {};
-    for (const [project, seconds] of Object.entries(entry)) {
+    for (const [project, minutes] of Object.entries(entry)) {
       const name = project.trim();
       if (!name) continue;
-      if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) continue;
-      clean[name] = Math.round(seconds);
+      if (typeof minutes !== "number" || !Number.isFinite(minutes)) continue;
+      // Two decimals, the same rounding src/lib/project-time.js applies —
+      // Math.round here would turn 0.75 into 1 and 0.25 into a dropped entry.
+      const rounded = Math.round(minutes * 100) / 100;
+      if (rounded <= 0) continue;
+      clean[name] = rounded;
     }
     if (Object.keys(clean).length > 0) out.push(clean);
   }
@@ -69,7 +73,12 @@ function sanitizePageUrl(input, fallbackUrl) {
 function spertoLoginFor(email) {
   const staticUser = USERS.find((u) => u.email === email);
   if (staticUser) return staticUser.spertoLogin ?? null;
-  return findStoredUser(email)?.spertoLogin ?? null;
+  const stored = findStoredUser(email);
+  if (stored) return stored.spertoLogin ?? null;
+  // Signed in by a Sales ID Sperto vouched for and we have no account for
+  // (routes/login.js): the session runs under the Sales ID itself, which is
+  // exactly the sales_manager_login this call needs.
+  return email.includes("@") ? null : email;
 }
 
 deviceUsageRouter.post(
@@ -92,8 +101,14 @@ deviceUsageRouter.post(
 
     const { leadId, deviceType, type, pageUrl } = req.body ?? {};
 
-    if (!leadId || (type !== "IN" && type !== "OUT")) {
-      return res.status(400).json({ error: "leadId and type (IN/OUT) required" });
+    // No Lead ID is the ordinary case for "IN", which goes at sign-in before
+    // a customer has been looked up, and for the "OUT" of a sign-in that
+    // never got as far as one. Sperto then gets an empty lead_id.
+    if (type !== "IN" && type !== "OUT") {
+      return res.status(400).json({ error: "type (IN/OUT) required" });
+    }
+    if (leadId != null && typeof leadId !== "string") {
+      return res.status(400).json({ error: "Invalid leadId" });
     }
     if (deviceType != null && !DEVICE_TYPES.includes(deviceType)) {
       return res.status(400).json({ error: "Invalid deviceType" });
@@ -108,7 +123,7 @@ deviceUsageRouter.post(
 
     const outcome = await recordDeviceUsage({
       deviceType: deviceType ?? null,
-      leadId,
+      leadId: leadId?.trim() ?? "",
       salesManagerLogin,
       type,
       pageUrl: cleanPageUrl,

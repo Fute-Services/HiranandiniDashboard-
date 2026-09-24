@@ -48,9 +48,17 @@ const seconds = (n) => vi.advanceTimersByTime(n * 1000);
 /**
  * The visits as one object, name against seconds. The rules below are about
  * the numbers rather than the array they sit in, and reading them this way
- * keeps each assertion to the thing it is actually testing.
+ * keeps each assertion to the thing it is actually testing. What goes out is
+ * minutes to two decimals; converting back and rounding to the second keeps
+ * these assertions in the unit the scenarios are written in.
  */
-const secondsByProject = () => Object.assign({}, ...getProjectVisits());
+const secondsByProject = () =>
+  Object.fromEntries(
+    Object.entries(Object.assign({}, ...getProjectVisits())).map(([p, min]) => [
+      p,
+      Math.round(min * 60),
+    ]),
+  );
 
 describe("the seconds a project is reported with", () => {
   it("is empty before anything is opened", () => {
@@ -221,7 +229,7 @@ describe("readOpenProject", () => {
 
 /**
  * The array Sperto's `page_url` field carries on the "OUT" call: one object
- * per project, name against seconds. It is the only field the times go out
+ * per project, name against minutes (two decimals). It is the only field the times go out
  * in, so its order and its grouping are exactly what the CRM ends up showing.
  */
 describe("getProjectVisits", () => {
@@ -229,10 +237,10 @@ describe("getProjectVisits", () => {
     expect(getProjectVisits()).toEqual([]);
   });
 
-  it("reports the project by name, with its seconds", () => {
+  it("reports the project by name, with its minutes", () => {
     startProjectTimer("Elena");
     seconds(180);
-    expect(getProjectVisits()).toEqual([{ Elena: 180 }]);
+    expect(getProjectVisits()).toEqual([{ Elena: 3 }]);
   });
 
   it("lists projects in the order they were first opened", () => {
@@ -240,7 +248,7 @@ describe("getProjectVisits", () => {
     seconds(60);
     startProjectTimer("Ebony");
     seconds(30);
-    expect(getProjectVisits()).toEqual([{ Elena: 60 }, { Ebony: 30 }]);
+    expect(getProjectVisits()).toEqual([{ Elena: 1 }, { Ebony: 0.5 }]);
   });
 
   it("keeps one entry per project when it is reopened, not two", () => {
@@ -251,8 +259,8 @@ describe("getProjectVisits", () => {
     startProjectTimer("Elena");
     seconds(120);
     stopProjectTimer();
-    // Elena's two visits are one 300s entry, still in first-open order.
-    expect(getProjectVisits()).toEqual([{ Elena: 300 }, { Ebony: 60 }]);
+    // Elena's two visits are one 5-minute entry, still in first-open order.
+    expect(getProjectVisits()).toEqual([{ Elena: 5 }, { Ebony: 1 }]);
   });
 
   it("leaves out a project opened and closed inside the same second", () => {
@@ -270,7 +278,7 @@ describe("getProjectVisits", () => {
     seconds(3600);
     resumeProjectTimer();
     seconds(30);
-    expect(getProjectVisits()).toEqual([{ Elena: 60 }]);
+    expect(getProjectVisits()).toEqual([{ Elena: 1 }]);
   });
 
   it("counts the project still on screen when Log out is pressed", () => {
@@ -278,7 +286,7 @@ describe("getProjectVisits", () => {
     seconds(45);
     // No stopProjectTimer() — this is the logout case, where the viewer is
     // still open and the clock still running.
-    expect(getProjectVisits()).toEqual([{ Elena: 45 }]);
+    expect(getProjectVisits()).toEqual([{ Elena: 0.75 }]);
   });
 
   it("leaves nothing for the next customer to inherit", () => {
@@ -312,5 +320,23 @@ describe("storage that refuses to work", () => {
       clearProjectTime();
     }).not.toThrow();
     expect(secondsByProject()).toEqual({});
+  });
+});
+
+describe("the minutes page_url carries", () => {
+  it("keeps a look shorter than a minute instead of rounding it away", () => {
+    startProjectTimer("Elena");
+    seconds(20);
+    expect(getProjectVisits()).toEqual([{ Elena: 0.33 }]);
+  });
+
+  it("rounds to two decimals once, on the total", () => {
+    startProjectTimer("Elena");
+    seconds(90);
+    stopProjectTimer();
+    startProjectTimer("Elena");
+    seconds(1);
+    // 91s is 1.5166… minutes.
+    expect(getProjectVisits()).toEqual([{ Elena: 1.52 }]);
   });
 });

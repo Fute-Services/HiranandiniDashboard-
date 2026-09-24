@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { landingPathForRole, login, REPORTING_ENABLED } from "@/lib/auth";
 import { actorFields, track } from "@/lib/activity";
+import { recordLoginIn } from "@/lib/session";
 import { railProjects } from "@/data/properties";
 import { useNavigationLock } from "@/lib/useNavigationLock";
 import { Spinner } from "@/components/Spinner";
@@ -175,6 +176,9 @@ export default function LoginPage() {
       durationMs: null,
       ...actorFields(session.email, session.name),
     });
+    // Sperto's "IN" goes at sign-in; its "OUT" at sign-out (lib/sign-out.js).
+    // keepalive, so the redirect below doesn't cancel it.
+    recordLoginIn();
     // A hard navigation, for the same reason sign-out uses one (see
     // lib/sign-out.js): /api/login has just set the httpOnly auth cookie the
     // route guards ask the server about, and a client-side navigate races

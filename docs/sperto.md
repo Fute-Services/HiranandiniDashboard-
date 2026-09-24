@@ -185,23 +185,23 @@ confirm the success shape (open question 1 below).
    for a Lead ID?** Both are inferred from their own field naming. The
    empty-500 bug meant we could never tell "wrong type value" from "right
    value, broken endpoint".
-4. **Is `page_url` as an array of `{ project: seconds }` acceptable to their
+4. **Is `page_url` as an array of `{ project: minutes }` acceptable to their
    parser?** See below.
 
 ---
 
 ## Second integration: device usage
 
-A separate endpoint, separate `api_key`, logged every time a presentation
-session starts and ends:
+A separate endpoint, separate `api_key`: "IN" the moment a staff member signs
+in, "OUT" when they sign out (the client's call, 2026-09-24):
 
 ```
 POST {SPERTO_BASE_URL}/api_record_device_usage.php
 { "api_key", "device_id", "lead_id", "sales_manager_login",
   "type": "IN"|"OUT",
-  "page_url": [ { "<project>": 180 }, ... ] }
+  "page_url": [ { "<project>": 3 }, ... ] }
 
-# Nothing else. The per-project seconds go out in page_url and in no
+# Nothing else. The per-project minutes go out in page_url and in no
 # other field — a custom project_time was sent alongside it for a while
 # and the client asked for it to stop.
 ```
@@ -210,8 +210,8 @@ POST {SPERTO_BASE_URL}/api_record_device_usage.php
 |---|---|
 | The only code that talks to this endpoint | `server/lib/sperto-device-usage.js` |
 | Server-side route the client actually calls | `server/routes/device-usage.js` |
-| Where it fires | `src/lib/session.js` — `setActiveSession` ("IN"), `finalizeSession` ("OUT") |
-| Per-project seconds + URLs | `src/lib/project-time.js` (tests: `project-time.test.js`) |
+| Where it fires | `src/lib/session.js` — `recordLoginIn` ("IN", called from the login page on success), `finalizeSession` ("OUT", on every sign-out) |
+| Per-project minutes + URLs | `src/lib/project-time.js` (tests: `project-time.test.js`) |
 
 The api_key lives only in `server/lib/sperto-device-usage.js`, so the browser
 never sees it — it POSTs to our own `/api/session/device-usage` route, which
@@ -224,10 +224,10 @@ Fields, and where each comes from:
 |---|---|---|
 | `api_key` | `SPERTO_DEVICE_USAGE_API_KEY` env var | set |
 | `device_id` | `DEVICE_IDS` map in `sperto-device-usage.js`, keyed by device type (Tab/TV/Kiosk/Laptop) | **placeholder** — sequential guess 1/2/3/4, not confirmed by the client |
-| `lead_id` | the Lead ID the staff member typed, now Sperto-verified | confirmed (client's call) |
+| `lead_id` | on "OUT", the Lead ID the staff member typed (Sperto-verified); **empty on "IN"**, which goes at sign-in before any customer is looked up, and on an "OUT" from a sign-in that never started a presentation | client asked for IN at login, OUT at logout (2026-09-24) |
 | `sales_manager_login` | `users.sperto_login`, set per account by an admin (Staff → Add Account) | unset for most existing accounts, so those sessions skip the call rather than send a made-up login |
 | `type` | `"IN"` / `"OUT"` | confirmed (client's call) |
-| `page_url` | **per-project seconds on OUT** (`src/lib/project-time.js`) — see below | **shape changed; confirm with the client** |
+| `page_url` | **per-project minutes on OUT** (`src/lib/project-time.js`) — see below | **shape changed; confirm with the client** |
 
 If a signed-in account has no `sperto_login` on file, the route no-ops
 (`{ok:true, recorded:false, skipped:...}`) rather than sending a made-up value.
@@ -263,7 +263,7 @@ of something you find out from the client months later.
 
 ### `page_url`: the visit array
 
-On "OUT", `page_url` carries **the presentation's per-project seconds, one
+On "OUT", `page_url` carries **the presentation's per-project minutes, one
 object per project**, in the order the projects were first opened. On "IN" —
 and on an "OUT" where no project was ever opened — there is no time to report,
 so the field keeps its original meaning: the page in front of the customer.
@@ -273,7 +273,7 @@ so the field keeps its original meaning: the page in front of the customer.
 "page_url": "https://…/dashboard"
 
 // "OUT" — one object per project the customer actually opened.
-"page_url": [ { "Elena": 180 }, { "Alibaug": 240 } ]
+"page_url": [ { "Elena": 3 }, { "Alibaug": 4.5 } ]
 ```
 
 **Why this field, and only this field.** It is theirs and always has been, so
@@ -284,7 +284,7 @@ the client asked for the array alone, so it is gone, and a test asserts the
 "OUT" body carries nothing but their own documented fields.
 
 An empty array is never sent — it would read as a visit with no projects in
-it, which is a claim the page URL does not make. A project that rounds to 0s
+it, which is a claim the page URL does not make. A project that rounds to 0 minutes
 is left out for the same reason.
 
 ⚠ **Confirm their parser accepts an array here.** It previously received a
@@ -299,7 +299,7 @@ finite positive number are dropped, the array is capped at 50 entries, and if
 nothing survives the field falls back to the request's own origin rather than
 going out empty.
 
-### How the seconds are counted
+### How the minutes are counted
 
 What the accumulator (`src/lib/project-time.js`) guarantees, each covered by a
 test in `project-time.test.js`:
@@ -313,20 +313,22 @@ test in `project-time.test.js`:
 | A refresh doesn't invent time | state lives in `sessionStorage`; the showcase closes the dangling clock on mount, keeping the time up to the reload |
 | The project on screen at logout is counted | `getProjectVisits()` banks the running clock before reading |
 | Exactly one "OUT" per presentation | a `sessionStorage` claim flag in `session.js` |
-| One customer's time never lands on the next | `setActiveSession` clears the totals, the URLs and the OUT flag |
+| One customer's time never lands on the next | `recordLoginIn` and `setActiveSession` clear the totals; `recordLoginIn` re-arms the OUT flag |
 
-Times are held in milliseconds and converted to whole seconds once, at send
-time — rounding each visit separately would lose up to half a second per open.
+Times are held in milliseconds and converted to minutes, two decimals (90s is
+`1.5`, 45s is `0.75`), once, at send time — whole minutes would drop every
+look under 30s, and rounding each visit separately would lose a little per open.
 
 "OUT" fires on **every** way a session ends — the showcase's Log out, the Log
 out inside a project's full-screen viewer, an idle timeout, and an admin
-force-logout — because `signOut()` calls `finalizeSession()`.
+force-logout — because `signOut()` calls `finalizeSession()`. It goes even
+when no presentation was started, since every sign-in already sent its "IN".
 
 **Before this goes live for real staff, get from the client:**
 1. The real `device_id` per device type — update `DEVICE_IDS`.
 2. Each real staff member's Sperto login code (Staff → Add Account's "Sperto
    login" field, or a DB update on `users.sperto_login`).
-3. Confirmation that `page_url` as an array of `{ project: seconds }` is
+3. Confirmation that `page_url` as an array of `{ project: minutes }` is
    accepted by their parser. It is now the only field the times are in, so
    if their parser still expects a string, the numbers reach nobody.
 

@@ -53,7 +53,7 @@ beforeEach(() => {
   });
 
   // A hand-cranked clock, so a presentation's minutes pass instantly and the
-  // expected seconds are exact rather than approximate.
+  // expected minutes are exact rather than approximate.
   realDateNow = Date.now;
   clock = realDateNow();
   Date.now = () => clock;
@@ -71,20 +71,50 @@ const minutes = (n) => {
 const callOf = (type) => sent.find((b) => b.type === type);
 
 describe("what a presentation sends Sperto", () => {
-  it("reports the page it started on, and no times, on IN", async () => {
+  it("sends IN at sign-in, with no Lead ID or device yet", async () => {
     const { session } = await load();
-    session.setActiveSession(LEAD, "TV");
+    session.recordLoginIn();
 
     expect(callOf("IN")).toMatchObject({
-      leadId: "985038",
-      deviceType: "TV",
+      leadId: "",
+      deviceType: null,
       // Nothing has been opened yet, so the field keeps its original meaning.
       pageUrl: "http://localhost:3000/dashboard",
     });
     expect(Object.keys(callOf("IN")).sort()).toEqual(["deviceType", "leadId", "pageUrl", "type"]);
   });
 
-  it("puts the per-project seconds in page_url, one object per project", async () => {
+  it("sends no IN when the presentation starts", async () => {
+    const { session } = await load();
+    session.recordLoginIn();
+    sent.length = 0;
+    session.setActiveSession(LEAD, "TV");
+
+    expect(sent).toEqual([]);
+  });
+
+  it("sends OUT at sign-out even if no presentation was started", async () => {
+    const { session } = await load();
+    session.recordLoginIn();
+    session.finalizeSession();
+
+    expect(callOf("OUT")).toMatchObject({
+      leadId: "",
+      deviceType: null,
+      pageUrl: "http://localhost:3000/dashboard",
+    });
+  });
+
+  it("carries the presentation's Lead ID and device on OUT", async () => {
+    const { session } = await load();
+    session.recordLoginIn();
+    session.setActiveSession(LEAD, "Kiosk");
+    session.finalizeSession();
+
+    expect(callOf("OUT")).toMatchObject({ leadId: "985038", deviceType: "Kiosk" });
+  });
+
+  it("puts the per-project minutes in page_url, one object per project", async () => {
     const { session, time } = await load();
     session.setActiveSession(LEAD, "TV");
 
@@ -97,7 +127,7 @@ describe("what a presentation sends Sperto", () => {
     session.finalizeSession();
 
     const out = callOf("OUT");
-    expect(out.pageUrl).toEqual([{ Elena: 180 }, { Alibaug: 240 }]);
+    expect(out.pageUrl).toEqual([{ Elena: 3 }, { Alibaug: 4 }]);
     // Their own field, and the only one: nothing carrying the same numbers
     // goes out beside it. A `project_time` custom field used to, and the
     // client asked for it to stop, so this is the assertion that keeps it off.
@@ -113,7 +143,7 @@ describe("what a presentation sends Sperto", () => {
     // No stopProjectTimer — Elena is still open when Log out is pressed.
     session.finalizeSession();
 
-    expect(callOf("OUT").pageUrl).toEqual([{ Elena: 300 }]);
+    expect(callOf("OUT").pageUrl).toEqual([{ Elena: 5 }]);
   });
 
   it("falls back to the page URL when nothing was opened", async () => {
@@ -149,12 +179,14 @@ describe("what a presentation sends Sperto", () => {
     minutes(3);
     session.finalizeSession();
 
+    // The next presentation is a fresh sign-in on the same tab.
     sent.length = 0;
+    session.recordLoginIn();
     session.setActiveSession({ leadId: "985039", name: "Someone Else" }, "TV");
     time.startProjectTimer("Ebony");
     minutes(1);
     session.finalizeSession();
 
-    expect(callOf("OUT").pageUrl).toEqual([{ Ebony: 60 }]);
+    expect(callOf("OUT").pageUrl).toEqual([{ Ebony: 1 }]);
   });
 });
