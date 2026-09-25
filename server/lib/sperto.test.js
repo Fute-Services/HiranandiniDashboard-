@@ -201,3 +201,36 @@ describe("spertoLeadExists", () => {
     });
   });
 });
+
+/**
+ * The Sales ID an email sign-in needs for IN/OUT (sales_manager_login) only
+ * exists in Sperto's success body. Its shape is undocumented, so these hold
+ * the places it is looked for, and that nothing is invented when it is absent.
+ */
+describe("the Sales ID in a staff lookup's success body", () => {
+  it("is read from the top level", async () => {
+    fetchMock.mockResolvedValue(reply({ status: "success", sales_manager_login: "PDPL0349" }));
+    const check = await spertoEmailExists("asha@futeservices.com");
+    expect(check).toMatchObject({ ok: true, salesId: "PDPL0349" });
+  });
+
+  it("is read from a data object", async () => {
+    fetchMock.mockResolvedValue(
+      reply({ status: "success", data: { name: "Asha Rao", login_id: "PDPL0350" } }),
+    );
+    const check = await spertoEmailExists("asha@futeservices.com");
+    expect(check).toMatchObject({ ok: true, name: "Asha Rao", salesId: "PDPL0350" });
+  });
+
+  it("is read from the first row of a data array", async () => {
+    fetchMock.mockResolvedValue(reply({ status: "success", data: [{ emp_code: 4471 }] }));
+    const check = await spertoEmailExists("asha@futeservices.com");
+    expect(check).toMatchObject({ ok: true, salesId: "4471" });
+  });
+
+  it("is null, not guessed, when the body carries none", async () => {
+    fetchMock.mockResolvedValue(reply({ status: "success", data: { name: "Asha Rao" } }));
+    const check = await spertoEmailExists("asha@futeservices.com");
+    expect(check).toMatchObject({ ok: true, salesId: null });
+  });
+});

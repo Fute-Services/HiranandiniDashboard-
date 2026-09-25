@@ -9,7 +9,9 @@ import { verifySessionToken } from "./session-token.js";
  * instead of adding a fifth. Never trust the plain `futeservices_role` cookie
  * for this: it is client-writable and exists only so the UI can render a name.
  *
- * A viewer is `{ email, role, name, deviceId? }`. `deviceId` is which
+ * A viewer is `{ email, role, name, deviceId?, spertoLogin? }`. `spertoLogin`
+ * is the Sales ID Sperto's device-usage calls need, captured at sign-in (see
+ * routes/login.js). `deviceId` is which
  * registered device this session was started on, for device-mode
  * (passwordless) logins, and is absent for password logins. It is read from
  * the signed token rather than from a request body — it is the only device
@@ -27,6 +29,7 @@ export async function getViewer(req) {
     role: payload.role,
     name: payload.name,
     deviceId: payload.deviceId,
+    spertoLogin: payload.spertoLogin,
   };
 }
 

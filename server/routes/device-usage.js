@@ -116,8 +116,15 @@ deviceUsageRouter.post(
 
     const cleanPageUrl = sanitizePageUrl(pageUrl, `${req.protocol}://${req.get("host")}`);
 
-    const salesManagerLogin = spertoLoginFor(viewer.email);
+    // The Sales ID captured at sign-in first; the roster only for sessions
+    // signed before the token carried one.
+    const salesManagerLogin = viewer.spertoLogin || spertoLoginFor(viewer.email);
     if (!salesManagerLogin) {
+      // Not silent: the login route already logged which fields Sperto's
+      // answer had, and this is where the missing visit would otherwise vanish.
+      console.warn(
+        `[device-usage] ${type} for ${viewer.email} not sent: no Sales ID known for this session`,
+      );
       return res.json({ ok: true, recorded: false, skipped: "no sperto login on file" });
     }
 

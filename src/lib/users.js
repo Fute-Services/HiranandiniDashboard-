@@ -1,66 +1,27 @@
 /**
- * Mock account directory, stands in for Sperto/CRM-backed auth until the
- * client provides API docs and credentials (see the "Client Requirement
- * Discovery Questionnaire", §2 and §7). Swap the server's `findUser` for a
- * real API call when that lands; nothing else in the login flow should need
- * to change.
+ * Accounts known to this app itself — none. Staff are Sperto's: they sign
+ * in with an email or Sales ID the client's CRM vouches for
+ * (server/routes/login.js), and nobody is pre-created here. The demo roster
+ * that used to live in this array (staff@/admin@/manager@hiranandani.com) is
+ * gone, so there is no way in that does not go through Sperto.
+ *
+ * Kept as an empty list, not deleted, because it is still the shape the rest
+ * of the app reads: admin-created accounts (server/routes/users.js) are
+ * merged with it, and lib/activity.js's `actorFields` looks names up in it.
  *
  * Three roles:
  * - admin: sees everything (every manager's and every staff member's activity).
  * - sales_manager: oversight only, reads *their own team's* sales staff
- *   session reports (via `managerEmail` below) and doesn't run client
- *   presentations themselves.
- * - sales_staff: runs the actual client presentations (lead lookup to the
- *   VR/cards showcase), with no reporting access. Each is assigned to
- *   exactly one manager via `managerEmail`, and that's the "team" a manager's
- *   dashboard is scoped to.
+ *   session reports (via `managerEmail`).
+ * - sales_staff: runs the actual client presentations.
  *
- * Roster only — no password hashes. This module is imported by client code
- * (lib/activity.js's `actorFields`, the reports' "New Joiner" badge) and so
- * ships in the browser bundle; the hashes live in `server/lib/passwords.js`,
- * which never does. Under Next.js both were in one file and both reached the
- * browser; splitting them is what that move is for.
- *
- * The server imports this same roster (see server/lib/users.js) so there is
- * still exactly one list of accounts, not two to drift apart.
+ * Roster only, never password hashes: this module ships in the browser
+ * bundle. The server imports this same list (server/lib/users.js).
  */
 
 /** @typedef {"admin" | "sales_manager" | "sales_staff"} Role */
 
-export const USERS = [
-  {
-    email: "admin@hiranandani.com",
-    name: "Admin",
-    role: "admin",
-  },
-  {
-    email: "manager@hiranandani.com",
-    name: "Priya Kulkarni",
-    role: "sales_manager",
-  },
-  {
-    email: "staff@hiranandani.com",
-    name: "Sales Staff",
-    role: "sales_staff",
-    managerEmail: "manager@hiranandani.com",
-    // Wired to a real Sperto login code so the device-usage integration
-    // (server/lib/sperto-device-usage.js) is exercisable end-to-end via this
-    // demo account, not just skipped for lack of one on file.
-    spertoLogin: "PDPL0349",
-  },
-  {
-    email: "aditya@hiranandani.com",
-    name: "Aditya Rane",
-    role: "sales_staff",
-    managerEmail: "manager@hiranandani.com",
-  },
-  {
-    email: "sneha@hiranandani.com",
-    name: "Sneha Iyer",
-    role: "sales_staff",
-    managerEmail: "manager@hiranandani.com",
-  },
-];
+export const USERS = [];
 
 /** True for the first 30 days after `joiningDate` — unset means "not known
  * to be new," not "definitely not new," since existing mock staff don't have

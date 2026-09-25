@@ -43,24 +43,6 @@ const EyeOff = (
 );
 
 /**
- * One-click sign-in for showing the app around, one button per role.
- *
- * These go through the ordinary doors — the staff one sends its email exactly
- * as the form does, the other two send the real password — so there is no
- * bypass in `/api/login` for a demo to walk through. The credentials are the
- * published demo accounts (README, `src/lib/users.js`); they are worth nothing
- * beyond a demo instance.
- *
- * Once Sperto is configured, the staff button only works if Sperto knows that
- * address — which is correct: at that point Sperto owns the staff list, and a
- * demo button that could talk its way past it would not be demonstrating this
- * app's login at all. Delete this block for the client's own deployment.
- */
-const DEMO_ACCOUNTS = [
-  { email: "staff@hiranandani.com", name: "Sales Staff", role: "sales staff" },
-];
-
-/**
  * One screen, two doors.
  *
  * "staff" is the one that matters and the one that's shown first: a sales
@@ -82,8 +64,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [signedOutNotice, setSignedOutNotice] = useState(null);
-  /** Which sign-in is in flight — "signin" for the form, or a demo account's
-   * email. Everything on the card is disabled meanwhile, so a slow network
+  /** Which sign-in is in flight ("signin"), or null. Everything on the card is disabled meanwhile, so a slow network
    * can't turn into two parallel logins — and it self-releases, so a sign-in
    * that never resolves gives the card back instead of freezing it (see
    * lib/useNavigationLock). */
@@ -131,9 +112,7 @@ export default function LoginPage() {
   // Credential checking happens server-side (server/routes/login.js) — this
   // just relays what was typed and shows whatever the server actually said
   // (e.g. a suspended account gets its own clear message, not a generic
-  // "wrong password"). Shared by the form and the demo buttons so the two
-  // cannot drift apart on the one flow where getting it wrong strands
-  // somebody on a disabled card.
+  // "wrong password").
   async function attemptSignIn(credentials, lockKey) {
     if (pending || requestInFlight.current) return;
     requestInFlight.current = true;
@@ -326,8 +305,6 @@ export default function LoginPage() {
                 </p>
               )}
 
-              {/* Disabled for any sign-in in flight, but only *spinning* for
-                  its own — a demo button's spinner belongs on that button. */}
               <button
                 type="submit"
                 className={`${styles.mono} ${styles.submit}`}
@@ -364,46 +341,6 @@ export default function LoginPage() {
               </button>
             )}
 
-            {/* All shown in both modes: the point of these is to reach any
-                role in one tap, and hiding them behind the door switch would
-                make that two taps for no reason. */}
-            <div className={styles.demoDivider}>
-              <span className={`${styles.mono} ${styles.demoLabel}`}>DEMO&nbsp;ACCOUNTS</span>
-            </div>
-            <div className={styles.demoButtons}>
-              {DEMO_ACCOUNTS.map((account) => (
-                <button
-                  key={account.email}
-                  type="button"
-                  className={`${styles.mono} ${styles.demoButton}`}
-                  onClick={() =>
-                    void attemptSignIn(
-                      account.password
-                        ? { email: account.email, password: account.password }
-                        : { email: account.email },
-                      account.email,
-                    )
-                  }
-                  disabled={pending !== null}
-                  aria-busy={pending === account.email}
-                >
-                  <span className={styles.demoIdentity}>
-                    <span className={styles.demoName}>{account.name}</span>
-                    <span className={styles.demoEmail}>{account.email}</span>
-                  </span>
-                  <span className={styles.demoRole}>
-                    {pending === account.email ? (
-                      <span className={styles.demoPending}>
-                        <Spinner size={11} />
-                        SIGNING IN…
-                      </span>
-                    ) : (
-                      account.role
-                    )}
-                  </span>
-                </button>
-              ))}
-            </div>
           </section>
         </div>
       </main>

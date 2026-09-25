@@ -3,7 +3,9 @@
  * it — replaces trusting a plain `futeservices_auth=1` cookie, which anyone
  * could set by hand.
  *
- * A payload is `{ email, role, name, exp, deviceId? }`.
+ * A payload is `{ email, role, name, exp, deviceId?, spertoLogin? }`.
+ * `spertoLogin` is the staff member's Sales ID, when sign-in learned one
+ * (typed, or in Sperto's answer) — optional for the same reason as below.
  *
  * `deviceId` is which registered device this session was started on, for the
  * passwordless (device-mode) staff login. Absent on password logins, and on

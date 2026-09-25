@@ -36,22 +36,15 @@ POST {SPERTO_BASE_URL}/api_get_details_of_customer.php
 
 | Variable | Local | Production |
 |---|---|---|
-| `SPERTO_BASE_URL` | unset | `https://net4hgc.sperto.co.in/_api` |
-| `SPERTO_API_KEY` | unset | the real key |
+| `SPERTO_BASE_URL` | `https://net4hgc.sperto.co.in/_api` | same |
+| `SPERTO_API_KEY` | the real key | the real key |
+| `SPERTO_DEVICE_USAGE_API_KEY` | the real key | the real key |
 | `SPERTO_TIMEOUT_MS` | unset (8000) | unset |
 
-With neither set, `isSpertoConfigured()` is false and:
-
-- the login route falls back to the demo accounts in `src/lib/users.js`,
-- the leads route falls back to our own table, and the client falls back to the
-  dummy directory in `src/data/customers.js`.
-
-That is how the flow is demonstrated before the api_key lands.
-
-⚠ **Turning Sperto on turns the dummy customers off.** `LEAD-1001`…`LEAD-1005`
-are ours, not theirs, so once the CRM is answering it will refuse them — which
-is correct (see "Sperto's no is final" below), but it does mean the demo
-walkthrough needs a real Lead ID from that point on.
+With either unset, `isSpertoConfigured()` is false and staff sign-in is
+refused with a 503 ("Sperto is not configured on this server"). There are no
+demo accounts or dummy customers to fall back to any more — they were removed
+so the app only ever runs against real credentials.
 
 `SPERTO_API_KEY` is read **only** inside `server/lib/sperto.js`. Everything
 under `server/` is a separate program from the browser bundle — it is not part
@@ -225,12 +218,21 @@ Fields, and where each comes from:
 | `api_key` | `SPERTO_DEVICE_USAGE_API_KEY` env var | set |
 | `device_id` | `DEVICE_IDS` map in `sperto-device-usage.js`, keyed by device type (Tab/TV/Kiosk/Laptop) | **placeholder** — sequential guess 1/2/3/4, not confirmed by the client |
 | `lead_id` | on "OUT", the Lead ID the staff member typed (Sperto-verified); **empty on "IN"**, which goes at sign-in before any customer is looked up, and on an "OUT" from a sign-in that never started a presentation | client asked for IN at login, OUT at logout (2026-09-24) |
-| `sales_manager_login` | `users.sperto_login`, set per account by an admin (Staff → Add Account) | unset for most existing accounts, so those sessions skip the call rather than send a made-up login |
+| `sales_manager_login` | captured at sign-in and signed into the session token: the Sales ID typed, or on an email sign-in the Sales ID in Sperto's success body (`sales_manager_login`, `login_id`, `emp_code`… under the top level or `data`); the roster only as a fallback | **confirm which field their success body uses** |
 | `type` | `"IN"` / `"OUT"` | confirmed (client's call) |
 | `page_url` | **per-project minutes on OUT** (`src/lib/project-time.js`) — see below | **shape changed; confirm with the client** |
 
-If a signed-in account has no `sperto_login` on file, the route no-ops
-(`{ok:true, recorded:false, skipped:...}`) rather than sending a made-up value.
+If none is known, the route does not send a made-up value: it answers
+`{ok:true, recorded:false, skipped:...}` and logs it. The login route logs
+the field names (never the values) of a success body that carried no Sales ID
+we recognise, e.g.
+
+```
+[login] Sperto confirmed x@hiranandani.com but sent no Sales ID we recognise, ... Fields in its answer: status, data, data.name, data.mobile
+```
+
+so the first real email sign-in shows which field to add to `SALES_ID_KEYS`
+in `server/lib/sperto.js`.
 
 ### The answer is no longer thrown away
 

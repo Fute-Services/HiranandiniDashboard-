@@ -26,8 +26,8 @@
  *    `JSON.parse` is not.
  *
  * A check resolves to one of three things:
- * - `{ ok: true, name }` — Sperto knows this identity; `name` is whatever
- *   they returned, if anything.
+ * - `{ ok: true, name, salesId }` — Sperto knows this identity; `name` and
+ *   `salesId` are whatever they returned, if anything (null otherwise).
  * - `{ ok: false, reason: "not_found", message }` — Sperto answered, and the
  *   answer was no. This is the only outcome that should ever block a login;
  *   everything else is our problem, not the staff member's.
@@ -84,6 +84,57 @@ function extractName(body) {
   return null;
 }
 
+/** Field names a Sales ID could arrive under in a staff lookup's success
+ *  body. Their success shape is undocumented, so these are the likely names,
+ *  led by `sales_manager_login` — what their own device-usage endpoint calls
+ *  the same value. */
+const SALES_ID_KEYS = [
+  "sales_manager_login",
+  "salesManagerLogin",
+  "sales_id",
+  "salesId",
+  "login_id",
+  "loginId",
+  "login",
+  "emp_code",
+  "employee_code",
+  "user_code",
+];
+
+/** Pull the staff member's Sales ID out of a success body, top level or
+ *  under `data` (an object, or the first row of an array). Null rather than a
+ *  guess: IN/OUT send this as sales_manager_login, and a wrong value there is
+ *  a visit filed under somebody else. */
+function extractSalesId(body) {
+  const pick = (record) => {
+    for (const key of SALES_ID_KEYS) {
+      const value = record[key];
+      if (typeof value === "string" && value.trim()) return value.trim();
+      if (typeof value === "number" && Number.isFinite(value)) return String(value);
+    }
+    return null;
+  };
+  const top = pick(body);
+  if (top) return top;
+  const data = body.data;
+  if (Array.isArray(data) && typeof data[0] === "object" && data[0]) return pick(data[0]);
+  if (typeof data === "object" && data) return pick(data);
+  return null;
+}
+
+/** The field names in a body, nested ones as `data.x` — never the values,
+ *  which are a staff member's personal details. Logged when a success body
+ *  carries no Sales ID we recognise, so the first real sign-in shows which
+ *  field it actually is. */
+export function describeFields(body) {
+  const keys = Object.keys(body);
+  const data = Array.isArray(body.data) ? body.data[0] : body.data;
+  if (typeof data === "object" && data) {
+    keys.push(...Object.keys(data).map((k) => `data.${k}`));
+  }
+  return keys.join(", ");
+}
+
 /**
  * Asks Sperto whether `id` — an email or a Sales ID, distinguished by
  * `type` — is a staff account they know. Shared by spertoEmailExists and
@@ -124,7 +175,14 @@ async function spertoLookup(id, type) {
   // happened is the body. `readSpertoBody` is the one place that reads it.
   const answer = await readSpertoBody(res, cfg.apiKey);
 
-  if (answer.ok) return { ok: true, name: extractName(answer.body), body: answer.body };
+  if (answer.ok) {
+    return {
+      ok: true,
+      name: extractName(answer.body),
+      salesId: extractSalesId(answer.body),
+      body: answer.body,
+    };
+  }
 
   // Nothing usable came back — their bug or our misconfiguration, never the
   // staff member's typing.

@@ -59,9 +59,9 @@ The rewrite `/((?!api/).*) -> /index.html` is what makes a hard load of
 (`/assets/*`, `/brand/*`) still serve, and only client-side routes fall
 through to the app.
 
-Set `SESSION_SECRET` in the project's environment variables before the first
-deploy — the build succeeds without it and every sign-in then 500s. Everything
-else in the Environment table below is optional.
+Set `SESSION_SECRET`, `SPERTO_BASE_URL`, `SPERTO_API_KEY` and
+`SPERTO_DEVICE_USAGE_API_KEY` in the project's environment variables before the
+first deploy — the build succeeds without them and every sign-in then fails.
 
 Two things behave differently on serverless than on a long-lived process, both
 by nature rather than by choice:
@@ -106,34 +106,16 @@ Three screens, in order:
 There is no intro splash, no Earth transition and no separate customer-search
 screen.
 
-## Dummy data, and where the real API plugs in
+## Real credentials only
 
-The staff flow runs end-to-end with **no database and no API credentials**.
-Customer lookups fall back to `src/data/customers.js`, a fixed list of five
-customers (`LEAD-1001` … `LEAD-1005`, each also findable by phone number).
+There are no demo accounts and no dummy customers. Staff sign in with **email
+or Sales ID, and no password**, checked against Sperto, the client's CRM; one
+they don't have is a rejection. The **Lead ID** typed on the next screen is
+checked the same way, against the same CRM. See [docs/sperto.md](docs/sperto.md).
 
-To wire up the client's real customer API, change **one file**: point
-`findDummyCustomer` in `src/data/customers.js` at the API, or delete the
-fallback in `src/lib/leads.js`'s `findLead` and let its existing `/api/leads`
-call be the only path. Nothing else in the flow reads that file.
-
-Test accounts: `admin@hiranandani.com` / `admin123`,
-`manager@hiranandani.com` / `manager123`, and the staff accounts
-`staff@hiranandani.com`, `aditya@hiranandani.com`,
-`sneha@hiranandani.com` (all `staff123`).
-
-Staff sign in with **email or Sales ID, and no password**: it is checked
-against Sperto, the client's CRM, and one they don't have is a rejection. The
-**Lead ID** typed on the next screen is checked the same way, against the same
-CRM — Sperto owns the customer list as well as the staff list, so a Lead ID it
-doesn't have does not start a presentation. See
-[docs/sperto.md](docs/sperto.md).
-
-Without `SPERTO_BASE_URL` and `SPERTO_API_KEY` set, both checks fall back to
-the accounts and customers listed here, so the flow still runs locally with no
-credentials at all. ⚠ Turning Sperto on therefore turns the dummy customers
-off: `LEAD-1001`…`LEAD-1005` are ours, not theirs, so the CRM will refuse
-them.
+Without `SPERTO_BASE_URL` and `SPERTO_API_KEY` set, staff sign-in is refused
+with a 503 ("Sperto is not configured"). Set both in `.env.local` before
+running the app locally.
 
 Admin and manager sign-in is currently refused outright — reporting is out of
 scope for this release. `REPORTING_ENABLED` is the only switch; flip it in
@@ -147,8 +129,8 @@ so the route that issues sessions must not take the browser's word for it.
 |---|---|
 | `SESSION_SECRET` | Required. Signs the session cookie the API verifies. |
 | `API_PORT` | Optional (default 3001). Where the API listens; Vite's dev proxy reads it too. |
-| `SPERTO_BASE_URL` | The CRM that verifies staff emails at login, and that logs device usage. Unset locally. |
-| `SPERTO_API_KEY` | Server-side only — never reaches the browser. Unset locally. |
+| `SPERTO_BASE_URL` | Required. The CRM that verifies staff at login and Lead IDs, and that logs device usage. |
+| `SPERTO_API_KEY` | Required. Server-side only — never reaches the browser. |
 | `SPERTO_DEVICE_USAGE_API_KEY` | Separate key for the device-usage log (`docs/sperto.md`'s second integration). Server-side only. |
 | `VITE_SENTRY_DSN` | Optional. Client-side error reporting. **Must** be `VITE_`-prefixed to reach the browser bundle. |
 
@@ -217,10 +199,12 @@ not survive the move into the tab.
 
 ### A whole floor at once
 
-`node scripts/load-test.mjs [baseUrl] [concurrency]` runs the real flow —
+`LOAD_TEST_ACCOUNTS=<ids> node scripts/load-test.mjs [baseUrl] [concurrency]`
+runs the real flow —
 sign in, session check, device-usage IN, five control polls, device-usage OUT,
-sign out — for that many staff at the same time, rotating the demo accounts
-the way a showroom shares logins.
+sign out — for that many staff at the same time, rotating the accounts given
+the way a showroom shares logins. With real Sperto keys that sends real
+IN/OUT visits to the client's CRM, so don't point it at production casually.
 
 Measured against `npm start` on one laptop, 50 concurrent sessions (500
 requests) finish in 345 ms, p95 305 ms per session, nothing failing. The app

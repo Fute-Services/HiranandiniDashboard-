@@ -16,7 +16,6 @@
  * anyone has. `createdAt` is epoch ms and drives the 30-day retention window
  * (see `isStaleLead`).
  */
-import { DUMMY_CUSTOMERS, findDummyCustomer } from "@/data/customers";
 import { actorFields, track } from "./activity";
 import { scrubLead } from "./activity-store";
 import { fetchWithTimeout, readJsonSafe } from "./http";
@@ -44,11 +43,8 @@ export function isStaleLead(lead, now) {
  * member "check the ID" when the CRM has actually refused it sends them off
  * to re-type something that was never going to work.
  *
- * Falls back to the dummy directory (src/data/customers.js) when the API
- * can't answer at all — no database configured, request failed — but never
- * over a rejection. That fallback is what makes the staff flow demonstrable
- * before the client's customer API exists; delete it, and this function's
- * network path, once that API is wired up.
+ * There is no local customer list to fall back to: a lead the API cannot
+ * find is not found.
  */
 export async function findLead(query) {
   try {
@@ -56,17 +52,14 @@ export async function findLead(query) {
     if (res.ok) {
       const data = await readJsonSafe(res);
       if (data?.exact) return { ok: true, lead: data.exact };
-      // Sperto answered, and the answer was no. Final — no dummy fallback,
-      // or a Lead ID the CRM has refused would still open a presentation.
+      // Sperto answered, and the answer was no. Final.
       if (data?.rejected) {
         return { ok: false, error: data.error ?? "That Lead ID isn't registered in Sperto." };
       }
     }
   } catch {
-    // fall through to the dummy directory
+    // fall through to "not found"
   }
-  const dummy = findDummyCustomer(query);
-  if (dummy) return { ok: true, lead: dummy };
   return {
     ok: false,
     error: `No customer found for "${query.trim()}". Check the Lead ID or phone number.`,
@@ -192,19 +185,18 @@ export async function deleteLead(leadId) {
   }
 }
 
-/** Full lead directory for the admin/manager Leads tab. Falls back to the
- * dummy directory for the same reason `findLead` does — so the tab shows the
- * customers the staff flow can actually be demonstrated with, rather than an
- * empty table, until the real API is wired up. */
+/** The leads this API instance has touched, for the admin/manager Leads
+ * tab. Empty when it has touched none — the real customer list is Sperto's
+ * and cannot be enumerated from here. */
 export async function listLeads() {
   try {
     const res = await fetchWithTimeout("/api/leads?all=1");
     if (res.ok) {
       const data = await readJsonSafe(res);
-      if (Array.isArray(data?.leads) && data.leads.length > 0) return data.leads;
+      if (Array.isArray(data?.leads)) return data.leads;
     }
   } catch {
-    // fall through to the dummy directory
+    // an empty tab rather than a broken one
   }
-  return DUMMY_CUSTOMERS;
+  return [];
 }

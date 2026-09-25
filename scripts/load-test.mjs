@@ -8,23 +8,29 @@
  * KickWatcher does, report the session ended with its per-project times, and
  * sign out.
  *
- * Accounts are rotated across the demo roster rather than invented per
- * session, because that is the real shape: a showroom shares a handful of
- * logins across every device on the floor. It is also the case that used to
- * break — the per-email login limit was low enough that the sixth device in a
- * minute was told to try again later.
+ * Accounts are rotated across a handful of real staff logins rather than
+ * invented per session, because that is the real shape: a showroom shares a
+ * few logins across every device on the floor. There are no demo accounts
+ * any more — staff sign-in is Sperto's alone — so pass real Sales IDs or
+ * emails in LOAD_TEST_ACCOUNTS.
  *
- * Usage: node scripts/load-test.mjs [baseUrl] [concurrency]
- *   node scripts/load-test.mjs http://localhost:3001 50
+ * ⚠ Against a server with real Sperto keys this sends real IN/OUT visits to
+ * the client's CRM, one pair per simulated session. Don't run it there
+ * without the client knowing.
+ *
+ * Usage: LOAD_TEST_ACCOUNTS=PDPL0349,PDPL0350 node scripts/load-test.mjs [baseUrl] [concurrency]
  */
 const BASE_URL = process.argv[2] ?? "http://localhost:3001";
 const CONCURRENCY = Number(process.argv[3] ?? 25);
 
-const DEMO_EMAILS = [
-  "staff@hiranandani.com",
-  "aditya@hiranandani.com",
-  "sneha@hiranandani.com",
-];
+const ACCOUNTS = (process.env.LOAD_TEST_ACCOUNTS ?? "")
+  .split(",")
+  .map((a) => a.trim())
+  .filter(Boolean);
+if (ACCOUNTS.length === 0) {
+  console.error("Set LOAD_TEST_ACCOUNTS to one or more real Sales IDs or staff emails, comma-separated.");
+  process.exit(1);
+}
 
 /** Everything the browser would send back, as one Cookie header. */
 function cookieHeaderFrom(res) {
@@ -44,7 +50,7 @@ async function step(name, run) {
 }
 
 async function simulateSession(i) {
-  const email = DEMO_EMAILS[i % DEMO_EMAILS.length];
+  const email = ACCOUNTS[i % ACCOUNTS.length];
   const leadId = `LOAD-${1000 + i}`;
   const t0 = Date.now();
   const json = { "Content-Type": "application/json", Origin: BASE_URL };

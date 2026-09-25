@@ -96,9 +96,8 @@ leadsRouter.get(
   withJsonErrors(async (req, res) => {
     if (req.query.all === "1") {
       // Only what this instance has touched. An empty answer is the ordinary
-      // case, and the caller (src/lib/leads.js's listLeads) falls back to the
-      // dummy directory on one — the real customer list is Sperto's, not
-      // something this route can enumerate.
+      // case — the real customer list is Sperto's, not something this route
+      // can enumerate.
       return res.json({ leads: listStoredLeads() });
     }
 
