@@ -59,8 +59,7 @@ The rewrite `/((?!api/).*) -> /index.html` is what makes a hard load of
 (`/assets/*`, `/brand/*`) still serve, and only client-side routes fall
 through to the app.
 
-Set `SESSION_SECRET`, `SPERTO_BASE_URL`, `SPERTO_API_KEY` and
-`SPERTO_DEVICE_USAGE_API_KEY` in the project's environment variables before the
+Set `SESSION_SECRET`, `SPERTO_BASE_URL` and `SPERTO_DEVICE_USAGE_API_KEY` in the project's environment variables before the
 first deploy — the build succeeds without them and every sign-in then fails.
 
 Two things behave differently on serverless than on a long-lived process, both
@@ -108,14 +107,11 @@ screen.
 
 ## Real credentials only
 
-There are no demo accounts and no dummy customers. Staff sign in with **email
-or Sales ID, and no password**, checked against Sperto, the client's CRM; one
-they don't have is a rejection. The **Lead ID** typed on the next screen is
-checked the same way, against the same CRM. See [docs/sperto.md](docs/sperto.md).
-
-Without `SPERTO_BASE_URL` and `SPERTO_API_KEY` set, staff sign-in is refused
-with a 503 ("Sperto is not configured"). Set both in `.env.local` before
-running the app locally.
+There are no demo accounts and no dummy customers. Staff sign in with their
+**Sperto Sales ID, and no password**; the Lead ID is typed on the next
+screen. Neither is looked up anywhere — the only Sperto API this app calls is
+`api_record_device_usage.php` (IN at sign-in, OUT at sign-out), which the
+Sales ID and Lead ID are sent to. See [docs/sperto.md](docs/sperto.md).
 
 Admin and manager sign-in is currently refused outright — reporting is out of
 scope for this release. `REPORTING_ENABLED` is the only switch; flip it in
@@ -129,16 +125,15 @@ so the route that issues sessions must not take the browser's word for it.
 |---|---|
 | `SESSION_SECRET` | Required. Signs the session cookie the API verifies. |
 | `API_PORT` | Optional (default 3001). Where the API listens; Vite's dev proxy reads it too. |
-| `SPERTO_BASE_URL` | Required. The CRM that verifies staff at login and Lead IDs, and that logs device usage. |
-| `SPERTO_API_KEY` | Required. Server-side only — never reaches the browser. |
-| `SPERTO_DEVICE_USAGE_API_KEY` | Separate key for the device-usage log (`docs/sperto.md`'s second integration). Server-side only. |
+| `SPERTO_BASE_URL` | Required. The CRM that IN/OUT device usage is recorded in. |
+| `SPERTO_DEVICE_USAGE_API_KEY` | Required. Key for `api_record_device_usage.php`. Server-side only — never reaches the browser. |
 | `VITE_SENTRY_DSN` | Optional. Client-side error reporting. **Must** be `VITE_`-prefixed to reach the browser bundle. |
 
 Optional: `SPERTO_TIMEOUT_MS` (default 8000).
 
 Only `VITE_`-prefixed variables reach the browser. Everything else in
 `.env.local` stays on the server, which is the right default for all of the
-above — `SPERTO_API_KEY` in particular is the one that must never ship.
+above — `SPERTO_DEVICE_USAGE_API_KEY` in particular is the one that must never ship.
 
 There is no database variable, and that is deliberate — see "No database".
 

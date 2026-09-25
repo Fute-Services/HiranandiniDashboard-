@@ -200,7 +200,7 @@ export function SessionStart() {
                     setQuery(e.target.value);
                     if (error) setError("");
                   }}
-                  placeholder="Lead ID or phone number"
+                  placeholder="Lead ID"
                   autoComplete="off"
                   required
                   className={styles.input}

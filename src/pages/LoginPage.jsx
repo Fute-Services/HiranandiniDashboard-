@@ -46,11 +46,10 @@ const EyeOff = (
  * One screen, two doors.
  *
  * "staff" is the one that matters and the one that's shown first: a sales
- * staff member types their email and nothing else. The server checks it
- * against Sperto, the client's CRM (see server/routes/login.js) — an email
- * Sperto doesn't have is a rejection, which is what makes a password
- * unnecessary on a screen a customer is standing in front of. The lead is
- * asked for on the next screen, `/session/start`.
+ * staff member types their Sperto Sales ID and nothing else. It is not
+ * looked up anywhere; it goes to Sperto as sales_manager_login on the IN/OUT
+ * device-usage calls (see server/routes/login.js). The lead is asked for on
+ * the next screen, `/session/start`.
  *
  * "admin" is the email + password form, kept behind a link because admins and
  * sales managers get the reporting dashboards and those are worth a real
@@ -141,7 +140,7 @@ export default function LoginPage() {
 
   function onSubmit(e) {
     e.preventDefault();
-    // Staff send the email alone — Sperto is what verifies it, server-side.
+    // Staff send their Sales ID alone, no password.
     void attemptSignIn(mode === "admin" ? { email, password } : { email }, "signin");
   }
 
@@ -228,13 +227,8 @@ export default function LoginPage() {
               {isStaff ? (
                 <label className={styles.field}>
                   <span className={`${styles.mono} ${styles.label}`}>
-                    EMAIL&nbsp;OR&nbsp;SALES&nbsp;ID
+                    SALES&nbsp;ID
                   </span>
-                  {/* type="text", not "email" — a Sales ID like "PDPL0349" has no
-                      "@", and the browser's own email validation would block
-                      submitting it before this ever reaches /api/login, which
-                      is what actually tells the two apart (see that route's
-                      resolveEmailFromSalesId). */}
                   <input
                     type="text"
                     value={email}
@@ -242,7 +236,7 @@ export default function LoginPage() {
                       setEmail(e.target.value);
                       if (error) setError("");
                     }}
-                    placeholder="you@hiranandani.com or PDPL0349"
+                    placeholder="PDPL0349"
                     autoComplete="username"
                     required
                     className={styles.input}

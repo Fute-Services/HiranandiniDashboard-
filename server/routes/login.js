@@ -15,7 +15,6 @@ import { cookieOptions, withJsonErrors } from "../lib/api.js";
 import { signSessionToken } from "../lib/session-token.js";
 import { findStaticUserWithHash, findUser, findUserBySpertoLogin } from "../lib/users.js";
 import { verifyPassword } from "../lib/password.js";
-import { describeFields, isSpertoConfigured, spertoEmailExists, spertoSalesIdExists } from "../lib/sperto.js";
 
 /**
  * Server-side login. Password hashes never reach the client bundle, and this
@@ -23,17 +22,12 @@ import { describeFields, isSpertoConfigured, spertoEmailExists, spertoSalesIdExi
  *
  * Two doors:
  *
- * - **Staff** — `{ email }`, no password, where `email` may also be a Sperto
- *   Sales ID (e.g. "PDPL0349", the same code used as sales_manager_login on
- *   the device-usage calls — server/lib/sperto-device-usage.js) rather than
- *   an actual email address; resolveEmailFromSalesId below turns that into
- *   the account's real email before anything else runs, so every check after
- *   it is identical either way. A sales staff member signs in in front of a
- *   customer on a shared showroom screen, where a password prompt is
- *   theatre. What replaces it is Sperto: the email is looked up in the
- *   client's CRM (server/lib/sperto.js), and an email they don't have is a
- *   rejection. Sperto owns the staff list, so nobody has to pre-create
- *   accounts here.
+ * - **Staff** — `{ email }`, no password, where `email` is the staff
+ *   member's Sperto Sales ID (e.g. "PDPL0349"). Per the client, the only
+ *   Sperto API this app calls is api_record_device_usage.php, so the Sales ID
+ *   is not looked up anywhere: it is signed into the session and goes out as
+ *   sales_manager_login on the IN/OUT calls (server/lib/sperto-device-usage.js).
+ *   An email is refused, because it gives IN/OUT nothing to send.
  *
  * - **Password** — `{ email, password }`. Admins and sales managers get the
  *   reporting dashboards, which are worth a real credential, and their door is
@@ -58,23 +52,16 @@ function findStoredUserByEmail(email) {
   };
 }
 
-/** Turns an email Sperto has vouched for into the account this app runs on.
- *
- * If we already know the address, that record wins — it carries the role and
- * the `managerEmail` the reporting dashboards scope teams by, which Sperto's
- * four-field world has no room for. An address we've never seen is still a
- * valid sign-in (that is the point of letting Sperto own the list); it just
- * lands as plain sales_staff with no team.
- *
- * The same goes for a Sales ID we have no account for: `email` is then the
- * Sales ID itself, and the session runs under it. Nothing is stored. */
-async function accountFor(email, spertoName, isSalesId = false) {
+/** The account a staff sign-in runs as: one we already know (it carries a
+ * role and team), otherwise plain sales_staff under the Sales ID itself.
+ * Nothing is stored. */
+async function accountFor(email) {
   const known = findStaticUserWithHash(email) ?? findStoredUserByEmail(email);
   if (known) return known;
   return {
     email,
     passwordHash: "",
-    name: spertoName ?? (isSalesId ? email : email.split("@")[0]),
+    name: email,
     role: "sales_staff",
   };
 }
@@ -109,12 +96,8 @@ loginRouter.post(
 
     const mode = password ? "password" : "staff";
 
-    // Staff sign-in is Sperto's alone. There is no demo list to fall back to
-    // any more, so without the CRM configured nobody gets in — said plainly,
-    // rather than as "not registered", which would blame the staff member.
-    if (mode === "staff" && !isSpertoConfigured()) {
-      console.error("[login] SPERTO_BASE_URL / SPERTO_API_KEY are not set; staff sign-in is off.");
-      return res.status(503).json({ error: "Sign-in isn't available: Sperto is not configured on this server." });
+    if (mode === "staff" && rawIdentifier.includes("@")) {
+      return res.status(400).json({ error: "Enter your Sales ID (e.g. PDPL0349), not an email." });
     }
 
     // Only the passwordless staff door accepts a Sales ID — admin/manager
@@ -123,10 +106,8 @@ loginRouter.post(
     const isSalesIdLogin = mode === "staff" && !rawIdentifier.includes("@");
     let email;
     if (isSalesIdLogin) {
-      // Sperto alone decides whether a Sales ID may sign in (the check
-      // below). Our store is only asked which account to attribute the
-      // session to — a Sales ID it doesn't know still goes to Sperto, and on
-      // success signs in under the Sales ID itself.
+      // Our store is only asked which account to attribute the session to;
+      // a Sales ID it doesn't know signs in under the Sales ID itself.
       email = resolveEmailFromSalesId(rawIdentifier) ?? rawIdentifier.toUpperCase();
     } else {
       email = rawIdentifier.toLowerCase();
@@ -168,43 +149,9 @@ loginRouter.post(
       }
       user = found;
     } else {
-      // A Sales ID is checked against Sperto as the Sales ID itself, not the
-      // email it resolved to — resolveEmailFromSalesId above only found which
-      // local record to attribute the session to, it didn't confirm the ID is
-      // real. That confirmation is this call.
-      const check = isSalesIdLogin
-        ? await spertoSalesIdExists(rawIdentifier)
-        : await spertoEmailExists(email);
-      if (!check.ok) {
-        // An outage is not a wrong email/Sales ID. Answering 401 here would send
-        // a staff member off to double-check something that was fine all along,
-        // so the two get different statuses and different words.
-        if (check.reason === "unavailable") {
-          console.error("[login] Sperto check failed:", check.message);
-          return res.status(503).json({
-            error: `Couldn't reach Sperto to verify your ${
-              isSalesIdLogin ? "Sales ID" : "email"
-            }. Try again in a moment.`,
-          });
-        }
-        return res.status(401).json({
-          error: isSalesIdLogin
-            ? "That Sales ID isn't registered in Sperto."
-            : "That email isn't registered in Sperto.",
-        });
-      }
-      user = await accountFor(email, check.name, isSalesIdLogin);
-      // The Sales ID IN/OUT send as sales_manager_login: the one typed, or on
-      // an email sign-in whatever Sperto's success body carried. Signed into
-      // the token so the device-usage route never has to fall back to our
-      // roster, which knows the ID for only a handful of accounts.
-      spertoLogin = isSalesIdLogin ? rawIdentifier.toUpperCase() : check.salesId;
-      if (!spertoLogin && !user.spertoLogin) {
-        console.warn(
-          `[login] Sperto confirmed ${email} but sent no Sales ID we recognise, so IN/OUT ` +
-            `cannot be sent for this session. Fields in its answer: ${describeFields(check.body)}`,
-        );
-      }
+      user = await accountFor(email);
+      // Sent as sales_manager_login on IN/OUT.
+      spertoLogin = rawIdentifier.toUpperCase();
     }
 
     // Reporting is out of scope for this release (see lib/auth.js's

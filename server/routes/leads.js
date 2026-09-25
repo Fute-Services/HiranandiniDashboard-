@@ -10,7 +10,6 @@ import { withJsonErrors } from "../lib/api.js";
 import { isSameOrigin } from "../lib/csrf.js";
 import { checkRateLimit, clientKey } from "../lib/rate-limit.js";
 import { getViewer } from "../lib/viewer.js";
-import { isSpertoConfigured, spertoLeadExists } from "../lib/sperto.js";
 
 /**
  * Customer/lead lookup.
@@ -37,48 +36,14 @@ async function isAdmin(req) {
   return viewer?.role === "admin";
 }
 
-/** Last 10 digits, ignoring +91/country-code/dash/space formatting
- * differences — enough to tell "same phone, different formatting" apart
- * from "different phone" without a full phone-parsing library. */
-function normalizedPhoneDigits(phone) {
-  return phone.replace(/\D/g, "").slice(-10);
-}
-
-/** True if `a` and `b` are the same name up to case/whitespace/typo-scale
- * differences. The overlay is small (one showroom's sitting, not a national
- * CRM), so comparing against every entry per search is cheap. */
-function namesLookAlike(a, b) {
-  const na = a.trim().toLowerCase();
-  const nb = b.trim().toLowerCase();
-  if (!na || !nb) return false;
-  if (na === nb || na.includes(nb) || nb.includes(na)) return true;
-  return levenshtein(na, nb) <= 2;
-}
-
-function levenshtein(a, b) {
-  const dp = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    let prev = dp[0];
-    dp[0] = i;
-    for (let j = 1; j <= b.length; j++) {
-      const tmp = dp[j];
-      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
-      prev = tmp;
-    }
-  }
-  return dp[b.length];
-}
-
-/** A lead Sperto vouched for that our overlay has never seen. Still a valid
- * customer — that is the point of letting the CRM own the list — it just
- * arrives with only the two things they told us: the ID that was typed, and
- * whatever name came back. The rest of the fields exist so the presentation,
- * which always expects a whole lead, has something to attach itself to. */
-function leadFromSperto(leadId, name) {
+/** A lead our overlay has never seen: just the ID that was typed. The rest
+ * of the fields exist so the presentation, which always expects a whole lead,
+ * has something to attach itself to. */
+function leadFromId(leadId) {
   return {
     leadId,
     phone: "",
-    name: name ?? leadId,
+    name: leadId,
     budget: "",
     preferredProject: "",
     leadStatus: "New",
@@ -104,58 +69,11 @@ leadsRouter.get(
     const query = String(req.query.query ?? "").trim();
     if (!query) return res.json({ exact: null, similar: [] });
 
-    /**
-     * Sperto is asked first, and its "no" is final.
-     *
-     * The staff member's own sign-in already goes through that door; this is
-     * the same door one screen later, for the customer. Sperto owns the
-     * customer list exactly as it owns the staff list, so a Lead ID it does
-     * not have is not a lead — checking only our own overlay would accept an
-     * ID that is as trustworthy as whoever last typed it in.
-     *
-     * An outage is not a rejection. `unavailable` falls through to the local
-     * lookup below rather than blocking: a CRM that is down must not be able
-     * to stop a presentation that has a customer already sitting in front of
-     * it, which is the same call `/api/login` makes for admins.
-     */
-    if (isSpertoConfigured()) {
-      const check = await spertoLeadExists(query);
-
-      if (!check.ok && check.reason === "not_found") {
-        return res.json({
-          exact: null,
-          similar: [],
-          rejected: true,
-          error: "That Lead ID isn't registered in Sperto.",
-        });
-      }
-
-      if (check.ok) {
-        // Our own entry wins when we have one: it carries the claim and the
-        // status this app set, which Sperto's four-field answer has no room
-        // for. Their name fills the gap when we don't.
-        const local = findStoredLead(query);
-        return res.json({
-          exact: local ?? leadFromSperto(query, check.name),
-          similar: [],
-          source: "sperto",
-        });
-      }
-
-      console.error("[leads] Sperto lead check failed:", check.message);
-      // Falls through — unavailable, so answer from whatever we have.
-    }
-
-    const exact = findStoredLead(query);
-    if (exact) return res.json({ exact, similar: [] });
-
-    const queryDigits = normalizedPhoneDigits(query);
-    const similar = listStoredLeads().filter((l) => {
-      const phoneMatch = queryDigits.length >= 6 && normalizedPhoneDigits(l.phone) === queryDigits;
-      return phoneMatch || namesLookAlike(query, l.name);
-    });
-
-    return res.json({ exact: null, similar });
+    // Not looked up in Sperto: the only Sperto API this app calls is
+    // api_record_device_usage.php. The Lead ID typed is taken as given and
+    // goes out as lead_id on OUT. Our own entry wins when we have one — it
+    // carries the claim and status this app set.
+    return res.json({ exact: findStoredLead(query) ?? leadFromId(query), similar: [] });
   }),
 );
 

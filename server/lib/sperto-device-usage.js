@@ -3,12 +3,11 @@ import { blamesApiKey, readSpertoBody } from "./sperto-response.js";
 
 /**
  * Records a presentation session's start/end against Sperto's
- * api_record_device_usage.php — a separate api_key from the one
- * server/lib/sperto.js uses for login. Called from
+ * api_record_device_usage.php — the only Sperto API this app calls. Called from
  * server/routes/device-usage.js, which is the only thing that imports this
- * module (same reasoning as sperto.js for why it lives under `server/`: their
+ * module. It lives under `server/` so the api_key never reaches the browser: their
  * CORS is wide open, so an api_key that reached the browser would be usable
- * by anyone with devtools open on a showroom tablet).
+ * by anyone with devtools open on a showroom tablet.
  *
  * Best-effort only, like the activity log (src/lib/activity.js): a session
  * starting or ending must never depend on Sperto being reachable.
@@ -51,8 +50,7 @@ export function isDeviceUsageConfigured() {
 
 /**
  * Never throws: a failure here (network, bad credentials, Sperto down) must
- * never surface to the staff flow. No-ops silently when unconfigured, same as
- * isSpertoConfigured() gating login.
+ * never surface to the staff flow. No-ops silently when unconfigured.
  *
  * `params` is `{ deviceType, leadId, salesManagerLogin, type, pageUrl }`,
  * where `type` is "IN" or "OUT".
@@ -91,7 +89,7 @@ export async function recordDeviceUsage(params) {
       `${cfg.baseUrl}/api_record_device_usage.php`,
       {
         method: "POST",
-        // Mandatory, per sperto.js's note on this API family: a form-encoded
+        // Mandatory: a form-encoded
         // body is silently ignored by their server.
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
