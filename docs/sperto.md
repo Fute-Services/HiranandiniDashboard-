@@ -64,7 +64,7 @@ POST {SPERTO_BASE_URL}/api_record_device_usage.php
 |---|---|
 | The only code that talks to this endpoint | `server/lib/sperto-device-usage.js` |
 | Server-side route the client actually calls | `server/routes/device-usage.js` |
-| Where it fires | `src/lib/session.js` — `recordLoginIn` ("IN", called from the login page on success), `finalizeSession` ("OUT", on every sign-out) |
+| Where it fires | `src/lib/session.js` — `startPresentation` ("IN", once the Lead ID is entered and the device picked, from `SessionStart`'s `confirmDevice`), `finalizeSession` ("OUT", on sign-out after a presentation) |
 | Per-project minutes + URLs | `src/lib/project-time.js` (tests: `project-time.test.js`) |
 
 The api_key lives only in `server/lib/sperto-device-usage.js`, so the browser
@@ -78,23 +78,39 @@ Fields, and where each comes from:
 |---|---|---|
 | `api_key` | `SPERTO_DEVICE_USAGE_API_KEY` env var | set |
 | `device_id` | `DEVICE_IDS` map in `sperto-device-usage.js`, keyed by device type (Tab/TV/Kiosk/Laptop) | **placeholder** — sequential guess 1/2/3/4, not confirmed by the client |
-| `lead_id` | on "OUT", the Lead ID the staff member typed (Sperto-verified); **empty on "IN"**, which goes at sign-in before any customer is looked up, and on an "OUT" from a sign-in that never started a presentation | client asked for IN at login, OUT at logout (2026-09-24) |
+| `lead_id` | the Lead ID the staff member typed, on both "IN" and "OUT" | client's flow (2026-09-28): Sales ID → Lead ID → device → IN |
 | `sales_manager_login` | the Sales ID typed at sign-in, signed into the session token | set |
 | `type` | `"IN"` / `"OUT"` | confirmed (client's call) |
-| `page_url` | **per-project minutes on OUT** (`src/lib/project-time.js`) — see below | **shape changed; confirm with the client** |
+| `page_url` | on "IN", Sperto's own site (`SPERTO_BASE_URL` without `/_api`, as in their example); **per-project minutes on OUT** (`src/lib/project-time.js`) — see below | **shape changed; confirm with the client** |
 
 If a session somehow has no Sales ID, the route does not send a made-up
-value: it answers `{ok:true, recorded:false, skipped:...}` and logs it.
+value: an "IN" is refused with an error, an "OUT" answers
+`{ok:true, recorded:false, skipped:...}`, and both are logged.
 
-### The answer is no longer thrown away
+### "IN" is a gate
+
+"IN" is how the Sales ID and Lead ID get checked — Sperto has no separate
+lookup. So `/api/session/device-usage` answers an "IN" honestly and the
+presentation starts only on success:
+
+```jsonc
+{ "ok": true, "recorded": true }   // 200 — Sperto said success, presentation opens
+{ "error": "<Sperto's message>" }   // 422 — Sperto rejected the Sales ID / Lead ID
+{ "error": "<what went wrong>" }    // 502 — Sperto unreachable / unreadable
+{ "error": "…" }                    // 400 — no Lead ID / device / Sales ID
+```
+
+The device step shows the error and lets the staff member retry.
+
+### "OUT": the answer is no longer thrown away
 
 This client used to `await` the call and discard the response entirely. Given
 quirk 2 above — a rejection arrives as HTTP 200 — that meant **a visit Sperto
 refused to store was indistinguishable from one it stored**, and the only
 symptom was numbers quietly missing from the CRM.
 
-It now reads the body through the same `readSpertoBody` the login check uses,
-and `/api/session/device-usage` answers:
+It now reads the body through `readSpertoBody`, and for an "OUT"
+`/api/session/device-usage` answers:
 
 ```jsonc
 { "ok": true, "recorded": true }                          // stored
@@ -102,9 +118,9 @@ and `/api/session/device-usage` answers:
 { "ok": true, "recorded": false, "reason": "unavailable" } // unreachable, or nothing usable came back
 ```
 
-`ok` stays `true` and the status stays 200 in every case **on purpose**: this
-is a best-effort side log, and a presentation must be free to start and to end
-whether or not the CRM accepted the write. The caller has usually navigated
+`ok` stays `true` and the status stays 200 in every case **on purpose**: the
+presentation is over, and it must be free to end whether or not the CRM
+accepted the write. The caller has usually navigated
 away by the time an "OUT" answers. What changed is that a failure is now
 logged server-side with Sperto's own words:
 
@@ -118,13 +134,14 @@ of something you find out from the client months later.
 ### `page_url`: the visit array
 
 On "OUT", `page_url` carries **the presentation's per-project minutes, one
-object per project**, in the order the projects were first opened. On "IN" —
-and on an "OUT" where no project was ever opened — there is no time to report,
-so the field keeps its original meaning: the page in front of the customer.
+object per project**, in the order the projects were first opened. On an
+"OUT" where no project was ever opened there is no time to report, so the
+field keeps its original meaning: the page in front of the customer. On "IN"
+it is Sperto's own site, as in their example.
 
 ```jsonc
-// "IN" — nothing opened yet.
-"page_url": "https://…/dashboard"
+// "IN"
+"page_url": "https://net4hgc.sperto.co.in"
 
 // "OUT" — one object per project the customer actually opened.
 "page_url": [ { "Elena": 3 }, { "Alibaug": 4.5 } ]
@@ -167,7 +184,7 @@ test in `project-time.test.js`:
 | A refresh doesn't invent time | state lives in `sessionStorage`; the showcase closes the dangling clock on mount, keeping the time up to the reload |
 | The project on screen at logout is counted | `getProjectVisits()` banks the running clock before reading |
 | Exactly one "OUT" per presentation | a `sessionStorage` claim flag in `session.js` |
-| One customer's time never lands on the next | `recordLoginIn` and `setActiveSession` clear the totals; `recordLoginIn` re-arms the OUT flag |
+| One customer's time never lands on the next | `setActiveSession` clears the totals; a successful `startPresentation` re-arms the OUT flag |
 
 Times are held in milliseconds and converted to minutes, two decimals (90s is
 `1.5`, 45s is `0.75`), once, at send time — whole minutes would drop every
@@ -175,8 +192,8 @@ look under 30s, and rounding each visit separately would lose a little per open.
 
 "OUT" fires on **every** way a session ends — the showcase's Log out, the Log
 out inside a project's full-screen viewer, an idle timeout, and an admin
-force-logout — because `signOut()` calls `finalizeSession()`. It goes even
-when no presentation was started, since every sign-in already sent its "IN".
+force-logout — because `signOut()` calls `finalizeSession()`. It does not go
+when no presentation was started, since no "IN" went either.
 
 **Before this goes live for real staff, get from the client:**
 1. The real `device_id` per device type — update `DEVICE_IDS`.

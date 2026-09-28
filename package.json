@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "docs:flow": "node scripts/docs/flow-pdf.cjs",
     "docs:flow:short": "node scripts/docs/flow-pdf-short.cjs",
-    "docs:api": "node scripts/docs/api-calls-pdf.cjs"
+    "docs:api": "node scripts/docs/api-calls-pdf.cjs",
+    "docs:check": "node scripts/docs/sperto-check-pdf.cjs"
   },
   "dependencies": {
     "@sentry/react": "^10.19.0",
