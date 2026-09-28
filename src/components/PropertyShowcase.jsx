@@ -41,7 +41,6 @@ function formatElapsed(ms) {
 export function PropertyShowcase({ properties }) {
   const navigate = useNavigate();
   const [session, setSession] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   /** The project on screen and its running total, for the header's
    * per-project timer. Null whenever the shelf/VR tour is what's showing. */
@@ -55,11 +54,6 @@ export function PropertyShowcase({ properties }) {
   const [inventory, setInventory] = useState({});
   const prevInventoryRef = useRef(null);
   const [inventoryNotice, setInventoryNotice] = useState(null);
-  const [noteText, setNoteText] = useState("");
-  const [noteSaved, setNoteSaved] = useState(false);
-  /** The meeting-note field is off by default and opened from the header —
-   * see the notes bar below for why it isn't just always on screen. */
-  const [notesOpen, setNotesOpen] = useState(false);
   /** The project whose own site is open, full-screen, over the showcase.
    * Null means the shelf/VR tour is what's on screen. */
   const [viewerProperty, setViewerProperty] = useState(null);
@@ -109,7 +103,6 @@ export function PropertyShowcase({ properties }) {
       Date.now() - open.openedAt,
     );
   }, []);
-  const [busy, setBusy] = useState(false);
   /** The 360° panorama is a whole third-party site in an iframe and easily
    * the slowest thing on this screen — without a marker the customer just
    * stares at an empty black backdrop wondering if it's broken. */
@@ -147,7 +140,6 @@ export function PropertyShowcase({ properties }) {
       return;
     }
     setSession(active);
-    setIsAdmin(getSession()?.role === "admin");
     // A reload lands here with no viewer open, but the per-project time is
     // kept in sessionStorage and survives the reload — so a project that was on
     // screen when the tablet was refreshed still has its clock running, with
@@ -296,18 +288,6 @@ export function PropertyShowcase({ properties }) {
     void signOut();
   }, [closeViewer, setLeaving]);
 
-  /** Meeting notes, logged as their own "notes" activity event so the
-   * admin/manager timeline shows exactly what a sales staff member wrote
-   * down about the customer, alongside what was shown and when. */
-  const addNote = useCallback(() => {
-    const text = noteText.trim();
-    if (!text) return;
-    logSessionEvent(text, "notes");
-    setNoteText("");
-    setNoteSaved(true);
-    window.setTimeout(() => setNoteSaved(false), 1500);
-  }, [noteText]);
-
   /** Which portfolio a rail entry belongs to. Both the admin block list and
    * the unit-availability grid are keyed by portfolio — an admin blocks
    * "Fortune City", never "Elena" on its own (see SessionReports' ALL_PROJECTS
@@ -324,16 +304,6 @@ export function PropertyShowcase({ properties }) {
     (property) =>
       !blockedSlugs.includes(property.slug) && !blockedSlugs.includes(portfolioOf(property)),
   );
-
-  /** Explicit Busy/Available toggle, logged as its own "status" activity
-   * event — the only in-app signal a "Busy" state (vs. the inferred
-   * Online/In Meeting/Offline) can honestly come from, since nothing else
-   * in this app generates that distinction on its own. */
-  const toggleBusy = useCallback(() => {
-    const next = !busy;
-    setBusy(next);
-    logSessionEvent(next ? "Marked Busy" : "Marked Available", "status");
-  }, [busy]);
 
   return (
     <div className={styles.page}>
@@ -392,25 +362,6 @@ export function PropertyShowcase({ properties }) {
               {formatElapsed(openProject.ms)}
             </span>
           )}
-          {!isAdmin && session && (
-            <button
-              type="button"
-              className={styles.notesToggle}
-              onClick={() => setNotesOpen((v) => !v)}
-              aria-pressed={notesOpen}
-            >
-              Note
-            </button>
-          )}
-          {!isAdmin && session && (
-            <button
-              type="button"
-              className={`${styles.busyToggle} ${busy ? styles.busyToggleActive : ""}`}
-              onClick={toggleBusy}
-            >
-              {busy ? "Busy" : "Available"}
-            </button>
-          )}
           <button
             type="button"
             className={styles.signout}
@@ -430,34 +381,6 @@ export function PropertyShowcase({ properties }) {
         </div>
       </header>
 
-      {/* Opened from the header rather than parked permanently under it: this
-          screen is pointed at a customer, and a staff-only scratchpad sitting
-          open across the top the whole time is one more thing they can read
-          and one more thing on screen. */}
-      {!isAdmin && session && notesOpen && (
-        <div className={styles.notesBar}>
-          <input
-            type="text"
-            className={styles.notesInput}
-            placeholder="Add a meeting note…"
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addNote()}
-            autoFocus
-          />
-          <button type="button" className={styles.notesBtn} onClick={addNote}>
-            {noteSaved ? "Saved" : "Add Note"}
-          </button>
-          <button
-            type="button"
-            className={styles.notesClose}
-            onClick={() => setNotesOpen(false)}
-            aria-label="Close notes"
-          >
-            &times;
-          </button>
-        </div>
-      )}
 
       {/* The project rail, over the tour on the right — deliberately the
           same place, and close to the same look, as the rail Hiranandani's

@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { landingPathForRole, login, REPORTING_ENABLED } from "@/lib/auth";
+import {
+  clearSessionCookies,
+  DASHBOARD_PATH,
+  landingPathForRole,
+  login,
+  REPORTING_ENABLED,
+} from "@/lib/auth";
 import { actorFields, track } from "@/lib/activity";
+import { claimLead, findLead } from "@/lib/leads";
+import { DEVICE_TYPES, startPresentation } from "@/lib/session";
 import { railProjects } from "@/data/properties";
 import { useNavigationLock } from "@/lib/useNavigationLock";
 import { Spinner } from "@/components/Spinner";
@@ -44,11 +52,12 @@ const EyeOff = (
 /**
  * One screen, two doors.
  *
- * "staff" is the one that matters and the one that's shown first: a sales
- * staff member types their Sperto Sales ID and nothing else. It is not
- * looked up anywhere; it goes to Sperto as sales_manager_login on the IN/OUT
- * device-usage calls (see server/routes/login.js). The lead is asked for on
- * the next screen, `/session/start`.
+ * "staff" is the one that matters and the one that's shown first: Sales ID,
+ * Lead ID and device, all on this one card, and one button. It signs in,
+ * then sends Sperto's "IN" (src/lib/session.js's startPresentation), and the
+ * presentation opens only if Sperto answers success. If it doesn't, the
+ * sign-in is undone and Sperto's message is shown here, so the staff member
+ * can fix the ID and press the button again.
  *
  * "admin" is the email + password form, kept behind a link because admins and
  * sales managers get the reporting dashboards and those are worth a real
@@ -59,6 +68,8 @@ export default function LoginPage() {
   const [mode, setMode] = useState("staff");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [leadId, setLeadId] = useState("");
+  const [deviceType, setDeviceType] = useState(null);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [signedOutNotice, setSignedOutNotice] = useState(null);
@@ -125,6 +136,17 @@ export default function LoginPage() {
         setPending(null);
         return;
       }
+      if (mode === "staff") {
+        const started = await startWithSperto(result);
+        if (!started.ok) {
+          // Undo the sign-in: a staff session without a presentation has
+          // nowhere to go, and leaving it would bounce this page away.
+          await clearSessionCookies();
+          setError(started.error);
+          setPending(null);
+          return;
+        }
+      }
       // Deliberately stays pending on success: the redirect that follows
       // takes its own moment, and dropping the spinner first would leave the
       // button looking idle while the app is still navigating.
@@ -137,8 +159,22 @@ export default function LoginPage() {
     }
   }
 
+  /** Sperto's "IN" with the Lead ID and device from this card — the check
+   * that decides whether the presentation opens. */
+  async function startWithSperto(session) {
+    const found = await findLead(leadId);
+    if (!found.ok) return found;
+    const started = await startPresentation(found.lead, deviceType);
+    if (started.ok) void claimLead(found.lead.leadId, session.email, session.name);
+    return started;
+  }
+
   function onSubmit(e) {
     e.preventDefault();
+    if (mode === "staff" && !deviceType) {
+      setError("Pick the device you are presenting on.");
+      return;
+    }
     // Staff send their Sales ID alone, no password.
     void attemptSignIn(mode === "admin" ? { email, password } : { email }, "signin");
   }
@@ -153,9 +189,8 @@ export default function LoginPage() {
       durationMs: null,
       ...actorFields(session.email, session.name),
     });
-    // Sperto's "IN" goes once the Lead ID and device are chosen
-    // (SessionStart → startPresentation), not here.
-    // A hard navigation, for the same reason sign-out uses one (see
+    // Staff go straight into the presentation — Sperto's "IN" has already
+    // succeeded (startWithSperto). A hard navigation, for the same reason sign-out uses one (see
     // lib/sign-out.js): /api/login has just set the httpOnly auth cookie the
     // route guards ask the server about, and a client-side navigate races
     // that — the guard re-checks on the new route and can still be holding
@@ -165,7 +200,7 @@ export default function LoginPage() {
     // full load can't race itself, and it guarantees this page unmounts, so
     // `pending` has nothing left to strand. It also lets the app shell's
     // watchers re-read the session they mounted too early to see.
-    window.location.replace(landingPathForRole(session.role));
+    window.location.replace(mode === "staff" ? DASHBOARD_PATH : landingPathForRole(session.role));
   }
 
   const isStaff = mode === "staff";
@@ -240,6 +275,48 @@ export default function LoginPage() {
                     className={styles.input}
                   />
                 </label>
+              ) : null}
+              {isStaff ? (
+                <>
+                  <label className={styles.field}>
+                    <span className={`${styles.mono} ${styles.label}`}>
+                      LEAD&nbsp;ID
+                    </span>
+                    <input
+                      type="text"
+                      value={leadId}
+                      onChange={(e) => {
+                        setLeadId(e.target.value);
+                        if (error) setError("");
+                      }}
+                      placeholder="985038"
+                      autoComplete="off"
+                      required
+                      className={styles.input}
+                    />
+                  </label>
+                  <div className={styles.field} role="radiogroup" aria-label="Device">
+                    <span className={`${styles.mono} ${styles.label}`}>DEVICE</span>
+                    <div className={styles.devices}>
+                      {DEVICE_TYPES.map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          role="radio"
+                          aria-checked={deviceType === d}
+                          className={`${styles.device} ${deviceType === d ? styles.deviceOn : ""}`}
+                          onClick={() => {
+                            setDeviceType(d);
+                            if (error) setError("");
+                          }}
+                          disabled={pending !== null}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
               ) : (
                 <>
                   <label className={styles.field}>
@@ -306,11 +383,11 @@ export default function LoginPage() {
                 {pending === "signin" ? (
                   <>
                     <Spinner size={14} />
-                    SIGNING&nbsp;IN…
+                    {isStaff ? <>CHECKING&nbsp;WITH&nbsp;SPERTO…</> : <>SIGNING&nbsp;IN…</>}
                   </>
                 ) : (
                   <>
-                    {isStaff ? "CONTINUE" : "SIGN IN"}&nbsp;
+                    {isStaff ? "START PRESENTATION" : "SIGN IN"}&nbsp;
                     <span className={styles.arrow}>↗</span>
                   </>
                 )}

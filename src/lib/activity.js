@@ -89,7 +89,7 @@ export function actorFields(email, name) {
 }
 
 /** Logs "logout" for whoever is currently signed in. Called at every
- * sign-out point (PropertyShowcase, SessionStart, SessionReports,
+ * sign-out point (PropertyShowcase, SessionStartPage, SessionReports,
  * KickWatcher's force-logout) right before the auth cookies are cleared, so
  * it still has a session to attribute the event to. No-ops if nobody's
  * signed in. */

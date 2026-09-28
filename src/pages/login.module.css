@@ -451,3 +451,45 @@
     font-size: 34px;
   }
 }
+
+/* Device choice on the staff card — four equal chips, same surface and
+   brass focus as the inputs above them. */
+.devices {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.device {
+  font-family: var(--ui);
+  font-size: 14px;
+  color: var(--ink);
+  padding: 12px 6px;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: border-color var(--t) var(--ease), background var(--t) var(--ease);
+}
+
+.device:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+
+.deviceOn,
+.deviceOn:hover:not(:disabled) {
+  border-color: var(--brass);
+  background: var(--surface-4);
+  box-shadow: 0 0 0 3px var(--brass-ghost);
+}
+
+.device:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+@media (max-width: 420px) {
+  .devices {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

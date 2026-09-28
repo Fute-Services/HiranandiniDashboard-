@@ -123,8 +123,8 @@ function clearOutSent() {
 
 /**
  * Sperto's "IN": sent once the staff member has signed in with their Sales
- * ID, entered the Lead ID and picked the device (SessionStart's
- * confirmDevice). Sperto checks the Sales ID and Lead ID, and only its
+ * ID, entered the Lead ID and picked the device (LoginPage's
+ * startWithSperto). Sperto checks the Sales ID and Lead ID, and only its
  * success starts the presentation — so this is awaited, unlike OUT.
  *
  * Resolves to `{ ok: true }` or `{ ok: false, error }` with what Sperto (or

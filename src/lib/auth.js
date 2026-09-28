@@ -119,11 +119,17 @@ export async function login(credentials) {
  * user to the login page rather than leaving the guard hanging.
  */
 export async function fetchViewer() {
+  // Three answers, kept apart: the viewer; `false` when the API says nobody
+  // is signed in; `null` when the API couldn't be asked at all. The guards
+  // keep the viewer they already had on a `null`, so one dropped request
+  // doesn't bounce a running presentation to the login page.
   try {
     const res = await fetchWithTimeout("/api/session", { cache: "no-store" });
-    if (!res.ok) return null;
+    if (res.status >= 500) return null;
+    if (!res.ok) return false;
     const data = await readJsonSafe(res);
-    return data?.role ? { role: data.role, name: data.name, email: data.email } : null;
+    if (!data) return null;
+    return data.role ? { role: data.role, name: data.name, email: data.email } : false;
   } catch {
     return null;
   }

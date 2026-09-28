@@ -10,6 +10,7 @@ import {
   REPORTING_ENABLED,
   SESSION_START_PATH,
 } from "@/lib/auth";
+import { getActiveSession } from "@/lib/session";
 import { FullScreenLoader } from "@/components/Spinner";
 
 /**
@@ -45,14 +46,26 @@ import { FullScreenLoader } from "@/components/Spinner";
  * is about showing the right person the right screen.
  */
 
+/** The last answer, kept for the life of the page. Every route change mounts
+ * a guard afresh, and without this each one sat on "Checking your session…"
+ * until /api/session answered again — it now renders at once from what is
+ * already known and re-checks in the background. Sign-in and sign-out both
+ * leave by hard navigation, which resets it. */
+let lastViewer = null;
+
 /** null = still asking, false = nobody, object = the verified viewer. */
 function useViewer() {
-  const [viewer, setViewer] = useState(null);
+  const [viewer, setViewer] = useState(lastViewer);
 
   useEffect(() => {
     let cancelled = false;
     fetchViewer().then((v) => {
-      if (!cancelled) setViewer(v ?? false);
+      if (cancelled) return;
+      // `null` means the API couldn't be reached: keep what was known rather
+      // than treat a dropped request as a sign-out.
+      if (v === null && lastViewer !== null) return;
+      lastViewer = v ?? false;
+      setViewer(lastViewer);
     });
     return () => {
       cancelled = true;
@@ -107,7 +120,13 @@ export function RedirectIfAuthed({ children }) {
   const viewer = useViewer();
 
   if (viewer === null) return <FullScreenLoader message="Checking your session…" />;
-  if (viewer !== false) return <Navigate to={landingPathForRole(viewer.role)} replace />;
+  if (viewer === false) return children;
 
-  return children;
+  // Staff only have somewhere to go while a presentation is running — the
+  // login card is where one starts. Sending them on without one used to
+  // bounce between here and /session/start's sign-out.
+  if (viewer.role === "sales_staff") {
+    return getActiveSession() ? <Navigate to={DASHBOARD_PATH} replace /> : children;
+  }
+  return <Navigate to={landingPathForRole(viewer.role)} replace />;
 }
