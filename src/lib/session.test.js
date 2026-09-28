@@ -21,6 +21,7 @@ let sent;
 let store;
 let realDateNow;
 let clock;
+let spertoSays;
 
 /** The session and project-time modules, freshly imported so their
  * module-level state (the visibility hook) can't leak between tests. */
@@ -47,9 +48,10 @@ beforeEach(() => {
   });
   vi.stubGlobal("document", { cookie: "", addEventListener() {} });
   vi.stubGlobal("navigator", { userAgent: "test" });
+  spertoSays = { ok: true, body: { ok: true, recorded: true } };
   vi.stubGlobal("fetch", async (url, init) => {
     if (String(url).includes("device-usage")) sent.push(JSON.parse(init.body));
-    return { ok: true, json: async () => ({ ok: true }) };
+    return { ok: spertoSays.ok, json: async () => spertoSays.body };
   });
 
   // A hand-cranked clock, so a presentation's minutes pass instantly and the
@@ -71,44 +73,34 @@ const minutes = (n) => {
 const callOf = (type) => sent.find((b) => b.type === type);
 
 describe("what a presentation sends Sperto", () => {
-  it("sends IN at sign-in, with no Lead ID or device yet", async () => {
+  it("sends IN with the Lead ID and device once the device is picked", async () => {
     const { session } = await load();
-    session.recordLoginIn();
+    const result = await session.startPresentation(LEAD, "TV");
 
-    expect(callOf("IN")).toMatchObject({
-      leadId: "",
-      deviceType: null,
-      // Nothing has been opened yet, so the field keeps its original meaning.
-      pageUrl: "http://localhost:3000/dashboard",
-    });
-    expect(Object.keys(callOf("IN")).sort()).toEqual(["deviceType", "leadId", "pageUrl", "type"]);
+    expect(result).toEqual({ ok: true });
+    expect(callOf("IN")).toEqual({ leadId: "985038", deviceType: "TV", type: "IN" });
+    expect(session.getActiveSession()).toMatchObject({ lead: LEAD, deviceType: "TV" });
   });
 
-  it("sends no IN when the presentation starts", async () => {
+  it("does not start the presentation when Sperto rejects the IN", async () => {
     const { session } = await load();
-    session.recordLoginIn();
-    sent.length = 0;
-    session.setActiveSession(LEAD, "TV");
+    spertoSays = { ok: false, body: { error: "Invalid lead id" } };
+    const result = await session.startPresentation(LEAD, "TV");
 
-    expect(sent).toEqual([]);
+    expect(result).toEqual({ ok: false, error: "Invalid lead id" });
+    expect(session.getActiveSession()).toBeNull();
   });
 
-  it("sends OUT at sign-out even if no presentation was started", async () => {
+  it("sends no OUT when no presentation was started", async () => {
     const { session } = await load();
-    session.recordLoginIn();
     session.finalizeSession();
 
-    expect(callOf("OUT")).toMatchObject({
-      leadId: "",
-      deviceType: null,
-      pageUrl: "http://localhost:3000/dashboard",
-    });
+    expect(callOf("OUT")).toBeUndefined();
   });
 
   it("carries the presentation's Lead ID and device on OUT", async () => {
     const { session } = await load();
-    session.recordLoginIn();
-    session.setActiveSession(LEAD, "Kiosk");
+    await session.startPresentation(LEAD, "Kiosk");
     session.finalizeSession();
 
     expect(callOf("OUT")).toMatchObject({ leadId: "985038", deviceType: "Kiosk" });
@@ -181,8 +173,7 @@ describe("what a presentation sends Sperto", () => {
 
     // The next presentation is a fresh sign-in on the same tab.
     sent.length = 0;
-    session.recordLoginIn();
-    session.setActiveSession({ leadId: "985039", name: "Someone Else" }, "TV");
+    await session.startPresentation({ leadId: "985039", name: "Someone Else" }, "TV");
     time.startProjectTimer("Ebony");
     minutes(1);
     session.finalizeSession();

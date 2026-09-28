@@ -1,6 +1,6 @@
 import { actorFields, track } from "./activity";
 import { getSession, getSessionId } from "./auth";
-import { fetchWithTimeout } from "./http";
+import { fetchWithTimeout, readJsonSafe } from "./http";
 import { clearProjectTime, getProjectVisits } from "./project-time";
 
 /**
@@ -51,28 +51,24 @@ function writeRaw(value) {
   }
 }
 
-/** Fire-and-forget call to Sperto's device-usage log
+/** Fire-and-forget "OUT" to Sperto's device-usage call
  * (server/lib/sperto-device-usage.js) via the server-side route that holds
- * the api_key. Never throws and is never awaited by callers — a presentation
- * session starting or ending must never depend on this succeeding, same
- * reasoning as `track()` in lib/activity.js. `keepalive` lets the "OUT" call
- * survive the page unload that immediately follows logout. */
-function recordDeviceUsage(leadId, deviceType, type, visits) {
+ * the api_key. Never throws and is never awaited — the presentation is over
+ * by the time it goes. `keepalive` lets it survive the page unload that
+ * immediately follows logout. */
+function recordOut(leadId, deviceType, visits) {
   try {
     fetchWithTimeout("/api/session/device-usage", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        // Empty on "IN", which goes at sign-in, before any customer has been
-        // looked up — and on an "OUT" from a sign-in that never reached one.
         leadId: leadId ?? "",
         deviceType,
-        type,
-        // On "OUT" this carries the presentation's per-project minutes — one
-        // object per project, `[{ "Elena": 3 }, { "Alibaug": 4.5 }]` (see
-        // getProjectVisits). On "IN", and on an "OUT" where the customer was
-        // never actually taken into a project, there is no time to report and
-        // the field keeps its original meaning: the page on screen.
+        type: "OUT",
+        // The presentation's per-project minutes — one object per project,
+        // `[{ "Elena": 3 }, { "Alibaug": 4.5 }]` (see getProjectVisits). When
+        // the customer was never taken into a project there is no time to
+        // report and the field keeps its original meaning: the page on screen.
         //
         // An empty array is deliberately not sent. It would read as a visit
         // with no projects in it, which is a claim; the page URL is not.
@@ -126,19 +122,33 @@ function clearOutSent() {
 }
 
 /**
- * Sperto's "IN": sent once per sign-in, the moment it succeeds (LoginPage's
- * afterSignIn), paired with the one "OUT" every sign-out sends. The client
- * asked for IN at login and OUT at logout, so this is the staff member's
- * session in the CRM rather than one customer's presentation — which is why
- * it carries no Lead ID and no device: neither has been chosen yet.
+ * Sperto's "IN": sent once the staff member has signed in with their Sales
+ * ID, entered the Lead ID and picked the device (SessionStart's
+ * confirmDevice). Sperto checks the Sales ID and Lead ID, and only its
+ * success starts the presentation — so this is awaited, unlike OUT.
  *
- * Re-arms the "OUT" for this sign-in, and starts the project clocks from
- * zero so nothing from whoever last used this tab is attributed to it.
+ * Resolves to `{ ok: true }` or `{ ok: false, error }` with what Sperto (or
+ * the route) said, for the screen to show. On success it opens the active
+ * session and re-arms the one "OUT" that sign-out sends.
  */
-export function recordLoginIn() {
-  clearProjectTime();
+export async function startPresentation(lead, deviceType) {
+  let res;
+  try {
+    res = await fetchWithTimeout("/api/session/device-usage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leadId: lead.leadId, deviceType, type: "IN" }),
+    });
+  } catch {
+    return { ok: false, error: "Could not reach the server. Check the connection and try again." };
+  }
+  const data = await readJsonSafe(res);
+  if (!res.ok || !data?.recorded) {
+    return { ok: false, error: data?.error ?? "Sperto did not accept this Sales ID / Lead ID." };
+  }
+  setActiveSession(lead, deviceType);
   clearOutSent();
-  recordDeviceUsage(null, null, "IN");
+  return { ok: true };
 }
 
 export function setActiveSession(lead, deviceType = null) {
@@ -153,7 +163,7 @@ export function setActiveSession(lead, deviceType = null) {
   };
   writeRaw(JSON.stringify(session));
   // The previous customer's project times must never be attributed to this
-  // one. No "IN" here: that went at sign-in (recordLoginIn).
+  // one.
   clearProjectTime();
 }
 
@@ -261,15 +271,10 @@ export function finalizeSession() {
   // first, so whatever project was on screen when Log out was pressed is
   // counted rather than dropped.
   //
-  // Sent even when no presentation was ever started: the "IN" went at
-  // sign-in, so every sign-out owes Sperto the matching "OUT".
-  if (claimOutSend()) {
-    recordDeviceUsage(
-      session?.lead.leadId,
-      session?.deviceType ?? null,
-      "OUT",
-      session ? getProjectVisits() : null,
-    );
+  // Only when a presentation was started: that is when the "IN" went, so a
+  // sign-out that never got past the Lead ID owes Sperto nothing.
+  if (session && claimOutSend()) {
+    recordOut(session.lead.leadId, session.deviceType ?? null, getProjectVisits());
   }
   clearProjectTime();
   clearActiveSession();

@@ -83,23 +83,29 @@ export async function recordDeviceUsage(params) {
 
   const deviceId = params.deviceType ? DEVICE_IDS[params.deviceType] : FALLBACK_DEVICE_ID;
 
+  const payload = {
+    api_key: cfg.apiKey,
+    device_id: deviceId,
+    lead_id: params.leadId,
+    sales_manager_login: params.salesManagerLogin,
+    type: params.type,
+    page_url: params.pageUrl,
+  };
+  const url = `${cfg.baseUrl}/api_record_device_usage.php`;
+  // Every call is logged, key masked, so what went to Sperto can be read
+  // off the server log (terminal locally, Vercel's Logs tab in production).
+  console.log(`[device-usage] -> POST ${url}`, JSON.stringify({ ...payload, api_key: "***" }));
+
   let res;
   try {
     res = await fetchWithTimeout(
-      `${cfg.baseUrl}/api_record_device_usage.php`,
+      url,
       {
         method: "POST",
         // Mandatory: a form-encoded
         // body is silently ignored by their server.
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          api_key: cfg.apiKey,
-          device_id: deviceId,
-          lead_id: params.leadId,
-          sales_manager_login: params.salesManagerLogin,
-          type: params.type,
-          page_url: params.pageUrl,
-        }),
+        body: JSON.stringify(payload),
         cache: "no-store",
       },
       cfg.timeoutMs,
@@ -112,6 +118,7 @@ export async function recordDeviceUsage(params) {
   }
 
   const answer = await readSpertoBody(res, cfg.apiKey);
+  console.log(`[device-usage] <- HTTP ${res.status}`, JSON.stringify(answer.body ?? answer.message ?? null));
   if (answer.ok) return { ok: true };
 
   const reason =

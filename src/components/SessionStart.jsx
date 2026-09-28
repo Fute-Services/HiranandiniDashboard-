@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { DASHBOARD_PATH, getSession, getSessionId } from "@/lib/auth";
 import { actorFields, track } from "@/lib/activity";
 import { claimLead, createWalkInLead, findLead } from "@/lib/leads";
-import { DEVICE_TYPES, setActiveSession } from "@/lib/session";
+import { DEVICE_TYPES, startPresentation } from "@/lib/session";
 import { signOut } from "@/lib/sign-out";
 import { useNavigationLock } from "@/lib/useNavigationLock";
 import { Spinner } from "./Spinner";
@@ -91,14 +91,22 @@ export function SessionStart() {
     void lookUp(query);
   }
 
-  // Claiming the lead stays fire-and-forget (see lib/leads.js) — a dropped
-  // claim shouldn't block a presentation with a customer already waiting.
-  function confirmDevice(lead, deviceType) {
+  // Sales ID (from sign-in), Lead ID and device are all in hand now, so this
+  // is where Sperto's "IN" goes — and only its success starts the
+  // presentation. A rejection stays on this step with Sperto's message.
+  // Claiming the lead stays fire-and-forget (see lib/leads.js).
+  async function confirmDevice(lead, deviceType) {
     if (leaving) return;
+    setLeaving("start");
+    setError("");
+    const result = await startPresentation(lead, deviceType);
+    if (!result.ok) {
+      setLeaving(null);
+      setError(result.error);
+      return;
+    }
     const staff = getSession();
     if (staff) void claimLead(lead.leadId, staff.email, staff.name);
-    setLeaving("start");
-    setActiveSession(lead, deviceType);
     navigate(DASHBOARD_PATH);
   }
 
@@ -169,6 +177,17 @@ export function SessionStart() {
                 </button>
               ))}
             </div>
+            {leaving === "start" && (
+              <div className={styles.loading}>
+                <Spinner size={16} />
+                <p className={styles.lede}>Checking with Sperto…</p>
+              </div>
+            )}
+            {error && (
+              <p className={styles.error} role="alert">
+                {error}
+              </p>
+            )}
             <button
               type="button"
               className={styles.back}

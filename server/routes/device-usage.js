@@ -9,16 +9,18 @@ import { DEVICE_TYPES } from "../../src/lib/device-types.js";
 import { recordDeviceUsage } from "../lib/sperto-device-usage.js";
 
 /**
- * Fires Sperto's device-usage log (server/lib/sperto-device-usage.js) for the
- * signed-in staff member — "IN" at sign-in, "OUT" at sign-out
- * (see src/lib/session.js's recordLoginIn/finalizeSession). The
- * api_key stays server-side, so the client only ever posts here, never
- * straight to Sperto.
+ * Fires Sperto's device-usage call (server/lib/sperto-device-usage.js) for the
+ * signed-in staff member. The api_key stays server-side, so the client only
+ * ever posts here, never straight to Sperto.
  *
- * Always answers 200/ok even when nothing was actually sent (unconfigured,
- * or the signed-in account has no Sperto login code on file) — this is a
- * best-effort side log, and its outcome must never affect whether a
- * presentation session is allowed to start or end.
+ * - **IN** goes once the staff member has entered their Sales ID, the Lead ID
+ *   and picked the device (src/lib/session.js's startPresentation). It is a
+ *   gate: Sperto checks the Sales ID and Lead ID, and the presentation only
+ *   starts if it answers success. Anything else comes back as an error the
+ *   screen shows.
+ * - **OUT** goes at sign-out with the per-project minutes in page_url
+ *   (finalizeSession). Best-effort: the presentation is already over, so
+ *   whatever Sperto says is logged, not surfaced.
  */
 export const deviceUsageRouter = Router();
 
@@ -101,9 +103,6 @@ deviceUsageRouter.post(
 
     const { leadId, deviceType, type, pageUrl } = req.body ?? {};
 
-    // No Lead ID is the ordinary case for "IN", which goes at sign-in before
-    // a customer has been looked up, and for the "OUT" of a sign-in that
-    // never got as far as one. Sperto then gets an empty lead_id.
     if (type !== "IN" && type !== "OUT") {
       return res.status(400).json({ error: "type (IN/OUT) required" });
     }
@@ -113,8 +112,18 @@ deviceUsageRouter.post(
     if (deviceType != null && !DEVICE_TYPES.includes(deviceType)) {
       return res.status(400).json({ error: "Invalid deviceType" });
     }
+    if (type === "IN" && (!leadId?.trim() || !deviceType)) {
+      return res.status(400).json({ error: "Lead ID and device are required." });
+    }
 
-    const cleanPageUrl = sanitizePageUrl(pageUrl, `${req.protocol}://${req.get("host")}`);
+    // IN's page_url is Sperto's own site, as in their documented example
+    // ("https://net4hgc.sperto.co.in"); OUT's carries the project minutes.
+    const ownOrigin = `${req.protocol}://${req.get("host")}`;
+    const spertoSite = process.env.SPERTO_BASE_URL?.trim()
+      .replace(/\/+$/, "")
+      .replace(/\/_api$/, "");
+    const cleanPageUrl =
+      type === "IN" ? spertoSite || ownOrigin : sanitizePageUrl(pageUrl, ownOrigin);
 
     // The Sales ID captured at sign-in first; the roster only for sessions
     // signed before the token carried one.
@@ -125,6 +134,11 @@ deviceUsageRouter.post(
       console.warn(
         `[device-usage] ${type} for ${viewer.email} not sent: no Sales ID known for this session`,
       );
+      if (type === "IN") {
+        return res
+          .status(400)
+          .json({ error: "No Sales ID on this sign-in. Log out and sign in with your Sales ID." });
+      }
       return res.json({ ok: true, recorded: false, skipped: "no sperto login on file" });
     }
 
@@ -136,15 +150,19 @@ deviceUsageRouter.post(
       pageUrl: cleanPageUrl,
     });
 
-    // Still 200, still `ok: true`, whatever Sperto said. This is a
-    // best-effort side log: a presentation must be free to start and to end
-    // whether or not their CRM accepted the write, and the client that called
-    // this has already navigated away by the time an "OUT" answers.
-    //
-    // `recorded` is the honest part — it is what actually happened, now that
-    // the body is read rather than discarded, so a caller (or a log) can tell
-    // a stored visit from a silently dropped one instead of seeing `ok: true`
-    // for both.
+    // IN is the gate: only Sperto's success lets the presentation start.
+    if (type === "IN" && !outcome.ok) {
+      if (outcome.reason === "rejected") {
+        return res
+          .status(422)
+          .json({ error: outcome.message || "Sperto did not accept this Sales ID / Lead ID." });
+      }
+      return res.status(502).json({ error: outcome.message || "Could not reach Sperto. Try again." });
+    }
+
+    // OUT: still 200 whatever Sperto said — the presentation has ended and
+    // the client has already navigated away. `recorded` says what happened,
+    // so the log can tell a stored visit from a dropped one.
     return res.json({
       ok: true,
       recorded: outcome.ok,
