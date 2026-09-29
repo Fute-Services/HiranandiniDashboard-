@@ -387,7 +387,7 @@ export default function LoginPage() {
                   </>
                 ) : (
                   <>
-                    {isStaff ? "START PRESENTATION" : "SIGN IN"}&nbsp;
+                    {isStaff ? "GO" : "SIGN IN"}&nbsp;
                     <span className={styles.arrow}>↗</span>
                   </>
                 )}
