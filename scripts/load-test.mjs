@@ -74,7 +74,7 @@ async function simulateSession(i) {
         headers: { ...json, Cookie: cookie },
         body: JSON.stringify({
           leadId,
-          deviceType: "Kiosk",
+          deviceType: "LAPTOP",
           type: "IN",
           pageUrl: `${BASE_URL}/session/start`,
         }),
@@ -96,7 +96,7 @@ async function simulateSession(i) {
         headers: { ...json, Cookie: cookie },
         body: JSON.stringify({
           leadId,
-          deviceType: "Kiosk",
+          deviceType: "LAPTOP",
           type: "OUT",
           // The only field the times travel in — see docs/sperto.md.
           pageUrl: [{ Elena: 180 }, { Alibaug: 240 }],

@@ -22,8 +22,8 @@ const DEFAULT_TIMEOUT_MS = 8_000;
 const DEVICE_IDS = {
   Tab: "1",
   TV: "2",
-  Kiosk: "3",
-  Laptop: "4",
+  AV_ROOM_SCREEN: "3",
+  LAPTOP: "4",
 };
 
 /** Used when a session has no deviceType on file (walk-in/legacy sessions —

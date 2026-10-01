@@ -14,7 +14,7 @@ import {
   setLeadStatus,
 } from "@/lib/leads";
 import { getInventory, setUnitsLeft } from "@/lib/inventory";
-import { setActiveSession } from "@/lib/session";
+import { DEVICE_TYPES, setActiveSession } from "@/lib/session";
 import { findUserByEmail, isNewJoiner } from "@/lib/users";
 import { createStaff, listStaff } from "@/lib/staff";
 import { showcaseProjects } from "@/data/properties";
@@ -367,7 +367,7 @@ function buildInterestBreakdown(list) {
  * lib/session.js's DEVICE_TYPES) — a real answer to "which device," unlike
  * `shortDevice`'s browser/OS guess, so this is preferred whenever an event
  * actually has one. */
-const KNOWN_DEVICE_TYPES = new Set(["Tab", "TV", "Kiosk", "Laptop"]);
+const KNOWN_DEVICE_TYPES = new Set(DEVICE_TYPES);
 
 /**
  * Which device ran the most presentations, and how many of those
@@ -376,9 +376,9 @@ const KNOWN_DEVICE_TYPES = new Set(["Tab", "TV", "Kiosk", "Laptop"]);
  * `leadStatusById` comes from the real `leads` table (`Booked` status),
  * joined here by leadId.
  *
- * Tab/TV/Kiosk/Laptop only — a session where nobody picked a device type
+ * AV_ROOM_SCREEN/TV/LAPTOP/Tab only — a session where nobody picked a device type
  * (walk-in/legacy, see lib/session.js) falls back to the raw browser
- * user-agent, and showing that next to "Kiosk"/"TV" reads as a stray
+ * user-agent, and showing that next to "LAPTOP"/"TV" reads as a stray
  * "Browser" row rather than a real device category, so it's left out here.
  */
 function buildDeviceBreakdown(presentations, leadStatusById) {

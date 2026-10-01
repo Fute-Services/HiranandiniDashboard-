@@ -100,10 +100,10 @@ describe("what a presentation sends Sperto", () => {
 
   it("carries the presentation's Lead ID and device on OUT", async () => {
     const { session } = await load();
-    await session.startPresentation(LEAD, "Kiosk");
+    await session.startPresentation(LEAD, "LAPTOP");
     session.finalizeSession();
 
-    expect(callOf("OUT")).toMatchObject({ leadId: "985038", deviceType: "Kiosk" });
+    expect(callOf("OUT")).toMatchObject({ leadId: "985038", deviceType: "LAPTOP" });
   });
 
   it("puts the per-project minutes in page_url, one object per project", async () => {
@@ -128,7 +128,7 @@ describe("what a presentation sends Sperto", () => {
 
   it("counts the project still on screen when the staff member logs out", async () => {
     const { session, time } = await load();
-    session.setActiveSession(LEAD, "Kiosk");
+    session.setActiveSession(LEAD, "LAPTOP");
 
     time.startProjectTimer("Elena");
     minutes(5);

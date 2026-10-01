@@ -1,7 +1,7 @@
 /**
  * Which kind of screen a presentation runs on — chosen by the staff member at
  * "Start Session" rather than guessed from the browser's user-agent string,
- * which can only ever say "Chrome · Windows," not "Tab" vs. "TV" vs. "Kiosk."
+ * which can only ever say "Chrome · Windows," not "Tab" vs. "TV" vs. "LAPTOP."
  * Null for walk-in/legacy sessions where it was never asked.
  *
  * Its own module, with no imports at all, because both sides need it: the
@@ -15,4 +15,4 @@
  * (server/lib/sperto-device-usage.js), so adding one here means adding one
  * there too.
  */
-export const DEVICE_TYPES = ["Tab", "TV", "Kiosk", "Laptop"];
+export const DEVICE_TYPES = ["AV_ROOM_SCREEN", "TV", "LAPTOP", "Tab"];
