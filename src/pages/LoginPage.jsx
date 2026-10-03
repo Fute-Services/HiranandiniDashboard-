@@ -269,7 +269,7 @@ export default function LoginPage() {
                       setEmail(e.target.value);
                       if (error) setError("");
                     }}
-                    placeholder="PDPL0349"
+                    placeholder="Enter your Sales ID"
                     autoComplete="username"
                     required
                     className={styles.input}
@@ -289,7 +289,7 @@ export default function LoginPage() {
                         setLeadId(e.target.value);
                         if (error) setError("");
                       }}
-                      placeholder="985038"
+                      placeholder="Enter Lead ID"
                       autoComplete="off"
                       required
                       className={styles.input}
